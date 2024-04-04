@@ -1,8 +1,8 @@
 ---
-title: FirstLLMApplication
-emoji: 📚
-colorFrom: indigo
-colorTo: purple
+title: BeyondChatGPT Demo V1
+emoji: 🦀
+colorFrom: red
+colorTo: pink
 sdk: docker
 pinned: false
 license: mit
