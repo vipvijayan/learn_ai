@@ -1,3 +1,6 @@
+# Project Specific
+uv.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -25,6 +28,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.chainlit/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -116,6 +120,8 @@ ipython_config.py
 .pdm.toml
 .pdm-python
 .pdm-build/
+#   https://pdm.fming.dev/#use-with-ide
+.pdm.toml
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
@@ -172,3 +178,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+.vercel
