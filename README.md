@@ -27,7 +27,7 @@ With that, it's time to jump in and [🛣️ Get Started](https://www.notion.so/
 
 # 🏆 **Grading and Certification**
 
-To become **AI-Makerspace Certified**, which will open you up to additional opportunities for full and part-time work within our community and network, you must:
+To become **[AI-Makerspace Certified](https://aimakerspace.io/certification/)**, which will open you up to additional opportunities for full and part-time work within our community and network, you must:
 
 1. Complete all required project assignments, including weekly videos (Weeks 1-5, 7-8)
 2. Complete the Certification Challenge, including a Demo video (Week 6)
