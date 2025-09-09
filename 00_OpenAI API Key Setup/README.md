@@ -6,7 +6,7 @@ To use OpenAI's API throughout this bootcamp - please ensure you follow their ne
 
 ![image](https://i.imgur.com/dZU1l9j.png)
 
-2. Create a new project, and name it "aim" or "aie7" (technically the name doesn't matter - but for ease of tracking it's likely good to use something to indicates this is a project for this course).
+2. Create a new project, and name it "aim" or "aie8" (technically the name doesn't matter - but for ease of tracking it's likely good to use something to indicates this is a project for this course).
 
 ![image](https://i.imgur.com/RtYWMC3.png)
 
