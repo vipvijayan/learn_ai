@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "aimakerspace"
+version = "0.1.0"
+description = "AI project"
+authors = ["Your Name <your.email@example.com>"]
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
