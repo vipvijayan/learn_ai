@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World - Test Deployment</h1>
+    <p>If you can see this, the deployment is working!</p>
+    <script>
+        fetch('/api/health')
+            .then(response => response.json())
+            .then(data => {
+                document.body.innerHTML += '<p>API Status: ' + JSON.stringify(data) + '</p>';
+            })
+            .catch(error => {
+                document.body.innerHTML += '<p>API Error: ' + error + '</p>';
+            });
+    </script>
+</body>
+</html>
