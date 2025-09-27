@@ -1,3 +1,8 @@
 .DS_Store
 .env
 content/
+assig_1/.vercel/project.json
+assig_1/.vercel/README.txt
+02_Embeddings_and_RAG/aimakerspace/__pycache__/__init__.cpython-313.pyc
+02_Embeddings_and_RAG/aimakerspace/__pycache__/text_utils.cpython-313.pyc
+02_Embeddings_and_RAG/aimakerspace/__pycache__/vectordatabase.cpython-313.pyc
