@@ -1,0 +1,28 @@
+# Requirements for RAG System
+# Core dependencies
+langchain==0.3.27
+langchain-community==0.3.29
+langchain-core==0.3.76
+langchain-ollama==0.3.8
+langchain-qdrant==0.2.1
+langchain-text-splitters==0.3.11
+
+# Vector database
+qdrant-client==1.15.1
+
+# Graph framework
+langgraph==0.6.7
+langgraph-checkpoint==2.1.1
+
+# Additional utilities
+tiktoken==0.11.0
+nest-asyncio==1.6.0
+typing-extensions==4.15.0
+pydantic==2.11.9
+numpy==2.3.3
+
+# Document processing
+pymupdf==1.26.4
+
+# Optional: For Jupyter compatibility
+ipython==9.5.0
