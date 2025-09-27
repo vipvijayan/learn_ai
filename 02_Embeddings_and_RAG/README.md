@@ -39,7 +39,7 @@ Run the notebook!
      - Implement a new distance metric
      - Add metadata support to the vector database
      - Use a different embedding model
-     - Add the capability to ingest a YouTube link
+     - Add support for Excel/CSV file processing
 - Make a simple diagram of your RAG process
 - Run the notebook
 - When you're finished with augmentations to your RAG application - vibe check it against the old one - see if you can "feel the improvement!
