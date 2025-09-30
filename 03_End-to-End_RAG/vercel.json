@@ -19,8 +19,5 @@
       "src": "/(.*)",
       "dest": "/frontend/build/$1"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "/var/task/api"
-  }
+  ]
 }
