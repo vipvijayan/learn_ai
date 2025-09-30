@@ -1,8 +1,55 @@
+# OS files
 .DS_Store
+Thumbs.db
+
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Content directories
 content/
-assig_1/.vercel/project.json
-assig_1/.vercel/README.txt
-02_Embeddings_and_RAG/aimakerspace/__pycache__/__init__.cpython-313.pyc
-02_Embeddings_and_RAG/aimakerspace/__pycache__/text_utils.cpython-313.pyc
-02_Embeddings_and_RAG/aimakerspace/__pycache__/vectordatabase.cpython-313.pyc
+
+# Python cache files
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Vercel deployment files
+**/.vercel/
+.vercel/
+
+# Node.js dependencies and cache
+**/node_modules/
+**/.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build directories
+**/build/
+**/dist/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+env/
+ENV/
+activate/
+myenv/
+
+# Log files
+*.log
