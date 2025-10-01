@@ -89,50 +89,19 @@ app.add_middleware(
 
 # Initialize OpenAI models
 try:
-    # Check if API key is loaded from environment
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY not found in environment variables")
     
-    print(f"🔑 Found API Key: {openai_api_key[:15]}...")
-    
-    # Test with direct OpenAI client first
-    print("🧪 Testing API key with direct OpenAI client...")
-    import openai
-    client = openai.OpenAI(api_key=openai_api_key)
-    
-    # Test a simple API call
-    test_response = client.embeddings.create(
-        input="test",
-        model="text-embedding-3-small"
-    )
-    print(f"✅ Direct OpenAI API test successful: {len(test_response.data[0].embedding)} dimensions")
-    
     # Ensure environment variable is set for aimakerspace
     os.environ["OPENAI_API_KEY"] = openai_api_key
     
-    print("🚀 Initializing aimakerspace ChatOpenAI...")
     chat_openai = ChatOpenAI()
-    print("✅ ChatOpenAI initialized")
-    
-    print("🚀 Initializing aimakerspace EmbeddingModel...")
     embedding_model = EmbeddingModel()
-    print("✅ EmbeddingModel initialized")
-    
-    # Test aimakerspace embedding
-    print("🧪 Testing aimakerspace EmbeddingModel...")
-    test_embedding = embedding_model.get_embedding("hello world")
-    print(f"✅ Aimakerspace embedding test successful: {len(test_embedding) if test_embedding else 0} dimensions")
-    
-    print("🎉 All OpenAI models initialized and tested successfully!")
     
 except Exception as e:
-    print(f"❌ Error initializing OpenAI models: {e}")
-    import traceback
-    print(f"❌ Full traceback: {traceback.format_exc()}")
     chat_openai = None
     embedding_model = None
-    print("📝 Falling back to basic keyword search functionality")
 
 # Global storage for vector databases and metadata
 vector_databases = {}

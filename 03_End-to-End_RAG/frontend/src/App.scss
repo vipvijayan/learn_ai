@@ -1,0 +1,263 @@
+// App.scss - Document Chat Application Styles
+
+// Animations
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+// Main App Container
+.app-container {
+  min-height: 100vh;
+  background: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 20px;
+}
+
+.app-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+// Header Section
+.app-header {
+  text-align: center;
+  margin-bottom: 40px;
+
+  .app-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+  }
+
+  .app-subtitle {
+    color: #6b7280;
+    font-size: 1.1rem;
+  }
+}
+
+// Card Component
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #e5e7eb;
+
+  .card-title {
+    margin: 0 0 20px 0;
+    color: #1f2937;
+  }
+}
+
+// Button Styles
+.btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+// Input Styles
+.input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &.input-file {
+    margin-bottom: 16px;
+  }
+
+  &.input-textarea {
+    margin-bottom: 16px;
+    resize: vertical;
+    min-height: 100px;
+  }
+}
+
+// Messages Section
+.messages-container {
+  margin-bottom: 24px;
+}
+
+.message {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  animation: slideIn 0.3s ease;
+
+  &.success { 
+    background: #dcfce7; 
+    color: #166534; 
+    border: 1px solid #bbf7d0; 
+  }
+  
+  &.error { 
+    background: #fef2f2; 
+    color: #991b1b; 
+    border: 1px solid #fecaca; 
+  }
+  
+  &.warning { 
+    background: #fefce8; 
+    color: #a16207; 
+    border: 1px solid #fef3c7; 
+  }
+  
+  &.info { 
+    background: #eff6ff; 
+    color: #1e40af; 
+    border: 1px solid #dbeafe; 
+  }
+
+  .message-close-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+  }
+}
+
+// Upload Section
+.upload-section {
+  .upload-hint {
+    color: #6b7280;
+    font-size: 14px;
+    margin: 0;
+  }
+}
+
+// Files Section
+.files-section {
+  .files-title {
+    margin: 0 0 20px 0;
+    color: #1f2937;
+  }
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #f9fafb;
+
+  .file-info {
+    .file-name {
+      font-weight: bold;
+    }
+
+    .file-type-badge {
+      margin-left: 12px;
+      padding: 4px 8px;
+      color: white;
+      border-radius: 4px;
+      font-size: 12px;
+
+      &.pdf-badge {
+        background: #ef4444;
+      }
+
+      &.excel-badge {
+        background: #10b981;
+      }
+    }
+
+    .file-size {
+      margin-left: 12px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+  }
+}
+
+// Query Section
+.query-section {
+  .query-title {
+    margin: 0 0 20px 0;
+    color: #1f2937;
+  }
+
+  .no-files-warning {
+    color: #f59e0b;
+    margin-top: 12px;
+    padding: 12px;
+    background: #fef3c7;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+}
+
+// Response Section
+.response-section {
+  .response-title {
+    margin: 0 0 20px 0;
+    color: #1f2937;
+  }
+
+  .response-container {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+
+    .response-text {
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+      font-family: inherit;
+    }
+  }
+}
