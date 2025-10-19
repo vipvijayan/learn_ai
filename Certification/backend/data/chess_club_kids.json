@@ -1,0 +1,61 @@
+{
+  "program_name": "Chess Club for Kids",
+  "organization": "Strategic Minds Chess Academy",
+  "category": "Community",
+  "game": "Chess",
+  "age_range": "Ages 6-16",
+  "skill_levels": {
+    "beginner": {
+      "description": "Learn the basics of chess",
+      "topics": ["Piece movements", "Basic strategies", "Checkmate patterns"]
+    },
+    "intermediate": {
+      "description": "Improve your game",
+      "topics": ["Opening principles", "Middle game tactics", "Endgame techniques"]
+    },
+    "advanced": {
+      "description": "Competitive preparation",
+      "topics": ["Advanced strategies", "Tournament play", "Chess analysis"]
+    }
+  },
+  "meeting_schedule": {
+    "beginner": "Saturdays, 10:00-11:00 AM",
+    "intermediate": "Saturdays, 11:00 AM-12:00 PM",
+    "advanced": "Saturdays, 1:00-2:30 PM"
+  },
+  "program_features": [
+    "USCF certified instructors",
+    "Weekly lessons and practice",
+    "Tournament opportunities",
+    "Chess set provided",
+    "Online practice platform",
+    "Monthly club tournaments"
+  ],
+  "benefits": [
+    "Improves critical thinking",
+    "Enhances concentration",
+    "Develops problem-solving skills",
+    "Builds patience and sportsmanship",
+    "Makes new friends"
+  ],
+  "tournament_opportunities": [
+    "Local scholastic championships",
+    "State tournaments",
+    "National events (for qualified players)"
+  ],
+  "pricing": {
+    "monthly_membership": "$89",
+    "drop_in_rate": "$25 per session",
+    "family_discount": "Second child 20% off"
+  },
+  "registration": {
+    "status": "Open year-round",
+    "trial_session": "First session free",
+    "call_to_action": "Join Chess Club"
+  },
+  "contact": {
+    "website": "strategicmindschess.com",
+    "email": "info@strategicmindschess.com",
+    "phone": "512-555-2000"
+  }
+}

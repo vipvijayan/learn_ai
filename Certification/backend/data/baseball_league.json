@@ -1,0 +1,28 @@
+{
+  "program_name": "Baseball League",
+  "organization": "Austin Youth Baseball Association",
+  "category": "Community",
+  "sport": "Baseball",
+  "season": "Spring 2026",
+  "age_divisions": ["T-Ball (5-6)", "Coach Pitch (7-8)", "Minor League (9-10)", "Major League (11-12)", "Junior League (13-14)"],
+  "season_details": {
+    "start_date": "March 2026",
+    "end_date": "June 2026",
+    "games_per_week": "2 games",
+    "practices": "2 per week"
+  },
+  "program_features": ["Certified coaches", "Full uniforms", "Umpires for games", "End of season tournament", "All-star teams"],
+  "registration_fee": "$175",
+  "early_bird_discount": "$150 (before January 15)",
+  "includes": ["Jersey and hat", "Team pictures", "Trophy or medal"],
+  "registration": {
+    "status": "Open",
+    "deadline": "February 1, 2026",
+    "call_to_action": "Register Online"
+  },
+  "contact": {
+    "website": "austinyouthbaseball.org",
+    "email": "info@ayba.org",
+    "phone": "512-555-3000"
+  }
+}

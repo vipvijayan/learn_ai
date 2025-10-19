@@ -1,0 +1,48 @@
+{
+  "program_name": "Robotics Club",
+  "organization": "Tech Innovators Youth Program",
+  "category": "School",
+  "program_type": "After-School STEM Club",
+  "meeting_schedule": "Tuesdays and Thursdays, 3:30-5:30 PM",
+  "age_range": "Grades 6-12",
+  "program_description": "Learn robotics, coding, and engineering through hands-on projects",
+  "activities": [
+    "Building and programming robots",
+    "VEX Robotics competitions",
+    "Arduino and Raspberry Pi projects",
+    "3D design and printing",
+    "Team challenges and competitions"
+  ],
+  "competition_opportunities": [
+    "VEX Robotics Competition",
+    "FIRST Robotics",
+    "Local tech challenges",
+    "State championships"
+  ],
+  "skills_developed": [
+    "Programming (Python, C++)",
+    "Mechanical engineering",
+    "Problem-solving",
+    "Teamwork",
+    "Project management"
+  ],
+  "membership": {
+    "annual_fee": "$200",
+    "includes": [
+      "Robot kit",
+      "Competition registration",
+      "T-shirt",
+      "Access to lab equipment"
+    ]
+  },
+  "registration": {
+    "status": "Open",
+    "deadline": "September 1, 2025",
+    "call_to_action": "Join Our Team"
+  },
+  "contact": {
+    "website": "techinnovatorsyouth.org",
+    "email": "robotics@techinnovators.org",
+    "phone": "512-555-1000"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "program_name": "Join the Westwood Warrior Tennis Program",
+  "organization": "Westwood High School Tennis",
+  "category": "School",
+  "sport": "Tennis",
+  "program_type": "High School Athletic Program",
+  "tagline": "GET YOUR NAME INTO TENNIS!",
+  "program_features": {
+    "skill_development": [
+      "Professional coaching",
+      "Technique improvement",
+      "Match strategy",
+      "Physical conditioning",
+      "Mental toughness training"
+    ],
+    "competitive_opportunities": [
+      "District matches",
+      "Regional tournaments",
+      "State championship qualification",
+      "Doubles and singles competition"
+    ],
+    "team_culture": [
+      "Warrior spirit",
+      "Team bonding",
+      "Leadership development",
+      "Sportsmanship"
+    ]
+  },
+  "eligibility": {
+    "school": "Westwood High School",
+    "grades": "9-12",
+    "experience": "All skill levels welcome",
+    "requirements": [
+      "Current student enrollment",
+      "Physical examination",
+      "Parent consent form",
+      "Athletic fee payment"
+    ]
+  },
+  "season_info": {
+    "fall_season": {
+      "months": "August - October",
+      "focus": "Tournament preparation"
+    },
+    "spring_season": {
+      "months": "January - April",
+      "focus": "District and regional competition"
+    }
+  },
+  "facilities": {
+    "courts": "12 outdoor tennis courts",
+    "location": "Westwood High School campus",
+    "practice_schedule": "Monday-Friday after school"
+  },
+  "contact": {
+    "coach": "Head Tennis Coach",
+    "email": "tennis@westwoodhighschool.org",
+    "phone": "512-555-0300"
+  },
+  "registration": {
+    "status": "Open",
+    "deadline": "August 1st",
+    "call_to_action": "Email to Join"
+  }
+}

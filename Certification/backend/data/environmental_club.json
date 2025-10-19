@@ -1,0 +1,22 @@
+{
+  "program_name": "Environmental Club",
+  "organization": "Lake Travis High School",
+  "category": "School",
+  "program_type": "Environmental Activism Club",
+  "meeting_schedule": "Wednesdays, 3:30-4:30 PM",
+  "mission": "Promote environmental awareness and sustainability on campus and in the community",
+  "activities": ["Campus recycling program", "School garden maintenance", "Environmental education", "Community cleanups", "Tree planting events"],
+  "projects": ["Reduce single-use plastics", "Composting initiative", "Energy conservation campaign", "Native plant landscaping"],
+  "field_trips": ["Nature preserves", "Recycling facilities", "Renewable energy plants", "Environmental conferences"],
+  "membership": "Free and open to all students",
+  "volunteer_hours": "Community service hours available",
+  "registration": {
+    "status": "Always accepting new members",
+    "call_to_action": "Go Green with Us"
+  },
+  "contact": {
+    "sponsor": "Ms. Green",
+    "email": "enviroclub@laketravi shs.edu",
+    "room": "Science Building, Room 301"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "program_name": "Gymnastics Classes",
+  "organization": "Flip & Tumble Gymnastics Center",
+  "category": "Community",
+  "sport": "Gymnastics",
+  "age_range": "18 months - 18 years",
+  "class_levels": {
+    "parent_tot": {
+      "age": "18 months - 3 years",
+      "description": "Parent-child introduction to movement",
+      "duration": "45 minutes"
+    },
+    "preschool": {
+      "age": "3-5 years",
+      "description": "Basic skills and coordination",
+      "duration": "55 minutes"
+    },
+    "beginner": {
+      "age": "6-12 years",
+      "description": "Fundamental gymnastics skills",
+      "duration": "60 minutes"
+    },
+    "intermediate": {
+      "age": "7-14 years",
+      "description": "Advanced skills and routines",
+      "duration": "75 minutes"
+    },
+    "competitive_team": {
+      "age": "7-18 years",
+      "description": "USAG competitive program",
+      "duration": "Multiple weekly sessions"
+    }
+  },
+  "apparatus_training": [
+    "Vault",
+    "Uneven bars",
+    "Balance beam",
+    "Floor exercise",
+    "Tumbling track",
+    "Foam pit"
+  ],
+  "program_features": [
+    "USA Gymnastics certified coaches",
+    "Progressive skill development",
+    "Positive reinforcement",
+    "Safety-focused environment",
+    "State-of-the-art equipment",
+    "Viewing area for parents"
+  ],
+  "benefits": [
+    "Physical fitness and strength",
+    "Flexibility and coordination",
+    "Self-confidence",
+    "Discipline and focus",
+    "Goal-setting skills",
+    "Social interaction"
+  ],
+  "schedule_options": {
+    "weekday_afternoons": "Monday-Friday, various times 4:00-7:00 PM",
+    "saturday_mornings": "Multiple class times 9:00 AM - 2:00 PM"
+  },
+  "pricing": {
+    "once_weekly": "$89 per month",
+    "twice_weekly": "$159 per month",
+    "unlimited": "$199 per month",
+    "competitive_team": "$250-$400 per month (based on level)"
+  },
+  "registration": {
+    "status": "Rolling enrollment",
+    "trial_class": "$20 trial class available",
+    "call_to_action": "Book Trial Class"
+  },
+  "contact": {
+    "website": "flipandtumble.com",
+    "email": "info@flipandtumble.com",
+    "phone": "512-555-2800"
+  }
+}

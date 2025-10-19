@@ -7,6 +7,11 @@ import logging
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
+# Directory paths - use absolute paths relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "data")
+GENERATED_RESULTS_DIR = os.path.join(SCRIPT_DIR, "generated_results")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -30,7 +35,6 @@ from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-import tiktoken
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.tools.tavily_search import TavilySearchResults
 
@@ -93,70 +97,6 @@ naive_retriever = None
 original_chain = None
 naive_chain = None
 
-def tiktoken_len(text):
-    """Calculate token length using tiktoken"""
-    tokens = tiktoken.get_encoding("cl100k_base").encode(text)
-    return len(tokens)
-
-def load_school_events_data():
-    """Load and process all JSON files from the data directory"""
-    documents = []
-    data_dir = "../data"  # Path to your data folder
-    
-    if not os.path.exists(data_dir):
-        raise FileNotFoundError(f"Data directory not found: {data_dir}")
-    
-    # Load all JSON files
-    json_files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
-    
-    for json_file in json_files:
-        file_path = os.path.join(data_dir, json_file)
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-            
-        # Convert JSON to readable text for RAG
-        content = format_event_data(data)
-        doc = Document(
-            page_content=content,
-            metadata={"source": json_file, "type": "school_event"}
-        )
-        documents.append(doc)
-    
-    return documents
-
-def format_event_data(data):
-    """Convert JSON data to readable text format"""
-    text_parts = []
-    
-    if "program_name" in data:
-        text_parts.append(f"Program: {data['program_name']}")
-    if "event_name" in data:
-        text_parts.append(f"Event: {data['event_name']}")
-    if "organization" in data:
-        text_parts.append(f"Organization: {data['organization']}")
-    
-    if "event_description" in data:
-        text_parts.append(f"Description: {data['event_description']}")
-    
-    if "target_audience" in data:
-        audience = data['target_audience']
-        if isinstance(audience, dict):
-            if "grades" in audience:
-                text_parts.append(f"Target Grades: {audience['grades']}")
-            if "age_description" in audience:
-                text_parts.append(f"Age Group: {audience['age_description']}")
-    
-    if "registration" in data:
-        reg = data['registration']
-        if isinstance(reg, dict):
-            if "status" in reg:
-                text_parts.append(f"Registration Status: {reg['status']}")
-    
-    # Add more structured information
-    text_parts.append(f"Full Details: {json.dumps(data, indent=2)}")
-    
-    return "\n".join(text_parts)
-
 def setup_agent_tools():
     """Initialize agent tools including custom school events tool"""
     global agent_tools, school_events_tool
@@ -204,16 +144,14 @@ def setup_rag_pipeline():
     
     logger.info("� Setting up RAG pipeline with BOTH retrieval methods...")
     
-    # Load the JSON files - use absolute path from script location
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(script_dir, "..", "data")
+    # Load the JSON files from data directory
     all_events = []
     sources = []
     
-    for filename in os.listdir(data_dir):
+    for filename in os.listdir(DATA_DIR):
         if filename.endswith('.json'):
             logger.info(f"  Loading: {filename}")
-            with open(os.path.join(data_dir, filename), 'r') as f:
+            with open(os.path.join(DATA_DIR, filename), 'r') as f:
                 data = json.load(f)
                 
                 # Convert entire JSON to readable text
@@ -259,14 +197,22 @@ Based on the following information about school events and programs:
 
 Please answer this question: {question}
 
-Provide a clear, helpful response. If the information isn't in the context, say so politely and suggest what kind of information you do have available.""")
+Provide a clear, well-formatted response using the following guidelines:
+- Start with a brief overview or direct answer
+- Use bullet points (•) for listing multiple items or features
+- Use clear section headers when appropriate
+- Include specific details like dates, times, locations, age ranges, and costs when available
+- Keep paragraphs concise and readable
+- If information isn't in the context, politely say so and suggest what information is available
+
+Format your response for easy reading with proper spacing and structure.""")
     
     # Original chain: simple prompt | llm | parser
     original_chain = original_prompt | llm | StrOutputParser()
     logger.info(f"  ✅ Original Retrieval chain created (k=4, simple chain)")
     
     # ============================================================
-    # METHOD 2: NAIVE RETRIEVAL (k=10, LCEL pattern from notebook)
+    # METHOD 2: NAIVE RETRIEVAL (k=10)
     # ============================================================
     logger.info("🔧 Creating Naive Retrieval method (k=10, LCEL)...")
     naive_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
@@ -276,9 +222,16 @@ Provide a clear, helpful response. If the information isn't in the context, say 
     
     # Naive RAG prompt template (from Advanced Retrieval notebook, Cell 12)
     RAG_TEMPLATE = """\
-You are a helpful and kind assistant. Use the context provided below to answer the question.
+You are a helpful and kind assistant for a school events information system. Use the context provided below to answer the question.
 
 If you do not know the answer, or are unsure, say you don't know.
+
+Provide clear, well-formatted responses using these guidelines:
+- Start with a direct answer or overview
+- Use bullet points (•) for multiple items
+- Include specific details (dates, times, locations, ages, costs)
+- Keep information organized and easy to scan
+- Use proper spacing between sections
 
 Query:
 {question}
@@ -289,7 +242,7 @@ Context:
     
     rag_prompt = ChatPromptTemplate.from_template(RAG_TEMPLATE)
     
-    # Naive Retrieval Chain using LCEL (from notebook Cell 13)
+    # Naive Retrieval Chain using LCEL
     naive_chain = (
         {"context": itemgetter("question") | naive_retriever, "question": itemgetter("question")}
         | RunnablePassthrough.assign(context=itemgetter("context"))
@@ -315,51 +268,6 @@ Context:
 @app.get("/")
 async def root():
     return {"message": "School Events RAG API is running!", "status": "healthy"}
-
-def expand_query(query: str) -> List[str]:
-    """Expand query to include related terms for better retrieval"""
-    query_lower = query.lower()
-    expanded_queries = [query]
-    
-    # Coding-related expansions
-    if any(term in query_lower for term in ['coding', 'programming', 'bootcamp', 'computer', 'tech', 'software']):
-        expanded_queries.extend([
-            'coding programs for kids',
-            'technology classes',
-            'computer programming',
-            'CodeWizardsHQ',
-            'STEM programs'
-        ])
-    
-    # Art-related expansions
-    if any(term in query_lower for term in ['art', 'drawing', 'painting', 'creative']):
-        expanded_queries.extend([
-            'art classes',
-            'art camps',
-            'Cordovan Art School',
-            'drawing classes',
-            'painting programs'
-        ])
-    
-    # Music-related expansions
-    if any(term in query_lower for term in ['music', 'choir', 'singing', 'chorus']):
-        expanded_queries.extend([
-            'music programs',
-            'chorus auditions',
-            'National Children\'s Chorus',
-            'choir programs'
-        ])
-    
-    # Camp-related expansions
-    if any(term in query_lower for term in ['camp', 'holiday', 'break', 'day camp']):
-        expanded_queries.extend([
-            'holiday camps',
-            'day camps',
-            'spring break',
-            'school holiday programs'
-        ])
-    
-    return expanded_queries
 
 @app.post("/query", response_model=QueryResponse)
 async def query_events(request: QueryRequest):
@@ -513,6 +421,147 @@ async def get_active_retrieval_method():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "rag_initialized": vector_store is not None}
+
+@app.get("/events")
+async def get_events():
+    """Get all events from the data directory"""
+    try:
+        events = []
+        
+        for filename in os.listdir(DATA_DIR):
+            if filename.endswith('.json'):
+                filepath = os.path.join(DATA_DIR, filename)
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    
+                    # Extract key information
+                    # Generate a meaningful event name
+                    event_name = None
+                    if "event_name" in data:
+                        event_name = data["event_name"]
+                    elif "program_name" in data:
+                        event_name = data["program_name"]
+                    elif "event_type" in data:
+                        event_name = data["event_type"]
+                    elif "program_type" in data:
+                        event_name = data["program_type"]
+                    elif "programs" in data and isinstance(data["programs"], dict):
+                        # Extract from programs structure
+                        first_program = next(iter(data["programs"].values()))
+                        if isinstance(first_program, dict) and "name" in first_program:
+                            event_name = first_program["name"]
+                    
+                    # If still no name, generate from organization and type/description
+                    if not event_name:
+                        org = data.get("organization", "")
+                        if org:
+                            # Check for program type or other identifying info
+                            if "program_type" in data:
+                                event_name = f"{org} - {data['program_type']}"
+                            elif "chapter" in data:
+                                event_name = f"{org} {data['chapter']}"
+                            else:
+                                event_name = f"{org} Programs"
+                        else:
+                            event_name = "Special Program"
+                    
+                    event = {
+                        "id": filename.replace('.json', ''),
+                        "name": event_name,
+                        "organization": data.get("organization", ""),
+                        "description": "",
+                        "target_audience": "",
+                        "date": "",
+                        "cost": "",
+                        "type": "",
+                        "filename": filename
+                    }
+                    
+                    # Extract description
+                    if "event_description" in data:
+                        event["description"] = data["event_description"]
+                    elif "program_features" in data and "includes" in data["program_features"]:
+                        event["description"] = ", ".join(data["program_features"]["includes"][:2])
+                    elif "features" in data and isinstance(data["features"], list):
+                        event["description"] = ", ".join(data["features"][:2])
+                    elif "divisions" in data and isinstance(data["divisions"], dict):
+                        # Extract from divisions (like National Children's Chorus)
+                        first_div = next(iter(data["divisions"].values()))
+                        if isinstance(first_div, dict) and "features" in first_div:
+                            event["description"] = ", ".join(first_div["features"][:2])
+                    elif "programs" in data and isinstance(data["programs"], dict):
+                        # Extract from programs (like Cordovan Art School)
+                        first_prog = next(iter(data["programs"].values()))
+                        if isinstance(first_prog, dict):
+                            if "mediums" in first_prog:
+                                event["description"] = f"Learn {', '.join(first_prog['mediums'][:3])}"
+                            elif "name" in first_prog:
+                                event["description"] = first_prog["name"]
+                    elif "activities_offered" in data:
+                        event["description"] = ", ".join(data["activities_offered"][:2])
+                    else:
+                        # Create description from organization and type
+                        if event["organization"]:
+                            event["description"] = f"Quality program by {event['organization']}"
+                        else:
+                            event["description"] = "Exciting educational opportunity"
+                    
+                    # Extract target audience
+                    if "target_audience" in data:
+                        if isinstance(data["target_audience"], dict):
+                            parts = []
+                            if "age_range" in data["target_audience"]:
+                                parts.append(data["target_audience"]["age_range"])
+                            elif "grades" in data["target_audience"]:
+                                parts.append("Grades " + data["target_audience"]["grades"])
+                            elif "age_description" in data["target_audience"]:
+                                parts.append(data["target_audience"]["age_description"])
+                            if "gender" in data["target_audience"]:
+                                parts.append(data["target_audience"]["gender"])
+                            event["target_audience"] = " - ".join(parts) if parts else ""
+                        else:
+                            event["target_audience"] = str(data["target_audience"])
+                    elif "divisions" in data and isinstance(data["divisions"], dict):
+                        # Extract from divisions (like National Children's Chorus)
+                        ages = []
+                        for div_data in data["divisions"].values():
+                            if isinstance(div_data, dict) and "age_range" in div_data:
+                                ages.append(div_data["age_range"])
+                        if ages:
+                            event["target_audience"] = ", ".join(ages)
+                    
+                    # Extract dates
+                    if "event_details" in data and "date" in data["event_details"]:
+                        event["date"] = data["event_details"]["date"]
+                    elif "competition_details" in data and "dates" in data["competition_details"]:
+                        event["date"] = data["competition_details"]["dates"]
+                    elif "camp_schedule_2025" in data and len(data["camp_schedule_2025"]) > 0:
+                        event["date"] = data["camp_schedule_2025"][0]["date"]
+                    
+                    # Extract cost
+                    if "event_details" in data and "cost" in data["event_details"]:
+                        event["cost"] = data["event_details"]["cost"]
+                    elif "registration" in data and "cost" in data["registration"]:
+                        event["cost"] = data["registration"]["cost"]
+                    
+                    # Extract type
+                    if "event_type" in data:
+                        event["type"] = data["event_type"]
+                    elif "event_details" in data and "type" in data["event_details"]:
+                        event["type"] = data["event_details"]["type"]
+                    elif "program_name" in data:
+                        event["type"] = "Day Camp"
+                    else:
+                        event["type"] = "Event"
+                    
+                    events.append(event)
+        
+        logger.info(f"✅ Retrieved {len(events)} events")
+        return {"events": events, "count": len(events)}
+        
+    except Exception as e:
+        logger.error(f"❌ Error retrieving events: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving events: {str(e)}")
 
 @app.post("/agent-query")
 async def agent_query_events(request: QueryRequest):
@@ -820,10 +869,15 @@ async def evaluate_rag_with_ragas():
             "context_recall": float(result_df["context_recall"].mean())
         }
         
-        # Save results
-        result_df.to_csv("ragas_evaluation_results.csv", index=False)
+        # Save results to generated_results directory
+        os.makedirs(GENERATED_RESULTS_DIR, exist_ok=True)
         
-        with open("ragas_evaluation_summary.json", "w") as f:
+        results_csv_path = os.path.join(GENERATED_RESULTS_DIR, "ragas_evaluation_results.csv")
+        summary_json_path = os.path.join(GENERATED_RESULTS_DIR, "ragas_evaluation_summary.json")
+        
+        result_df.to_csv(results_csv_path, index=False)
+        
+        with open(summary_json_path, "w") as f:
             json.dump(metrics, f, indent=2)
         
         logger.info("="*80)
@@ -834,8 +888,8 @@ async def evaluate_rag_with_ragas():
         logger.info(f"Context Precision: {metrics['context_precision']:.4f}")
         logger.info(f"Context Recall:    {metrics['context_recall']:.4f}")
         logger.info("="*80)
-        logger.info("💾 Results saved to: ragas_evaluation_results.csv")
-        logger.info("💾 Summary saved to: ragas_evaluation_summary.json")
+        logger.info(f"💾 Results saved to: {results_csv_path}")
+        logger.info(f"💾 Summary saved to: {summary_json_path}")
         logger.info("="*80)
         
         return {
@@ -843,8 +897,8 @@ async def evaluate_rag_with_ragas():
             "metrics": metrics,
             "test_questions_count": len(test_questions),
             "files_generated": [
-                "ragas_evaluation_results.csv",
-                "ragas_evaluation_summary.json"
+                results_csv_path,
+                summary_json_path
             ],
             "message": "RAGAS evaluation completed successfully"
         }

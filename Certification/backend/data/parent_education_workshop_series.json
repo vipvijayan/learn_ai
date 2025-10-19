@@ -1,0 +1,52 @@
+{
+  "event_name": "Parent Education Workshop Series",
+  "organization": "Family Resource Center",
+  "category": "Community",
+  "program_type": "Educational Workshop",
+  "series_schedule": "Monthly - Third Thursday",
+  "workshop_topics": [
+    {
+      "month": "September",
+      "topic": "Positive Discipline Strategies",
+      "presenter": "Dr. Sarah Martinez, Child Psychologist"
+    },
+    {
+      "month": "October",
+      "topic": "Digital Citizenship and Online Safety",
+      "presenter": "Tech Safety Expert"
+    },
+    {
+      "month": "November",
+      "topic": "Supporting Academic Success",
+      "presenter": "Educational Consultant"
+    },
+    {
+      "month": "December",
+      "topic": "Managing Family Stress During Holidays",
+      "presenter": "Family Therapist"
+    }
+  ],
+  "format": {
+    "time": "6:30 PM - 8:00 PM",
+    "location": "Family Resource Center",
+    "format": "In-person and virtual options",
+    "cost": "Free"
+  },
+  "features": [
+    "Interactive discussions",
+    "Take-home resources",
+    "Q&A with experts",
+    "Light refreshments",
+    "Childcare provided"
+  ],
+  "registration": {
+    "status": "Open",
+    "required": true,
+    "call_to_action": "RSVP Online"
+  },
+  "contact": {
+    "website": "familyresourcecenteraustin.org",
+    "email": "workshops@frcaustin.org",
+    "phone": "512-555-0800"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "program_name": "Children's Book Drives",
+  "organization": "Community Literacy Foundation",
+  "category": "School",
+  "program_type": "Book Donation Drive",
+  "slogan": "Donate Your Old Books!",
+  "mission": "Collecting gently used children's books to promote literacy and reading",
+  "donation_details": {
+    "accepted_items": [
+      "Picture books",
+      "Chapter books",
+      "Young adult novels",
+      "Educational books",
+      "Board books for toddlers"
+    ],
+    "condition": "Gently used, clean, and in good condition",
+    "age_range": "Ages 0-18"
+  },
+  "impact": {
+    "beneficiaries": [
+      "Local schools",
+      "Community libraries",
+      "After-school programs",
+      "Underprivileged children",
+      "Reading programs"
+    ],
+    "goal": "Build home libraries for children in need"
+  },
+  "how_to_participate": {
+    "steps": [
+      "Gather gently used children's books",
+      "Ensure books are clean and complete",
+      "Drop off at designated collection sites",
+      "Spread the word in your community"
+    ],
+    "collection_sites": [
+      "Local schools",
+      "Community centers",
+      "Libraries",
+      "Partner organizations"
+    ]
+  },
+  "program_features": [
+    "Year-round collection",
+    "Tax-deductible donations",
+    "Community impact reports",
+    "Reading incentive programs"
+  ],
+  "contact": {
+    "website": "bookdrivesforki ds.org",
+    "email": "info@bookdrivesforkids.org",
+    "phone": "512-555-0200"
+  },
+  "registration": {
+    "status": "Ongoing",
+    "call_to_action": "Donate Books"
+  }
+}

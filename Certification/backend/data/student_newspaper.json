@@ -1,0 +1,24 @@
+{
+  "program_name": "Student Newspaper",
+  "organization": "Westwood High School Warrior Press",
+  "category": "School",
+  "program_type": "Student Journalism",
+  "publication_schedule": "Monthly print edition plus online updates",
+  "positions": ["Editors", "Reporters", "Columnists", "Photographers", "Cartoonists", "Online content managers"],
+  "coverage_areas": ["School news and events", "Sports", "Arts and entertainment", "Opinion/editorial", "Features"],
+  "meeting_schedule": "After school Tuesday & Thursday 3:30-5:00 PM",
+  "skills_gained": ["Journalistic writing", "Interview techniques", "News judgment", "Digital publishing", "Ethics and accuracy"],
+  "no_experience_required": "Training provided",
+  "class_option": "Can take Journalism class for credit",
+  "awards_opportunities": ["ILPC competitions", "TAJE awards", "Scholastic journalism contests"],
+  "registration": {
+    "status": "Recruiting writers and photographers",
+    "application": "Brief application and writing sample",
+    "call_to_action": "Join the Press"
+  },
+  "contact": {
+    "advisor": "Mr. Thompson",
+    "email": "newspaper@westwoodhigh.edu",
+    "website": "westwoodwarriorpress.com"
+  }
+}

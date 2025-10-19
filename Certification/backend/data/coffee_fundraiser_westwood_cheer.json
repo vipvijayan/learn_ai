@@ -1,0 +1,33 @@
+{
+  "event_name": "Coffee Fundraiser for Westwood Cheer",
+  "organization": "Westwood High School Cheer Team",
+  "category": "School",
+  "event_type": "Fundraiser",
+  "purpose": "Support Westwood High School Cheer Team",
+  "fundraiser_details": {
+    "product": "MOJO Coffee Gourmet Coffee",
+    "description": "Premium gourmet coffee to support our cheer team",
+    "tagline": "Drink your favorite drink at MOJO Coffee and support our cheer team!"
+  },
+  "participation": {
+    "how_to_support": [
+      "Purchase MOJO Coffee products",
+      "Attend fundraiser events",
+      "Share with friends and family",
+      "Support local cheerleaders"
+    ]
+  },
+  "team_info": {
+    "school": "Westwood High School",
+    "sport": "Cheerleading",
+    "season": "2025-2026"
+  },
+  "contact": {
+    "school_website": "westwoodhighschool.org",
+    "email": "cheer@westwoodhighschool.org"
+  },
+  "registration": {
+    "status": "Active",
+    "call_to_action": "Support Now"
+  }
+}

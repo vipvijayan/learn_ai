@@ -1,0 +1,38 @@
+{
+  "program_name": "Cross Country Team",
+  "organization": "Anderson High School",
+  "category": "School",
+  "sport_type": "Running",
+  "season": "Fall (August - November)",
+  "competition_level": "Varsity and Junior Varsity",
+  "tryouts": {
+    "date": "August 7-9, 2025",
+    "time": "6:00 AM",
+    "location": "School track"
+  },
+  "practice_schedule": {
+    "regular_season": "Monday-Friday, 6:00-7:30 AM",
+    "optional_saturday": "8:00 AM long run"
+  },
+  "team_benefits": ["Physical fitness", "Mental toughness", "Team camaraderie", "College recruiting opportunities", "Leadership development"],
+  "meet_schedule": "Weekly meets September-October, District meet in November",
+  "distances": {
+    "high_school": "5K (3.1 miles)",
+    "middle_school": "2 miles"
+  },
+  "what_to_bring": ["Running shoes", "Athletic clothes", "Water bottle", "Team spirit!"],
+  "team_fees": {
+    "participation_fee": "$150",
+    "includes": ["Team uniform", "Meet entry fees", "Awards banquet"]
+  },
+  "fundraising": "Team fundraisers help offset costs",
+  "registration": {
+    "deadline": "August 1, 2025",
+    "physical_required": "Current sports physical on file",
+    "call_to_action": "Join the Team"
+  },
+  "contact": {
+    "coach": "Coach Martinez",
+    "email": "crosscountry@andersonhs.edu"
+  }
+}

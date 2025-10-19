@@ -1,0 +1,59 @@
+{
+  "program_name": "Basketball Skills Development",
+  "organization": "Hoops Academy Austin",
+  "category": "Community",
+  "sport": "Basketball",
+  "program_levels": {
+    "beginner": {
+      "age_range": "6-9",
+      "focus": "Fundamentals and fun"
+    },
+    "intermediate": {
+      "age_range": "10-13",
+      "focus": "Skills refinement"
+    },
+    "advanced": {
+      "age_range": "14-18",
+      "focus": "Competitive play"
+    }
+  },
+  "training_schedule": {
+    "weekday_sessions": "Monday & Wednesday, 5:00-6:30 PM",
+    "weekend_sessions": "Saturday mornings, 9:00-11:00 AM",
+    "duration": "10-week sessions"
+  },
+  "curriculum": [
+    "Ball handling and dribbling",
+    "Shooting techniques",
+    "Defensive strategies",
+    "Team play and positioning",
+    "Game situations",
+    "Physical conditioning"
+  ],
+  "coaching_staff": [
+    "Former college players",
+    "USA Basketball certified coaches",
+    "Strength and conditioning specialists"
+  ],
+  "program_includes": [
+    "Professional coaching",
+    "Practice jersey",
+    "Skills assessment",
+    "Progress reports",
+    "End-of-session tournament"
+  ],
+  "pricing": {
+    "10_week_session": "$350",
+    "drop_in_rate": "$40 per session"
+  },
+  "registration": {
+    "status": "Open",
+    "next_session_starts": "September 8, 2025",
+    "call_to_action": "Sign Up Now"
+  },
+  "contact": {
+    "website": "hoopsacademyaustin.com",
+    "email": "info@hoopsacademy.com",
+    "phone": "512-555-0900"
+  }
+}

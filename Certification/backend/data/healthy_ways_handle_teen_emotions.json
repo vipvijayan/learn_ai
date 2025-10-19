@@ -1,0 +1,39 @@
+{
+  "program_name": "Healthy Ways to Handle Teen Emotions",
+  "organization": "Community Health Initiative",
+  "category": "Community",
+  "target_audience": {
+    "age_range": "Ages 13-18",
+    "focus": "Teen Mental Health"
+  },
+  "program_details": {
+    "topics": [
+      "Emotional Regulation",
+      "Stress Management",
+      "Healthy Coping Mechanisms",
+      "Communication Skills",
+      "Building Resilience"
+    ],
+    "format": "Interactive Workshop",
+    "duration": "6-week series"
+  },
+  "key_focus_areas": {
+    "on_the_inside": "Understanding internal emotions and feelings",
+    "on_the_go": "Managing emotions in daily situations",
+    "on_the_mend": "Recovery and building emotional strength"
+  },
+  "resources_provided": [
+    "Workbooks and journals",
+    "Parent guidance materials",
+    "Access to counseling resources",
+    "Peer support groups"
+  ],
+  "registration": {
+    "status": "Open",
+    "call_to_action": "Learn More"
+  },
+  "contact_info": {
+    "website": "teenhealthinitiative.org",
+    "phone": "512-555-0100"
+  }
+}

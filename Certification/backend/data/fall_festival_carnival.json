@@ -1,0 +1,46 @@
+{
+  "event_name": "Fall Festival and Carnival",
+  "organization": "Cedar Park Elementary PTA",
+  "category": "School",
+  "event_type": "Community Festival",
+  "date": "October 26, 2025",
+  "time": "4:00 PM - 8:00 PM",
+  "location": {
+    "venue": "Cedar Park Elementary School",
+    "address": "789 School Lane, Cedar Park, TX 78613"
+  },
+  "activities": [
+    "Carnival games",
+    "Face painting",
+    "Bounce houses",
+    "Pumpkin decorating",
+    "Costume contest",
+    "Hayride",
+    "Petting zoo"
+  ],
+  "food_vendors": [
+    "BBQ",
+    "Pizza",
+    "Cotton candy",
+    "Popcorn",
+    "Baked goods",
+    "Drinks"
+  ],
+  "cost": {
+    "entry": "Free admission",
+    "game_tickets": "$1 each or 25 for $20",
+    "food": "Priced separately"
+  },
+  "fundraiser_purpose": "Funds support PTA programs and school improvement projects",
+  "volunteer_opportunities": "Sign up to help with games, food, or setup",
+  "registration": {
+    "status": "No registration required",
+    "volunteer_signup": "Available online",
+    "call_to_action": "Join Us!"
+  },
+  "contact": {
+    "website": "cedarparkelementarypta.org",
+    "email": "pta@cedarparkelem.org",
+    "phone": "512-555-1300"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "event_name": "Westwood Swim & Dive Spirit Night",
+  "organization": "Phil's Ice House",
+  "category": "School",
+  "event_type": "Spirit Night Fundraiser",
+  "date_info": {
+    "day": "Wednesday",
+    "date": "October 22nd",
+    "time": {
+      "start": "4:00 pm",
+      "end": "8:00 pm"
+    }
+  },
+  "location": {
+    "venue": "Phil's Ice House",
+    "address": "13930 US Hwy 183 N",
+    "city": "Austin",
+    "state": "TX",
+    "zip": "78717"
+  },
+  "fundraiser_details": {
+    "beneficiary": "Westwood Swim & Dive Team",
+    "participation": "Dine in or take out",
+    "requirement": "Show this flyer (print, post or present on phone)"
+  },
+  "menu_highlights": [
+    "Burgers",
+    "Ice Cream",
+    "Family-friendly dining"
+  ],
+  "team_info": {
+    "school": "Westwood High School",
+    "sport": "Swimming & Diving",
+    "season": "2025-2026"
+  },
+  "call_to_action": {
+    "message": "Come eat and help us fundraise!",
+    "flyer_requirement": "Must present flyer for contribution"
+  },
+  "registration": {
+    "status": "Open",
+    "rsvp_required": false
+  }
+}

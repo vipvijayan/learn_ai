@@ -1,0 +1,28 @@
+{
+  "event_name": "Science Fair Workshop",
+  "organization": "Grisham Middle School Science Department",
+  "category": "School",
+  "event_type": "Educational Workshop",
+  "dates": ["September 25, 2025", "October 9, 2025", "October 23, 2025"],
+  "time": "3:30-4:30 PM",
+  "location": "Science Lab Building",
+  "target_audience": "Students planning to participate in science fair",
+  "workshop_topics": {
+    "session_1": "Choosing a project and forming a hypothesis",
+    "session_2": "Experimental design and data collection",
+    "session_3": "Creating your display board and presentation"
+  },
+  "benefits": ["Expert guidance from science teachers", "Project idea help", "Avoid common mistakes", "Improve chances of success"],
+  "science_fair_date": "January 15, 2026",
+  "categories": ["Biology", "Chemistry", "Physics", "Earth Science", "Engineering"],
+  "attendance": "Free and optional but highly recommended",
+  "materials_provided": ["Planning worksheets", "Example projects", "Resource lists"],
+  "registration": {
+    "rsvp": "Helpful but not required",
+    "call_to_action": "Attend Workshops"
+  },
+  "contact": {
+    "coordinator": "Science Department",
+    "email": "sciencefair@grishammiddle.edu"
+  }
+}

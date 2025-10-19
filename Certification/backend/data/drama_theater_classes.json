@@ -1,0 +1,64 @@
+{
+  "program_name": "Drama and Theater Classes",
+  "organization": "Spotlight Youth Theater",
+  "category": "Community",
+  "program_type": "Performing Arts",
+  "age_range": "Ages 7-18",
+  "class_offerings": {
+    "introduction_to_theater": {
+      "age": "7-10",
+      "focus": "Theater games, improvisation, basic acting",
+      "schedule": "Saturdays, 10:00-11:30 AM"
+    },
+    "acting_fundamentals": {
+      "age": "11-14",
+      "focus": "Scene work, character development, voice projection",
+      "schedule": "Tuesdays & Thursdays, 4:30-6:00 PM"
+    },
+    "advanced_performance": {
+      "age": "15-18",
+      "focus": "Monologues, audition techniques, Shakespeare",
+      "schedule": "Mondays & Wednesdays, 6:30-8:00 PM"
+    }
+  },
+  "production_opportunities": [
+    {
+      "season": "Fall",
+      "typical_show": "Musical production"
+    },
+    {
+      "season": "Spring",
+      "typical_show": "Classic play or modern drama"
+    }
+  ],
+  "program_features": [
+    "Professional theater instructors",
+    "Performance opportunities",
+    "Costume and prop design",
+    "Technical theater training",
+    "Showcase performances",
+    "Audition preparation"
+  ],
+  "skills_developed": [
+    "Confidence and public speaking",
+    "Creativity and imagination",
+    "Teamwork and collaboration",
+    "Memorization and focus",
+    "Self-expression"
+  ],
+  "pricing": {
+    "8_week_session": "$299",
+    "production_participation": "$350 (includes costume)",
+    "annual_membership": "$950 (unlimited classes)"
+  },
+  "registration": {
+    "status": "Enrolling for fall session",
+    "audition": "Not required for classes, required for productions",
+    "call_to_action": "Enroll Now"
+  },
+  "contact": {
+    "website": "spotlightyouththeater.com",
+    "email": "info@spotlighttheater.com",
+    "phone": "512-555-2200"
+  }
+}

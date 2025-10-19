@@ -1,0 +1,28 @@
+{
+  "event_name": "Band Concert",
+  "organization": "Cedar Park High School Band",
+  "category": "School",
+  "event_type": "Musical Performance",
+  "date": "December 12, 2025",
+  "time": "7:00 PM",
+  "location": {
+    "venue": "Cedar Park High School Auditorium",
+    "address": "2150 Cypress Creek Rd, Cedar Park, TX"
+  },
+  "performing_ensembles": ["Symphonic Band", "Wind Ensemble", "Jazz Band", "Percussion Ensemble"],
+  "program_highlights": ["Holiday classics", "Contemporary pieces", "Jazz standards", "Student soloists"],
+  "admission": {
+    "cost": "Free admission",
+    "donations_accepted": "Donations support band program"
+  },
+  "reception": "Meet the musicians after the concert in the lobby",
+  "registration": {
+    "rsvp": "Not required",
+    "call_to_action": "Attend Performance"
+  },
+  "contact": {
+    "director": "Mr. James Wilson",
+    "email": "band@cedarparkhs.edu",
+    "phone": "512-555-3700"
+  }
+}

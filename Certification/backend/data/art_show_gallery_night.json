@@ -1,0 +1,27 @@
+{
+  "event_name": "Art Show and Gallery Night",
+  "organization": "Round Rock High School Art Department",
+  "category": "School",
+  "event_type": "Art Exhibition",
+  "date": "May 8, 2026",
+  "time": "6:00 PM - 9:00 PM",
+  "location": {
+    "venue": "School Cafeteria and Hallways",
+    "gallery_areas": "Multiple display zones"
+  },
+  "featured_artwork": ["Paintings", "Drawings", "Sculptures", "Photography", "Digital art", "Ceramics", "Mixed media"],
+  "student_artists": "All art students grades 9-12",
+  "special_features": ["Live art demonstrations", "Student artist talks", "Art sale (proceeds to students)", "Refreshments"],
+  "awards": ["Best in Show", "Category awards", "People's Choice"],
+  "admission": "Free and open to public",
+  "parking": "Available in main lot",
+  "registration": {
+    "attendance": "No RSVP required",
+    "call_to_action": "Visit the Gallery"
+  },
+  "contact": {
+    "coordinator": "Art Department",
+    "email": "art@roundrockhigh.edu",
+    "phone": "512-555-3800"
+  }
+}

@@ -1,0 +1,38 @@
+<svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- School building base -->
+  <rect x="8" y="24" width="48" height="32" fill="#1976D2" rx="2"/>
+  
+  <!-- Roof -->
+  <path d="M32 8 L60 24 L4 24 Z" fill="#0D47A1"/>
+  
+  <!-- Flag pole -->
+  <rect x="30" y="4" width="2" height="8" fill="#FFF"/>
+  
+  <!-- Flag -->
+  <path d="M32 4 L40 7 L32 10 Z" fill="#FF5722"/>
+  
+  <!-- Door -->
+  <rect x="26" y="42" width="12" height="14" fill="#FFF" rx="1"/>
+  <circle cx="36" cy="49" r="1" fill="#1976D2"/>
+  
+  <!-- Windows - top row -->
+  <rect x="12" y="28" width="8" height="8" fill="#64B5F6" rx="1"/>
+  <rect x="28" y="28" width="8" height="8" fill="#64B5F6" rx="1"/>
+  <rect x="44" y="28" width="8" height="8" fill="#64B5F6" rx="1"/>
+  
+  <!-- Windows - bottom row -->
+  <rect x="12" y="40" width="8" height="8" fill="#64B5F6" rx="1"/>
+  <rect x="44" y="40" width="8" height="8" fill="#64B5F6" rx="1"/>
+  
+  <!-- Window dividers -->
+  <line x1="16" y1="28" x2="16" y2="36" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="12" y1="32" x2="20" y2="32" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="32" y1="28" x2="32" y2="36" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="28" y1="32" x2="36" y2="32" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="48" y1="28" x2="48" y2="36" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="44" y1="32" x2="52" y2="32" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="16" y1="40" x2="16" y2="48" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="12" y1="44" x2="20" y2="44" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="48" y1="40" x2="48" y2="48" stroke="#1976D2" strokeWidth="1"/>
+  <line x1="44" y1="44" x2="52" y2="44" stroke="#1976D2" strokeWidth="1"/>
+</svg>

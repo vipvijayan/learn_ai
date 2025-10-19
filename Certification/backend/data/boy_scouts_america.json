@@ -1,0 +1,67 @@
+{
+  "program_name": "Boy Scouts of America",
+  "organization": "BSA Troop 512",
+  "category": "Community",
+  "program_type": "Youth Scouting",
+  "programs": {
+    "cub_scouts": {
+      "age_range": "Kindergarten - 5th grade",
+      "dens": ["Lions (K)", "Tigers (1st)", "Wolves (2nd)", "Bears (3rd)", "Webelos (4th-5th)"]
+    },
+    "scouts_bsa": {
+      "age_range": "11-17 years",
+      "description": "Traditional Boy Scouts program"
+    },
+    "venturing": {
+      "age_range": "14-20 years",
+      "description": "High adventure program"
+    }
+  },
+  "meeting_schedule": {
+    "cub_scouts": "Weekly den meetings, monthly pack meetings",
+    "scouts_bsa": "Weekly troop meetings, monthly outings",
+    "location": "Community Center, 789 Scout Way"
+  },
+  "activities": [
+    "Camping and hiking",
+    "Outdoor skills training",
+    "Merit badge programs",
+    "Community service projects",
+    "High adventure trips",
+    "Leadership development"
+  ],
+  "advancement_ranks": {
+    "cub_scouts": ["Bobcat", "Tiger", "Wolf", "Bear", "Webelos", "Arrow of Light"],
+    "scouts_bsa": ["Scout", "Tenderfoot", "Second Class", "First Class", "Star", "Life", "Eagle"]
+  },
+  "signature_programs": [
+    "Summer camp",
+    "Pinewood Derby",
+    "Camporees",
+    "Merit badge fairs",
+    "Eagle Scout projects",
+    "Order of the Arrow"
+  ],
+  "costs": {
+    "annual_registration": "$75",
+    "monthly_dues": "$20",
+    "uniform": "$60-$100",
+    "camp_fees": "Varies by event"
+  },
+  "volunteer_needs": [
+    "Den leaders",
+    "Committee members",
+    "Merit badge counselors",
+    "Activity coordinators"
+  ],
+  "registration": {
+    "status": "Recruiting new scouts",
+    "orientation": "First Tuesday of each month, 7:00 PM",
+    "call_to_action": "Join Our Troop"
+  },
+  "contact": {
+    "scoutmaster": "Mike Johnson",
+    "email": "troop512@bsaaustin.org",
+    "phone": "512-555-2600"
+  }
+}

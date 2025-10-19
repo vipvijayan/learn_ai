@@ -1,0 +1,46 @@
+{
+  "program_name": "Summer Arts Camp",
+  "organization": "Creative Arts Academy",
+  "category": "Community",
+  "program_type": "Summer Camp",
+  "session_dates": {
+    "session_1": "June 2-13, 2025",
+    "session_2": "June 16-27, 2025",
+    "session_3": "June 30 - July 11, 2025",
+    "session_4": "July 14-25, 2025"
+  },
+  "age_range": "Ages 7-14",
+  "daily_schedule": {
+    "hours": "9:00 AM - 3:00 PM",
+    "extended_care": "Available 7:30 AM - 6:00 PM"
+  },
+  "activities": [
+    "Painting and drawing",
+    "Sculpture and ceramics",
+    "Theater and drama",
+    "Music and dance",
+    "Digital art and animation",
+    "Photography"
+  ],
+  "program_features": [
+    "Professional artist instructors",
+    "All materials included",
+    "Small class sizes (max 12)",
+    "End-of-week showcase",
+    "Snacks provided"
+  ],
+  "pricing": {
+    "two_week_session": "$450",
+    "early_bird_discount": "$400 (before April 1)",
+    "sibling_discount": "10% off second child"
+  },
+  "registration": {
+    "status": "Open",
+    "call_to_action": "Enroll Today"
+  },
+  "contact": {
+    "website": "creativeartscampaustin.com",
+    "email": "info@creativeartscam p.com",
+    "phone": "512-555-0700"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "program_name": "Spanish Language Classes for Kids",
+  "organization": "Mundo Español Language Academy",
+  "category": "Community",
+  "language": "Spanish",
+  "age_range": "Ages 4-14",
+  "class_levels": {
+    "little_learners": {
+      "age": "4-6",
+      "description": "Introduction through songs, games, and stories",
+      "duration": "45 minutes weekly"
+    },
+    "elementary_spanish": {
+      "age": "7-10",
+      "description": "Conversational Spanish and basic grammar",
+      "duration": "60 minutes weekly"
+    },
+    "intermediate_spanish": {
+      "age": "11-14",
+      "description": "Advanced conversation and written Spanish",
+      "duration": "75 minutes weekly"
+    }
+  },
+  "teaching_method": {
+    "approach": "Immersive, communicative learning",
+    "focus": [
+      "Conversational skills",
+      "Cultural awareness",
+      "Grammar in context",
+      "Interactive activities",
+      "Real-world applications"
+    ]
+  },
+  "program_features": [
+    "Native Spanish-speaking instructors",
+    "Small class sizes (max 8 students)",
+    "Cultural celebrations and activities",
+    "Homework and practice materials",
+    "Progress reports",
+    "End-of-year performance"
+  ],
+  "cultural_components": [
+    "Hispanic heritage celebrations",
+    "Traditional music and dance",
+    "Cooking demonstrations",
+    "Art and crafts",
+    "Geography and history"
+  ],
+  "schedule_options": {
+    "weekday_afternoon": "Tuesday or Thursday, 4:00-5:00 PM",
+    "saturday_morning": "Saturday, 9:00-10:00 AM or 10:30-11:30 AM"
+  },
+  "pricing": {
+    "monthly_tuition": "$129",
+    "registration_fee": "$50 (annual)",
+    "materials_fee": "$30 (per session)",
+    "sibling_discount": "15% off for additional siblings"
+  },
+  "registration": {
+    "status": "Enrolling for fall semester",
+    "trial_class": "Free trial class available",
+    "call_to_action": "Schedule Trial Class"
+  },
+  "contact": {
+    "website": "mundoespanol.com",
+    "email": "info@mundoespanol.com",
+    "phone": "512-555-2400"
+  }
+}

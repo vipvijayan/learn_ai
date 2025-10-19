@@ -1,0 +1,53 @@
+{
+  "program_name": "Coding Boot Camp for Kids",
+  "organization": "Code Warriors Academy",
+  "category": "Community",
+  "program_type": "Technology Education",
+  "age_range": "Ages 8-16",
+  "courses_offered": {
+    "beginner": {
+      "title": "Introduction to Coding",
+      "languages": ["Scratch", "Blockly"],
+      "duration": "8 weeks"
+    },
+    "intermediate": {
+      "title": "Python Programming",
+      "projects": ["Games", "Apps", "Data visualization"],
+      "duration": "10 weeks"
+    },
+    "advanced": {
+      "title": "Web Development",
+      "technologies": ["HTML", "CSS", "JavaScript"],
+      "duration": "12 weeks"
+    }
+  },
+  "schedule_options": {
+    "weekday_afternoon": "Monday & Wednesday, 4:30-6:00 PM",
+    "saturday_morning": "Saturday, 10:00 AM - 12:00 PM",
+    "intensive_summer": "Monday-Friday, 9:00 AM - 12:00 PM (June-July)"
+  },
+  "program_features": [
+    "Small class sizes (max 10 students)",
+    "Project-based learning",
+    "Take-home computers for practice",
+    "Certificate of completion",
+    "Portfolio of projects",
+    "Free coding resources"
+  ],
+  "pricing": {
+    "8_week_course": "$399",
+    "10_week_course": "$479",
+    "12_week_course": "$559",
+    "summer_intensive": "$899"
+  },
+  "registration": {
+    "status": "Enrolling Now",
+    "early_bird": "10% off if registered 30 days in advance",
+    "call_to_action": "Enroll Today"
+  },
+  "contact": {
+    "website": "codewarriorsacademy.com",
+    "email": "learn@codewarriors.com",
+    "phone": "512-555-1600"
+  }
+}

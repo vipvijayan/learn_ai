@@ -1,0 +1,66 @@
+{
+  "program_name": "Girl Scouts Troop Recruitment",
+  "organization": "Girl Scouts of Central Texas",
+  "category": "Community",
+  "program_type": "Youth Development Organization",
+  "age_divisions": {
+    "daisies": {"grades": "K-1", "ages": "5-6"},
+    "brownies": {"grades": "2-3", "ages": "7-9"},
+    "juniors": {"grades": "4-5", "ages": "9-11"},
+    "cadettes": {"grades": "6-8", "ages": "11-14"},
+    "seniors": {"grades": "9-10", "ages": "14-16"},
+    "ambassadors": {"grades": "11-12", "ages": "16-18"}
+  },
+  "program_pillars": [
+    "STEM education",
+    "Outdoor activities and camping",
+    "Life skills development",
+    "Community service",
+    "Entrepreneurship (cookie sales)",
+    "Leadership training"
+  ],
+  "meeting_schedule": {
+    "frequency": "Twice monthly",
+    "typical_day": "Varies by troop",
+    "duration": "1.5-2 hours"
+  },
+  "activities": [
+    "Badge earning programs",
+    "Field trips",
+    "Camp-outs and outdoor adventures",
+    "Service projects",
+    "Cultural activities",
+    "Cookie sales program"
+  ],
+  "membership_benefits": [
+    "Develop confidence and leadership",
+    "Make lasting friendships",
+    "Earn badges and awards",
+    "Try new activities",
+    "Travel opportunities",
+    "College scholarships"
+  ],
+  "costs": {
+    "annual_membership": "$25",
+    "troop_dues": "Varies by troop ($30-$60 annually)",
+    "uniform": "$15-$40 (optional)",
+    "activities": "Varies by event"
+  },
+  "volunteer_opportunities": {
+    "troop_leader": "Lead a group of girls",
+    "co_leader": "Assist troop leader",
+    "activity_helper": "Help with specific events",
+    "training_provided": true
+  },
+  "registration": {
+    "status": "Year-round enrollment",
+    "join_existing_troop": "Openings available",
+    "start_new_troop": "Volunteers needed",
+    "call_to_action": "Join Girl Scouts"
+  },
+  "contact": {
+    "website": "gsctx.org",
+    "email": "info@gsctx.org",
+    "phone": "512-555-2500"
+  }
+}

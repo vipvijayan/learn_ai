@@ -1,0 +1,69 @@
+{
+  "event_name": "Spelling Bee Competition",
+  "organization": "Austin ISD District Spelling Bee",
+  "category": "School",
+  "event_type": "Academic Competition",
+  "eligibility": {
+    "grades": "3rd through 8th grade",
+    "requirement": "Must place top 3 in school spelling bee"
+  },
+  "competition_levels": {
+    "school_level": {
+      "date": "January 2026",
+      "description": "Individual school competitions"
+    },
+    "district_level": {
+      "date": "February 22, 2026",
+      "location": "Austin ISD Performing Arts Center",
+      "time": "9:00 AM - 2:00 PM"
+    },
+    "regional_level": {
+      "date": "March 2026",
+      "description": "Top 10 from district advance"
+    },
+    "national_level": {
+      "date": "May 2026",
+      "location": "Washington, D.C.",
+      "description": "Scripps National Spelling Bee"
+    }
+  },
+  "competition_format": {
+    "rounds": "Multiple elimination rounds",
+    "word_sources": "Scripps National Spelling Bee word list",
+    "championship_round": "Final 5-10 spellers"
+  },
+  "preparation_resources": [
+    "Official word list provided",
+    "Practice sessions available",
+    "Study guides and apps",
+    "Vocabulary building exercises",
+    "Mock competition opportunities"
+  ],
+  "prizes": {
+    "district_champion": "$500 scholarship + trophy",
+    "2nd_place": "$300 scholarship + plaque",
+    "3rd_place": "$200 scholarship + plaque",
+    "all_participants": "Certificate of participation"
+  },
+  "rules": {
+    "time_limit": "2 minutes per word",
+    "clarifications_allowed": ["Definition", "Part of speech", "Language of origin", "Use in sentence"],
+    "elimination": "One incorrect spelling"
+  },
+  "spectator_info": {
+    "admission": "Free for spectators",
+    "seating": "First-come, first-served",
+    "livestream": "Available on district website"
+  },
+  "registration": {
+    "school_coordinator": "Submits qualified students",
+    "deadline": "February 1, 2026",
+    "status": "Contact your school",
+    "call_to_action": "Compete!"
+  },
+  "contact": {
+    "coordinator": "District Academic Coordinator",
+    "email": "spellingbee@austinisd.org",
+    "phone": "512-555-2900"
+  }
+}

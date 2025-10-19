@@ -1,14 +1,116 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import { ReactComponent as SchoolIcon } from './assets/SchoolIcon.svg';
 
 const API_BASE_URL = 'http://localhost:8000';
+
+// Function to parse markdown bold syntax
+const parseMarkdown = (text) => {
+  const parts = [];
+  let lastIndex = 0;
+  const boldRegex = /\*\*(.+?)\*\*/g;
+  let match;
+  
+  while ((match = boldRegex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+    }
+    // Add the bold text
+    parts.push({ type: 'bold', content: match[1] });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.substring(lastIndex) });
+  }
+  
+  return parts.length > 0 ? parts : [{ type: 'text', content: text }];
+};
+
+// Function to render text with markdown formatting
+const renderMarkdownText = (text, key) => {
+  const parts = parseMarkdown(text);
+  return (
+    <span key={key}>
+      {parts.map((part, i) => 
+        part.type === 'bold' ? (
+          <strong key={i}>{part.content}</strong>
+        ) : (
+          <span key={i}>{part.content}</span>
+        )
+      )}
+    </span>
+  );
+};
+
+// Function to format LLM response text into HTML
+const formatResponseText = (text) => {
+  if (!text) return '';
+  
+  // Split into paragraphs
+  const paragraphs = text.split('\n\n').filter(p => p.trim());
+  
+  return paragraphs.map((para, idx) => {
+    const trimmed = para.trim();
+    
+    // Check if it's a bullet point list (lines starting with • or -)
+    if (trimmed.includes('\n•') || trimmed.includes('\n-') || trimmed.startsWith('•') || trimmed.startsWith('-')) {
+      const lines = trimmed.split('\n');
+      const listItems = [];
+      let currentList = [];
+      
+      lines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-')) {
+          currentList.push(trimmedLine.replace(/^[•-]\s*/, ''));
+        } else if (trimmedLine) {
+          if (currentList.length > 0) {
+            listItems.push({ type: 'list', items: currentList });
+            currentList = [];
+          }
+          listItems.push({ type: 'text', content: trimmedLine });
+        }
+      });
+      
+      if (currentList.length > 0) {
+        listItems.push({ type: 'list', items: currentList });
+      }
+      
+      return (
+        <div key={idx} className="response-section">
+          {listItems.map((item, i) => 
+            item.type === 'list' ? (
+              <ul key={i} className="formatted-list">
+                {item.items.map((li, j) => (
+                  <li key={j}>{renderMarkdownText(li, j)}</li>
+                ))}
+              </ul>
+            ) : (
+              <p key={i} className="response-text">{renderMarkdownText(item.content, i)}</p>
+            )
+          )}
+        </div>
+      );
+    }
+    
+    // Check if it's a header (ends with : or is all caps and short)
+    if (trimmed.endsWith(':') && trimmed.length < 50) {
+      return <h4 key={idx} className="response-header">{renderMarkdownText(trimmed, idx)}</h4>;
+    }
+    
+    // Regular paragraph
+    return <p key={idx} className="response-text">{renderMarkdownText(trimmed, idx)}</p>;
+  });
+};
 
 function App() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'evaluation', or 'comparison'
+  const [activeTab, setActiveTab] = useState('events'); // 'events', 'chat', 'evaluation', or 'comparison'
   const [evaluationResults, setEvaluationResults] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [comparisonResults, setComparisonResults] = useState({
@@ -17,6 +119,8 @@ function App() {
   });
   const [isRunningComparison, setIsRunningComparison] = useState(false);
   const [currentMethod, setCurrentMethod] = useState('naive');
+  const [events, setEvents] = useState([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -26,6 +130,37 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Fetch events on component mount
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setIsLoadingEvents(true);
+        const response = await axios.get(`${API_BASE_URL}/events`);
+        setEvents(response.data.events);
+      } catch (err) {
+        console.error('Error fetching events:', err);
+      } finally {
+        setIsLoadingEvents(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  const handleEventClick = (event) => {
+    // Switch to chat tab
+    setActiveTab('chat');
+    
+    // Create a query about the event
+    let query = `Tell me more about ${event.name}`;
+    if (event.organization) {
+      query += ` by ${event.organization}`;
+    }
+    
+    // Set the input value
+    setInputValue(query);
+  };
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -172,10 +307,20 @@ function App() {
   return (
     <div className="app">
       <div className="header">
-        <h1>🏫 School Events Assistant</h1>
-        <p>Ask me about school events, programs, and activities!</p>
-        
-        <div className="tabs">
+        <SchoolIcon className="header-icon" />
+        <h1>School Events Assistant</h1>
+      </div>
+
+      {/* Main content area with sidebar and content */}
+      <div className="main-content">
+        {/* Sidebar with tabs */}
+        <div className="sidebar">
+          <button 
+            className={`tab ${activeTab === 'events' ? 'active' : ''}`}
+            onClick={() => setActiveTab('events')}
+          >
+            🎪 Browse Events
+          </button>
           <button 
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
@@ -195,9 +340,71 @@ function App() {
             📈 Method Comparison
           </button>
         </div>
-      </div>
 
-      {activeTab === 'chat' && (
+        {/* Content area */}
+        <div className="content-area">
+          {activeTab === 'events' && (
+            <div className="events-tab-container">
+              {isLoadingEvents ? (
+                <div className="events-loading">
+                  <div className="spinner-small"></div>
+                  <p>Loading events...</p>
+                </div>
+              ) : (
+                <div className="events-grid-wrapper">
+                  {events.map((event, index) => (
+                    <div 
+                      key={event.id} 
+                      className="event-card" 
+                      style={{animationDelay: `${index * 0.1}s`}}
+                      onClick={() => handleEventClick(event)}
+                    >
+                      <div className="event-header">
+                        <div className="event-icon">
+                          {event.type.includes('Camp') ? '🏕️' : 
+                           event.type.includes('Challenge') ? '🎯' : 
+                           event.type.includes('Audition') ? '🎭' :
+                           event.type.includes('Clinic') ? '⚽' :
+                           event.type.includes('Art') ? '🎨' : '📚'}
+                        </div>
+                        <h3 className="event-name">{event.name}</h3>
+                      </div>
+                      {event.organization && (
+                        <div className="event-organization">{event.organization}</div>
+                      )}
+                      <p className="event-description">
+                        {event.description.length > 100 
+                          ? event.description.substring(0, 100) + '...' 
+                          : event.description}
+                      </p>
+                      <div className="event-details">
+                        {event.target_audience && (
+                          <div className="event-detail">
+                            <span className="detail-icon">👥</span>
+                            <span>{event.target_audience}</span>
+                          </div>
+                        )}
+                        {event.date && (
+                          <div className="event-detail">
+                            <span className="detail-icon">📅</span>
+                            <span>{event.date}</span>
+                          </div>
+                        )}
+                        {event.cost && (
+                          <div className="event-detail">
+                            <span className="detail-icon">💰</span>
+                            <span className="event-cost">{event.cost}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'chat' && (
         <div className="chat-container">
         <div className="messages">
           {error && (
@@ -208,17 +415,29 @@ function App() {
 
           {messages.length === 0 && (
             <div className="welcome-message">
-              Welcome! Ask me about school events like:
-              <br />
+              <strong>Welcome to School Events Assistant! 🏫</strong>
+              <br /><br />
+              Ask me about school events, programs, and activities. Here are some examples:
+              <br /><br />
               • "What coding programs are available?"
+              <br />
               • "Tell me about holiday day camps"
+              <br />
               • "What activities are there for middle school students?"
             </div>
           )}
 
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.type}`}>
-              <div>{message.content}</div>
+              <div className="message-icon">
+                {message.type === 'user' ? '👤' : '🤖'}
+              </div>
+              <div className="message-content">
+                {message.type === 'assistant' 
+                  ? formatResponseText(message.content)
+                  : message.content
+                }
+              </div>
               {/* {message.context && (
                 <div className="context-info">
                   <strong>Sources:</strong>
@@ -260,10 +479,10 @@ function App() {
           </button>
         </div>
       </div>
-      )}
+          )}
 
-      {activeTab === 'evaluation' && (
-        <div className="evaluation-container">
+          {activeTab === 'evaluation' && (
+            <div className="evaluation-container">
           <div className="evaluation-header">
             <h2>📊 RAGAS Evaluation Results</h2>
             <p>Evaluate the RAG pipeline using RAGAS metrics: Faithfulness, Response Relevancy, Context Precision, and Context Recall</p>
@@ -359,20 +578,17 @@ function App() {
               </div>
 
               <div className="files-generated">
-                <h4>📁 Generated Files:</h4>
-                <ul>
-                  {evaluationResults.files_generated.map((file, index) => (
-                    <li key={index}>{file}</li>
-                  ))}
-                </ul>
+                <p style={{color: '#666', fontStyle: 'italic', marginTop: '20px'}}>
+                  💾 Evaluation results have been saved to the server for further analysis.
+                </p>
               </div>
             </div>
           )}
-        </div>
-      )}
+            </div>
+          )}
 
-      {activeTab === 'comparison' && (
-        <div className="evaluation-container">
+          {activeTab === 'comparison' && (
+            <div className="evaluation-container">
           <div className="evaluation-header">
             <h2>📈 Retrieval Methods Comparison</h2>
             <p>Compare Original RAG (k=4) vs Naive Retrieval (k=10) using RAGAS metrics</p>
@@ -527,8 +743,10 @@ function App() {
               </div>
             </div>
           )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

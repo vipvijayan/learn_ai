@@ -1,0 +1,58 @@
+{
+  "program_name": "Swimming Lessons",
+  "organization": "AquaTots Swim School",
+  "category": "Community",
+  "sport": "Swimming",
+  "age_range": "6 months - 12 years",
+  "lesson_levels": {
+    "parent_tot": {
+      "age": "6-36 months",
+      "description": "Water introduction with parent",
+      "duration": "30 minutes"
+    },
+    "preschool": {
+      "age": "3-5 years",
+      "description": "Basic water safety and skills",
+      "duration": "30 minutes"
+    },
+    "learn_to_swim": {
+      "age": "6-12 years",
+      "levels": ["Level 1", "Level 2", "Level 3", "Level 4"],
+      "description": "Stroke development and technique",
+      "duration": "45 minutes"
+    }
+  },
+  "class_format": {
+    "group_size": "Maximum 4 students per instructor",
+    "frequency": "Once or twice weekly",
+    "session_length": "8 weeks"
+  },
+  "pool_features": [
+    "Indoor heated pool (88°F)",
+    "Shallow teaching areas",
+    "Family viewing area",
+    "Clean locker rooms"
+  ],
+  "program_benefits": [
+    "Water safety skills",
+    "Confidence building",
+    "Physical fitness",
+    "Lifetime skill",
+    "Certified instructors"
+  ],
+  "pricing": {
+    "once_weekly": "$149 per month",
+    "twice_weekly": "$249 per month",
+    "private_lessons": "$60 per 30-minute session"
+  },
+  "registration": {
+    "status": "Year-round enrollment",
+    "trial_class": "Free trial class available",
+    "call_to_action": "Schedule Free Trial"
+  },
+  "contact": {
+    "website": "aquatotsswim.com",
+    "email": "info@aquatots.com",
+    "phone": "512-555-1800"
+  }
+}

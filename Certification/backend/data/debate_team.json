@@ -1,0 +1,33 @@
+{
+  "event_name": "Debate Team",
+  "organization": "Westwood High School",
+  "category": "School",
+  "program_type": "Competitive Speech and Debate",
+  "debate_formats": ["Lincoln-Douglas Debate", "Public Forum Debate", "Policy Debate", "Congressional Debate"],
+  "speech_events": ["Original Oratory", "Informative Speaking", "Dramatic Interpretation", "Extemporaneous Speaking"],
+  "meeting_schedule": {
+    "regular_meetings": "Monday & Thursday, 3:30-5:30 PM",
+    "tournament_weekends": "Most Saturdays during season"
+  },
+  "season": "September through April",
+  "competition_level": ["Novice division", "Varsity division", "State qualification", "National tournaments"],
+  "program_benefits": ["Public speaking skills", "Critical thinking", "Research abilities", "College resume builder", "Scholarship opportunities"],
+  "time_commitment": "10-15 hours per week during season",
+  "travel_opportunities": ["Local tournaments", "State championship", "National tournaments (for qualifiers)"],
+  "costs": {
+    "team_fee": "$300",
+    "tournament_fees": "$20-$50 per tournament",
+    "travel_expenses": "Varies for out-of-town tournaments"
+  },
+  "registration": {
+    "status": "Recruiting new members",
+    "tryouts": "Not required for beginners",
+    "meeting": "Informational meeting August 15, 6:00 PM",
+    "call_to_action": "Join Debate"
+  },
+  "contact": {
+    "coach": "Ms. Thompson",
+    "email": "debate@westwoodhigh.edu",
+    "phone": "512-555-3500"
+  }
+}

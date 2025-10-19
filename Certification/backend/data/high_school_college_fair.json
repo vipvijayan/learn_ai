@@ -1,0 +1,63 @@
+{
+  "event_name": "High School College Fair",
+  "organization": "Round Rock High School",
+  "category": "School",
+  "event_type": "College Information Fair",
+  "date": "October 3, 2025",
+  "time": "6:00 PM - 8:30 PM",
+  "location": {
+    "venue": "Round Rock High School Cafeteria",
+    "address": "300 Lake Creek Dr, Round Rock, TX 78681"
+  },
+  "target_audience": "Grades 9-12 and parents",
+  "participating_institutions": {
+    "count": "75+ colleges and universities",
+    "types": [
+      "Public universities",
+      "Private colleges",
+      "Community colleges",
+      "Technical schools",
+      "Military academies",
+      "Out-of-state institutions"
+    ]
+  },
+  "information_sessions": [
+    {
+      "time": "6:15 PM",
+      "topic": "Financial Aid and Scholarships",
+      "location": "Room 101"
+    },
+    {
+      "time": "7:00 PM",
+      "topic": "Application Process Timeline",
+      "location": "Room 102"
+    },
+    {
+      "time": "7:45 PM",
+      "topic": "Essay Writing Tips",
+      "location": "Room 103"
+    }
+  ],
+  "what_to_bring": [
+    "Questions for college representatives",
+    "Resume or activity list",
+    "Parent/guardian",
+    "Notebook for information"
+  ],
+  "free_resources": [
+    "College planning guide",
+    "Financial aid checklist",
+    "Application timeline",
+    "Scholarship directories"
+  ],
+  "registration": {
+    "cost": "Free",
+    "rsvp": "Helpful but not required",
+    "call_to_action": "Attend and Learn"
+  },
+  "contact": {
+    "coordinator": "College Counseling Office",
+    "email": "counseling@roundrockhigh.edu",
+    "phone": "512-555-1900"
+  }
+}

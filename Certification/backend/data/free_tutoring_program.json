@@ -1,0 +1,39 @@
+{
+  "program_name": "Free Tutoring Program",
+  "organization": "Cedar Park Public Library",
+  "category": "Community",
+  "age_range": "K-12 students",
+  "program_type": "Academic Support",
+  "subjects_offered": ["Math (all levels)", "Reading and writing", "Science", "Spanish", "Test prep (SAT, ACT)", "Homework help"],
+  "tutor_qualifications": "College students, teachers, and trained volunteers",
+  "schedule": {
+    "weekday_sessions": {
+      "monday_wednesday": "4:00-7:00 PM",
+      "tuesday_thursday": "4:00-7:00 PM"
+    },
+    "saturday_sessions": "10:00 AM - 1:00 PM"
+  },
+  "session_format": {
+    "drop_in": "No appointment needed",
+    "duration": "30-60 minutes",
+    "ratio": "Small group or one-on-one"
+  },
+  "location": "Cedar Park Library, Study Rooms",
+  "what_to_bring": ["Homework or assignments", "Textbooks", "Paper and pencil"],
+  "special_services": {
+    "test_prep": "SAT/ACT preparation workshops monthly",
+    "summer_programs": "Extended hours during summer break",
+    "esl_support": "English language learner assistance"
+  },
+  "cost": "Completely free",
+  "registration": {
+    "required": "No - just drop in!",
+    "parent_form": "First-time visitors fill out simple form",
+    "call_to_action": "Get Free Help"
+  },
+  "contact": {
+    "library": "Cedar Park Public Library",
+    "phone": "512-555-4500",
+    "email": "tutoring@cedarparklib.org"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "event_name": "STEM Science Fair",
+  "organization": "Anderson High School",
+  "category": "School",
+  "event_type": "Science Competition",
+  "date": "November 15, 2025",
+  "time": "9:00 AM - 3:00 PM",
+  "location": {
+    "venue": "Anderson High School Gymnasium",
+    "address": "8403 Mesa Dr, Austin, TX 78759"
+  },
+  "categories": [
+    "Biology",
+    "Chemistry",
+    "Physics",
+    "Engineering",
+    "Environmental Science",
+    "Computer Science"
+  ],
+  "grade_divisions": ["6-8", "9-12"],
+  "prizes": {
+    "first_place": "$500 scholarship",
+    "second_place": "$300 scholarship",
+    "third_place": "$200 scholarship",
+    "category_winners": "Medals and certificates"
+  },
+  "registration": {
+    "status": "Open",
+    "deadline": "October 20, 2025",
+    "fee": "$25 per project",
+    "call_to_action": "Register Now"
+  },
+  "contact": {
+    "email": "sciencefair@andersonhigh.edu",
+    "phone": "512-555-0600"
+  }
+}

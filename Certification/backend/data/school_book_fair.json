@@ -1,0 +1,58 @@
+{
+  "event_name": "School Book Fair",
+  "organization": "Grisham Middle School Library",
+  "category": "School",
+  "event_type": "Book Fair",
+  "dates": {
+    "setup": "November 4, 2025",
+    "fair_dates": "November 5-9, 2025",
+    "family_night": "November 7, 2025, 5:00-8:00 PM"
+  },
+  "location": {
+    "venue": "School Library",
+    "school": "Grisham Middle School"
+  },
+  "hours": {
+    "school_days": "Before school (7:30-8:00 AM) and after school (3:30-4:30 PM)",
+    "family_night": "5:00-8:00 PM"
+  },
+  "book_selection": {
+    "categories": [
+      "Fiction",
+      "Non-fiction",
+      "Graphic novels",
+      "Science and nature",
+      "Biography",
+      "Mystery and adventure",
+      "Fantasy"
+    ],
+    "age_appropriate": "Middle school reading levels"
+  },
+  "special_offers": {
+    "buy_one_get_one": "Select titles",
+    "teacher_wish_lists": "Support classroom libraries",
+    "fundraiser": "Portion of sales benefits school library"
+  },
+  "payment_options": [
+    "Cash",
+    "Check",
+    "Credit/debit cards",
+    "Online ordering with in-store pickup"
+  ],
+  "volunteer_opportunities": {
+    "needed": "Parent volunteers to help with sales",
+    "shifts": "1-2 hour time slots",
+    "signup": "Contact library coordinator"
+  },
+  "impact": "Proceeds support library programs and book purchases",
+  "registration": {
+    "shopping": "Open to all students and families",
+    "volunteer_signup": "Required for helpers",
+    "call_to_action": "Shop the Fair"
+  },
+  "contact": {
+    "coordinator": "Library Media Specialist",
+    "email": "library@grishammiddle.edu",
+    "phone": "512-555-2100"
+  }
+}
