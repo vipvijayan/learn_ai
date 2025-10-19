@@ -1,0 +1,284 @@
+
+> school-events-chat@1.0.0 start
+> react-scripts start
+
+(node:83364) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:83364) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
+Starting the development server...
+
+Compiled successfully!
+
+You can now view school-events-chat in the browser.
+
+  Local:            http://localhost:3000
+  On Your Network:  http://192.168.1.240:3000
+
+Note that the development build is not optimized.
+To create a production build, use npm run build.
+
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Proxy error: Could not proxy request /favicon.ico from localhost:3000 to http://localhost:8000.
+See https://nodejs.org/api/errors.html#errors_common_system_errors for more information (ECONNREFUSED).
+
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 11:10:  'activeTab' is assigned a value but never used             no-unused-vars
+  Line 11:21:  'setActiveTab' is assigned a value but never used          no-unused-vars
+  Line 12:10:  'evaluationResults' is assigned a value but never used     no-unused-vars
+  Line 12:29:  'setEvaluationResults' is assigned a value but never used  no-unused-vars
+  Line 13:10:  'isEvaluating' is assigned a value but never used          no-unused-vars
+  Line 13:24:  'setIsEvaluating' is assigned a value but never used       no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 11:10:  'activeTab' is assigned a value but never used             no-unused-vars
+  Line 11:21:  'setActiveTab' is assigned a value but never used          no-unused-vars
+  Line 12:10:  'evaluationResults' is assigned a value but never used     no-unused-vars
+  Line 12:29:  'setEvaluationResults' is assigned a value but never used  no-unused-vars
+  Line 13:10:  'isEvaluating' is assigned a value but never used          no-unused-vars
+  Line 13:24:  'setIsEvaluating' is assigned a value but never used       no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Failed to compile.
+
+[eslint] 
+src/App.js
+Syntax error: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (192:4) (192:4)
+ERROR in ./src/App.js
+Module build failed (from ./node_modules/babel-loader/lib/index.js):
+SyntaxError: /Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/src/App.js: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (192:4)
+
+  190 |         </div>
+  191 |       </div>
+> 192 |     </div>
+      |     ^
+  193 |   );
+  194 | }
+  195 |
+    at constructor (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:367:19)
+    at FlowParserMixin.raise (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:6630:19)
+    at FlowParserMixin.jsxParseElementAt (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4775:18)
+    at FlowParserMixin.jsxParseElement (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4782:17)
+    at FlowParserMixin.parseExprAtom (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4792:19)
+    at FlowParserMixin.parseExprSubscripts (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11085:23)
+    at FlowParserMixin.parseUpdate (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11070:21)
+    at FlowParserMixin.parseMaybeUnary (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11050:23)
+    at FlowParserMixin.parseMaybeUnaryOrPrivate (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10903:61)
+    at FlowParserMixin.parseExprOps (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10908:23)
+    at FlowParserMixin.parseMaybeConditional (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10885:23)
+    at FlowParserMixin.parseMaybeAssign (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10835:21)
+    at /Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:3531:39
+    at FlowParserMixin.tryParse (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:6938:20)
+    at FlowParserMixin.parseMaybeAssign (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:3531:18)
+    at /Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10804:39
+    at FlowParserMixin.allowInAnd (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:12436:12)
+    at FlowParserMixin.parseMaybeAssignAllowIn (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10804:17)
+    at FlowParserMixin.parseMaybeAssignAllowInOrVoidPattern (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:12503:17)
+    at FlowParserMixin.parseParenAndDistinguishExpression (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11683:28)
+    at FlowParserMixin.parseParenAndDistinguishExpression (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:3624:18)
+    at FlowParserMixin.parseExprAtom (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11335:23)
+    at FlowParserMixin.parseExprAtom (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4797:20)
+    at FlowParserMixin.parseExprSubscripts (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11085:23)
+    at FlowParserMixin.parseUpdate (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11070:21)
+    at FlowParserMixin.parseMaybeUnary (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11050:23)
+    at FlowParserMixin.parseMaybeUnaryOrPrivate (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10903:61)
+    at FlowParserMixin.parseExprOpBaseRightExpr (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10990:34)
+    at FlowParserMixin.parseExprOpRightExpr (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10985:21)
+    at FlowParserMixin.parseExprOp (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10951:27)
+    at FlowParserMixin.parseExprOp (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10957:21)
+    at FlowParserMixin.parseExprOps (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10912:17)
+    at FlowParserMixin.parseMaybeConditional (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10885:23)
+    at FlowParserMixin.parseMaybeAssign (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10835:21)
+    at FlowParserMixin.parseMaybeAssign (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:3582:18)
+    at FlowParserMixin.parseExpressionBase (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10788:23)
+    at /Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10784:39
+    at FlowParserMixin.allowInAnd (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:12436:12)
+    at FlowParserMixin.parseExpression (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10784:17)
+    at FlowParserMixin.jsxParseExpressionContainer (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4665:31)
+    at FlowParserMixin.jsxParseElementAt (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4744:36)
+    at FlowParserMixin.jsxParseElement (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4782:17)
+    at FlowParserMixin.parseExprAtom (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:4792:19)
+    at FlowParserMixin.parseExprSubscripts (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11085:23)
+    at FlowParserMixin.parseUpdate (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11070:21)
+    at FlowParserMixin.parseMaybeUnary (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:11050:23)
+    at FlowParserMixin.parseMaybeUnaryOrPrivate (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10903:61)
+    at FlowParserMixin.parseExprOps (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10908:23)
+    at FlowParserMixin.parseMaybeConditional (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10885:23)
+    at FlowParserMixin.parseMaybeAssign (/Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/frontend/node_modules/@babel/parser/lib/index.js:10835:21)
+
+ERROR in [eslint] 
+src/App.js
+  Line 192:4:  Parsing error: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (192:4)
+
+webpack compiled with 2 errors
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 107:9:  'handleEvaluationTabClick' is assigned a value but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 107:9:  'handleEvaluationTabClick' is assigned a value but never used  no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled successfully!
+webpack compiled successfully
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 14:10:  'comparisonResults' is assigned a value but never used       no-unused-vars
+  Line 14:29:  'setComparisonResults' is assigned a value but never used    no-unused-vars
+  Line 18:10:  'isRunningComparison' is assigned a value but never used     no-unused-vars
+  Line 18:31:  'setIsRunningComparison' is assigned a value but never used  no-unused-vars
+  Line 19:10:  'currentMethod' is assigned a value but never used           no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used        no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 14:10:  'comparisonResults' is assigned a value but never used       no-unused-vars
+  Line 14:29:  'setComparisonResults' is assigned a value but never used    no-unused-vars
+  Line 18:10:  'isRunningComparison' is assigned a value but never used     no-unused-vars
+  Line 18:31:  'setIsRunningComparison' is assigned a value but never used  no-unused-vars
+  Line 19:10:  'currentMethod' is assigned a value but never used           no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used        no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used             no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used          no-unused-vars
+  Line 164:9:  'handleComparisonTabClick' is assigned a value but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used             no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used          no-unused-vars
+  Line 164:9:  'handleComparisonTabClick' is assigned a value but never used  no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+webpack compiled with 1 warning
+Compiling...
+Compiled with warnings.
+
+[eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+WARNING in [eslint] 
+src/App.js
+  Line 19:10:  'currentMethod' is assigned a value but never used     no-unused-vars
+  Line 19:25:  'setCurrentMethod' is assigned a value but never used  no-unused-vars
+
+webpack compiled with 1 warning

@@ -1,0 +1,59 @@
+{
+  "organization": "CodeWizardsHQ",
+  "event_name": "Logic Challenge",
+  "edition": "6th Annual",
+  "target_audience": {
+    "grades": "3-12",
+    "age_description": "Students in grades 3-12"
+  },
+  "event_description": "CodeWizardsHQ presents the 6th Annual Logic Challenge, a free nationwide event where students in grades 3-12 solve weekly fun logic challenges. Kids and teens build 21st-century computational thinking and problem-solving skills while competing for tech prizes.",
+  "event_details": {
+    "type": "Free nationwide event",
+    "format": "Weekly fun logic challenges",
+    "duration": "Multiple weeks",
+    "cost": "Free"
+  },
+  "skills_developed": [
+    "Problem Decomposition",
+    "Pattern Recognition",
+    "Abstraction",
+    "Algorithmic Thinking",
+    "Sequencing",
+    "Logical Reasoning"
+  ],
+  "learning_outcomes": [
+    "21st-century computational thinking skills",
+    "Problem-solving skills",
+    "Critical thinking skills"
+  ],
+  "prizes": {
+    "category": "Tech Prizes",
+    "visual_items_shown": [
+      "Gaming device (appears to be Nintendo Switch)",
+      "Drone",
+      "Smart watch/fitness tracker",
+      "Camera",
+      "Other tech gadgets"
+    ]
+  },
+  "competition_details": {
+    "dates": "9/29-12/14",
+    "format": "1 Logic Challenge Each Week",
+    "late_enrollment": "Students Welcome to Enroll after 9/29 and Catch Up!"
+  },
+  "registration": {
+    "call_to_action": "Register Today!",
+    "website": "www.codewizardshq.com/logic-challenge/",
+    "qr_code": "Available for quick registration"
+  },
+  "key_features": [
+    "Free participation",
+    "Nationwide competition",
+    "Weekly challenges",
+    "Tech prize incentives",
+    "Skill-building focus",
+    "Flexible enrollment (can join late)",
+    "Builds computational thinking",
+    "Age-appropriate for grades 3-12"
+  ]
+}
