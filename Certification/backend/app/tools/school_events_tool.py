@@ -8,7 +8,6 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-import json
 import os
 import logging
 from datetime import datetime
@@ -53,20 +52,19 @@ class SchoolEventsSearchTool(BaseTool):
     def _setup_vector_store(self):
         """Initialize the vector store with school events data"""
         try:
-            # Load school events data
+            # Load school events data from text files
             data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
             documents = []
             
-            # Load all JSON files from data directory
+            # Load all TXT files from data directory
             if os.path.exists(data_dir):
                 for filename in os.listdir(data_dir):
-                    if filename.endswith('.json'):
+                    if filename.endswith('.txt'):
                         file_path = os.path.join(data_dir, filename)
-                        with open(file_path, 'r') as f:
-                            data = json.load(f)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
                             
-                            # Convert JSON to readable text format
-                            content = self._format_event_data(data)
+                            # Use the text content directly (already in readable format)
                             metadata = {
                                 "source": filename,
                                 "type": "school_event"
@@ -74,7 +72,7 @@ class SchoolEventsSearchTool(BaseTool):
                             documents.append(Document(page_content=content, metadata=metadata))
             
             if not documents:
-                print("Warning: No JSON files found in data directory")
+                print("Warning: No TXT files found in data directory")
                 return
             
             # Split documents into chunks
@@ -98,180 +96,6 @@ class SchoolEventsSearchTool(BaseTool):
         except Exception as e:
             print(f"❌ Error initializing School Events Tool: {e}")
             raise e
-    
-    def _format_event_data(self, data: dict) -> str:
-        """Format JSON event data into readable text"""
-        lines = []
-        
-        # Handle different data structures
-        if "program_name" in data:
-            # It's a program like CodeWizardsHQ or Chess Club
-            lines.append(f"Program: {data['program_name']}")
-            
-            if "organization" in data:
-                lines.append(f"Organization: {data['organization']}")
-            
-            if "category" in data:
-                lines.append(f"Category: {data['category']}")
-            
-            if "age_range" in data:
-                lines.append(f"Age Range: {data['age_range']}")
-            
-            # PRICING INFORMATION - CRITICAL!
-            if "pricing" in data:
-                pricing = data["pricing"]
-                if isinstance(pricing, dict):
-                    lines.append("Pricing:")
-                    for key, value in pricing.items():
-                        formatted_key = key.replace("_", " ").title()
-                        lines.append(f"  - {formatted_key}: {value}")
-                else:
-                    lines.append(f"Pricing: {pricing}")
-            
-            # Meeting schedules
-            if "meeting_schedule" in data:
-                schedule = data["meeting_schedule"]
-                if isinstance(schedule, dict):
-                    lines.append("Meeting Schedule:")
-                    for level, time in schedule.items():
-                        lines.append(f"  - {level.title()}: {time}")
-                else:
-                    lines.append(f"Meeting Schedule: {schedule}")
-            
-            # Program features
-            if "program_features" in data and isinstance(data["program_features"], list):
-                lines.append("Program Features:")
-                for feature in data["program_features"]:
-                    lines.append(f"  - {feature}")
-            
-            # Benefits
-            if "benefits" in data and isinstance(data["benefits"], list):
-                lines.append("Benefits:")
-                for benefit in data["benefits"]:
-                    lines.append(f"  - {benefit}")
-            
-            # Skill levels
-            if "skill_levels" in data and isinstance(data["skill_levels"], dict):
-                lines.append("Skill Levels:")
-                for level, info in data["skill_levels"].items():
-                    if isinstance(info, dict):
-                        lines.append(f"  - {level.title()}: {info.get('description', '')}")
-                        if "topics" in info:
-                            lines.append(f"    Topics: {', '.join(info['topics'])}")
-            
-            if "registration" in data and isinstance(data["registration"], dict):
-                reg = data["registration"]
-                lines.append("Registration:")
-                if "status" in reg:
-                    lines.append(f"  - Status: {reg['status']}")
-                if "trial_session" in reg:
-                    lines.append(f"  - Trial Session: {reg['trial_session']}")
-                if "call_to_action" in reg:
-                    lines.append(f"  - Call to Action: {reg['call_to_action']}")
-                if "link" in reg:
-                    lines.append(f"  - Registration Link: {reg['link']}")
-            
-            # Contact information
-            if "contact" in data and isinstance(data["contact"], dict):
-                contact = data["contact"]
-                lines.append("Contact Information:")
-                if "website" in contact:
-                    lines.append(f"  - Website: {contact['website']}")
-                if "email" in contact:
-                    lines.append(f"  - Email: {contact['email']}")
-                if "phone" in contact:
-                    lines.append(f"  - Phone: {contact['phone']}")
-            
-            if "details" in data:
-                lines.append(f"Additional Details: {json.dumps(data['details'], indent=2)}")
-        
-        elif "calendar" in data and isinstance(data["calendar"], list):
-            # It's a calendar of events
-            lines.append("School Calendar Events:")
-            for event in data["calendar"]:
-                if isinstance(event, dict):
-                    date = event.get("date", "Unknown Date")
-                    event_type = event.get("type", "Unknown Event")
-                    district = event.get("district", "Unknown District")
-                    lines.append(f"  - {date}: {event_type} (District: {district})")
-        
-        elif "event_name" in data:
-            # Standard event structure
-            lines.append(f"Event: {data['event_name']}")
-            
-            if "description" in data:
-                lines.append(f"Description: {data['description']}")
-            
-            if "organizer" in data:
-                lines.append(f"Organizer: {data['organizer']}")
-            
-            if "date" in data:
-                lines.append(f"Date: {data['date']}")
-            if "time" in data:
-                lines.append(f"Time: {data['time']}")
-            
-            if "location" in data:
-                lines.append(f"Location: {data['location']}")
-            
-            if "age_range" in data:
-                lines.append(f"Age Range: {data['age_range']}")
-            if "grade_levels" in data:
-                lines.append(f"Grade Levels: {data['grade_levels']}")
-            
-            # PRICING INFORMATION - Handle both 'cost' and 'pricing' fields
-            if "cost" in data:
-                lines.append(f"Cost: {data['cost']}")
-            
-            if "pricing" in data:
-                pricing = data["pricing"]
-                if isinstance(pricing, dict):
-                    lines.append("Pricing:")
-                    for key, value in pricing.items():
-                        formatted_key = key.replace("_", " ").title()
-                        lines.append(f"  - {formatted_key}: {value}")
-                else:
-                    lines.append(f"Pricing: {pricing}")
-            
-            if "registration" in data:
-                reg = data["registration"]
-                if isinstance(reg, dict):
-                    if "deadline" in reg:
-                        lines.append(f"Registration Deadline: {reg['deadline']}")
-                    if "link" in reg:
-                        lines.append(f"Registration Link: {reg['link']}")
-                else:
-                    lines.append(f"Registration: {reg}")
-            
-            if "contact" in data:
-                contact = data["contact"]
-                if isinstance(contact, dict):
-                    if "email" in contact:
-                        lines.append(f"Contact Email: {contact['email']}")
-                    if "phone" in contact:
-                        lines.append(f"Contact Phone: {contact['phone']}")
-                    if "website" in contact:
-                        lines.append(f"Contact Website: {contact['website']}")
-                else:
-                    lines.append(f"Contact: {contact}")
-            
-            if "details" in data:
-                lines.append(f"Additional Details: {data['details']}")
-            
-            if "programs" in data and isinstance(data["programs"], list):
-                lines.append("Available Programs:")
-                for program in data["programs"]:
-                    if isinstance(program, dict):
-                        prog_name = program.get("name", "Unnamed Program")
-                        lines.append(f"  - {prog_name}")
-                        if "description" in program:
-                            lines.append(f"    Description: {program['description']}")
-                    else:
-                        lines.append(f"  - {program}")
-        else:
-            # Fallback: convert entire JSON to string
-            lines.append(json.dumps(data, indent=2))
-        
-        return "\n".join(lines)
     
     def _run(self, query: str) -> str:
         """Search for school events based on the query"""

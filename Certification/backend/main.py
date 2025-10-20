@@ -169,18 +169,15 @@ def setup_rag_pipeline():
     
     logger.info("📝 Setting up RAG pipeline with BOTH retrieval methods...")
     
-    # Load the JSON files from data directory
+    # Load the TXT files from data directory
     all_events = []
     sources = []
     
     for filename in os.listdir(DATA_DIR):
-        if filename.endswith('.json'):
+        if filename.endswith('.txt'):
             logger.info(f"  Loading: {filename}")
-            with open(os.path.join(DATA_DIR, filename), 'r') as f:
-                data = json.load(f)
-                
-                # Convert entire JSON to readable text
-                event_text = json.dumps(data, indent=2)
+            with open(os.path.join(DATA_DIR, filename), 'r', encoding='utf-8') as f:
+                event_text = f.read()
                 all_events.append(event_text)
                 sources.append(filename)
     
@@ -908,12 +905,26 @@ async def evaluate_rag_with_ragas():
         
         # Extract metrics
         result_df = result.to_pandas()
-        metrics = {
-            "faithfulness": float(result_df["faithfulness"].mean()),
-            "answer_relevancy": float(result_df["answer_relevancy"].mean()),
-            "context_precision": float(result_df["context_precision"].mean()),
-            "context_recall": float(result_df["context_recall"].mean())
-        }
+        
+        # Debug: Log available columns
+        logger.info(f"📋 Available RAGAS columns: {list(result_df.columns)}")
+        logger.info(f"📊 Sample row:\n{result_df.head(1)}")
+        
+        # Extract metrics with actual column names
+        available_cols = list(result_df.columns)
+        metrics = {}
+        
+        # Map expected names to actual column names
+        if "faithfulness" in available_cols:
+            metrics["faithfulness"] = float(result_df["faithfulness"].mean())
+        if "answer_relevancy" in available_cols:
+            metrics["answer_relevancy"] = float(result_df["answer_relevancy"].mean())
+        if "response_relevancy" in available_cols:
+            metrics["response_relevancy"] = float(result_df["response_relevancy"].mean())
+        if "context_precision" in available_cols:
+            metrics["context_precision"] = float(result_df["context_precision"].mean())
+        if "context_recall" in available_cols:
+            metrics["context_recall"] = float(result_df["context_recall"].mean())
         
         # Save results to generated_results directory
         os.makedirs(GENERATED_RESULTS_DIR, exist_ok=True)
@@ -929,10 +940,8 @@ async def evaluate_rag_with_ragas():
         logger.info("="*80)
         logger.info("📊 RAGAS EVALUATION RESULTS")
         logger.info("="*80)
-        logger.info(f"Faithfulness:      {metrics['faithfulness']:.4f}")
-        logger.info(f"Answer Relevancy:  {metrics['answer_relevancy']:.4f}")
-        logger.info(f"Context Precision: {metrics['context_precision']:.4f}")
-        logger.info(f"Context Recall:    {metrics['context_recall']:.4f}")
+        for metric_name, metric_value in metrics.items():
+            logger.info(f"{metric_name:.<25} {metric_value:.4f}")
         logger.info("="*80)
         logger.info(f"💾 Results saved to: {results_csv_path}")
         logger.info(f"💾 Summary saved to: {summary_json_path}")

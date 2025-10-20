@@ -1,0 +1,22 @@
+Fall Festival and Carnival
+
+The Fall Festival and Carnival is organized by Cedar Park Elementary PTA. This is a Community Festival. Category: School.
+
+Event Date: October 26, 2025
+Time: 4:00 PM - 8:00 PM
+
+Location:
+Venue: Cedar Park Elementary School
+Address: 789 School Lane, Cedar Park, TX 78613
+
+Cost: {'entry': 'Free admission', 'game_tickets': '$1 each or 25 for $20', 'food': 'Priced separately'}
+
+Registration:
+Status: No registration required
+Volunteer Signup: Available online
+Call To Action: Join Us!
+
+Contact Information:
+Website: cedarparkelementarypta.org
+Email: pta@cedarparkelem.org
+Phone: 512-555-1300

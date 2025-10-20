@@ -1,0 +1,17 @@
+Low Cost Counseling Services
+The Low Cost Counseling Services is organized by Community Access Center (CAC). This program falls under the Community category. 
+
+Pricing Information:
+- Model: Sliding scale based on income
+- Starting At: $20 per session
+- Insurance: Some insurance accepted
+- Payment Options: ['Cash', 'Check', 'Credit card', 'Payment plans available']
+
+Registration Information:
+Registration is currently accepting new clients. Call to Schedule
+
+Contact Information:
+Website: communityaccesscounseling.org
+Email: info@caccounseling.org
+Phone: 512-555-0400
+

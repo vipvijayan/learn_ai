@@ -1,0 +1,94 @@
+Information from cordovan_art_school.json
+
+{
+  "organization": "Cordovan Art School",
+  "programs": {
+    "art_classes": {
+      "name": "Art Classes",
+      "age_range": "Ages 4-Adult",
+      "mediums": [
+        "Painting",
+        "Drawing",
+        "Anime",
+        "Clay + More"
+      ]
+    },
+    "art_camps": {
+      "name": "Art Camps",
+      "schedule": {
+        "october_2025": [
+          "October 13",
+          "October 16",
+          "October 17",
+          "October 20"
+        ],
+        "november_2025": [
+          "November 3",
+          "November 4",
+          "November 24",
+          "November 26"
+        ],
+        "december_2025": [
+          "December 19",
+          "December 22",
+          "December 23",
+          "December 29",
+          "December 30"
+        ],
+        "january_2026": [
+          "January 2",
+          "January 5"
+        ]
+      }
+    }
+  },
+  "locations": [
+    {
+      "name": "Cedar Park",
+      "phone": "(512) 329-9974"
+    },
+    {
+      "name": "Georgetown",
+      "phone": "(737) 301-3959"
+    },
+    {
+      "name": "NW Austin",
+      "phone": "(737) 300-1200"
+    },
+    {
+      "name": "Round Rock",
+      "phone": "(512) 279-4040"
+    },
+    {
+      "name": "SW Austin",
+      "phone": "(512) 531-9352"
+    }
+  ],
+  "website": "www.CordovanArtSchool.com",
+  "target_audience": {
+    "age_range": "4 years old to Adult",
+    "inclusive": "All ages welcome"
+  },
+  "art_mediums_offered": [
+    "Painting",
+    "Drawing",
+    "Anime/Manga art",
+    "Clay work",
+    "Additional art forms"
+  ],
+  "camp_months_available": [
+    "October 2025",
+    "November 2025",
+    "December 2025",
+    "January 2026"
+  ],
+  "total_camp_dates": 15,
+  "service_areas": [
+    "Cedar Park",
+    "Georgetown",
+    "Northwest Austin",
+    "Round Rock",
+    "Southwest Austin"
+  ],
+  "disclaimer": "Approval of distribution of these materials is in no way an endorsement of such services, activities, and/or products by the Round Rock Independent School District"
+}
