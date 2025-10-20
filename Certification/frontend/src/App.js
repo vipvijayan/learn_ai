@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { ReactComponent as SchoolIcon } from './assets/SchoolIcon.svg';
+import EventPopup from './components/EventPopup';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -49,59 +50,92 @@ const renderMarkdownText = (text, key) => {
 const formatResponseText = (text) => {
   if (!text) return '';
   
-  // Split into paragraphs
-  const paragraphs = text.split('\n\n').filter(p => p.trim());
+  // Split by single newlines first to handle headers properly
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const elements = [];
+  let currentParagraph = [];
   
-  return paragraphs.map((para, idx) => {
-    const trimmed = para.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     
-    // Check if it's a bullet point list (lines starting with • or -)
-    if (trimmed.includes('\n•') || trimmed.includes('\n-') || trimmed.startsWith('•') || trimmed.startsWith('-')) {
-      const lines = trimmed.split('\n');
-      const listItems = [];
-      let currentList = [];
-      
-      lines.forEach(line => {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-')) {
-          currentList.push(trimmedLine.replace(/^[•-]\s*/, ''));
-        } else if (trimmedLine) {
-          if (currentList.length > 0) {
-            listItems.push({ type: 'list', items: currentList });
-            currentList = [];
-          }
-          listItems.push({ type: 'text', content: trimmedLine });
-        }
-      });
-      
-      if (currentList.length > 0) {
-        listItems.push({ type: 'list', items: currentList });
+    // Check for markdown headers
+    if (line.match(/^###\s+/)) {
+      // Flush current paragraph
+      if (currentParagraph.length > 0) {
+        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+        currentParagraph = [];
       }
-      
-      return (
-        <div key={idx} className="response-section">
-          {listItems.map((item, i) => 
-            item.type === 'list' ? (
-              <ul key={i} className="formatted-list">
-                {item.items.map((li, j) => (
-                  <li key={j}>{renderMarkdownText(li, j)}</li>
-                ))}
-              </ul>
-            ) : (
-              <p key={i} className="response-text">{renderMarkdownText(item.content, i)}</p>
-            )
-          )}
-        </div>
-      );
+      elements.push({ type: 'h3', content: line.replace(/^###\s+/, '') });
+    } else if (line.match(/^##\s+/)) {
+      if (currentParagraph.length > 0) {
+        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+        currentParagraph = [];
+      }
+      elements.push({ type: 'h2', content: line.replace(/^##\s+/, '') });
+    } else if (line.match(/^#\s+/)) {
+      if (currentParagraph.length > 0) {
+        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+        currentParagraph = [];
+      }
+      elements.push({ type: 'h1', content: line.replace(/^#\s+/, '') });
+    } else if (line.startsWith('•') || line.startsWith('-')) {
+      // Bullet point
+      if (currentParagraph.length > 0) {
+        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+        currentParagraph = [];
+      }
+      // Collect consecutive bullet points
+      const bulletItems = [line.replace(/^[•-]\s*/, '')];
+      while (i + 1 < lines.length && (lines[i + 1].startsWith('•') || lines[i + 1].startsWith('-'))) {
+        i++;
+        bulletItems.push(lines[i].replace(/^[•-]\s*/, ''));
+      }
+      elements.push({ type: 'list', items: bulletItems });
+    } else {
+      // Regular line - add to current paragraph
+      currentParagraph.push(line);
     }
-    
-    // Check if it's a header (ends with : or is all caps and short)
-    if (trimmed.endsWith(':') && trimmed.length < 50) {
-      return <h4 key={idx} className="response-header">{renderMarkdownText(trimmed, idx)}</h4>;
+  }
+  
+  // Flush remaining paragraph
+  if (currentParagraph.length > 0) {
+    elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+  }
+  
+  // Render elements
+  return elements.map((element, idx) => {
+    switch (element.type) {
+      case 'h1':
+        return <h1 key={idx} className="response-header" style={{ fontSize: '1.6em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
+          {renderMarkdownText(element.content, idx)}
+        </h1>;
+      case 'h2':
+        return <h2 key={idx} className="response-header" style={{ fontSize: '1.4em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
+          {renderMarkdownText(element.content, idx)}
+        </h2>;
+      case 'h3':
+        return <h3 key={idx} className="response-header" style={{ fontSize: '1.2em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
+          {renderMarkdownText(element.content, idx)}
+        </h3>;
+      case 'list':
+        return <ul key={idx} className="formatted-list" style={{ marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em' }}>
+          {element.items.map((item, i) => (
+            <li key={i}>{renderMarkdownText(item, i)}</li>
+          ))}
+        </ul>;
+      case 'paragraph':
+        // Check if it's a header-like line (ends with :)
+        if (element.content.endsWith(':') && element.content.length < 50 && !element.content.includes('\n')) {
+          return <h4 key={idx} className="response-header" style={{ fontWeight: 'bold', marginTop: '0.8em', marginBottom: '0.3em' }}>
+            {renderMarkdownText(element.content, idx)}
+          </h4>;
+        }
+        return <p key={idx} className="response-text" style={{ marginBottom: '0.5em' }}>
+          {renderMarkdownText(element.content, idx)}
+        </p>;
+      default:
+        return null;
     }
-    
-    // Regular paragraph
-    return <p key={idx} className="response-text">{renderMarkdownText(trimmed, idx)}</p>;
   });
 };
 
@@ -110,21 +144,24 @@ function App() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('events'); // 'events', 'chat', 'evaluation', or 'comparison'
+  const [activeTab, setActiveTab] = useState('chat'); // 'events', 'chat', 'evaluation', or 'comparison'
   const [evaluationResults, setEvaluationResults] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [comparisonResults, setComparisonResults] = useState({
     original: null,
     naive: null
   });
+  const [isComparing, setIsComparing] = useState(false);
   const [isRunningComparison, setIsRunningComparison] = useState(false);
   const [currentMethod, setCurrentMethod] = useState('naive');
+  const messagesEndRef = useRef(null);
   const [events, setEvents] = useState([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const messagesEndRef = useRef(null);
-
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+  
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -147,6 +184,15 @@ function App() {
 
     fetchEvents();
   }, []);
+
+  const handleShowEventDetails = (event, e) => {
+    e.stopPropagation(); // Prevent event card click
+    setSelectedEventDetails(event);
+  };
+
+  const handleCloseEventPopup = () => {
+    setSelectedEventDetails(null);
+  };
 
   const handleEventClick = (event) => {
     // Switch to chat tab
@@ -174,11 +220,16 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/query`, {
+      const response = await axios.post(`${API_BASE_URL}/multi-agent-query`, {
         question: userMessage
       });
 
-      const { answer, context } = response.data;
+      const { answer, context, agent_used } = response.data;
+      
+      // Optional: Log which agent was used for debugging
+      if (agent_used) {
+        console.log(`🤖 Query answered by: ${agent_used}`);
+      }
 
       // Add assistant response to chat
       setMessages(prev => [...prev, { 
@@ -319,25 +370,25 @@ function App() {
             className={`tab ${activeTab === 'events' ? 'active' : ''}`}
             onClick={() => setActiveTab('events')}
           >
-            🎪 Browse Events
+            🎪&nbsp;&nbsp;Browse Events
           </button>
           <button 
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
-            💬 Chat
+            💬&nbsp;&nbsp;Chat
           </button>
           <button 
             className={`tab ${activeTab === 'evaluation' ? 'active' : ''}`}
             onClick={handleEvaluationTabClick}
           >
-            📊 RAGAS Evaluation
+            📊&nbsp;&nbsp;RAGAS Evaluation
           </button>
           <button 
             className={`tab ${activeTab === 'comparison' ? 'active' : ''}`}
             onClick={handleComparisonTabClick}
           >
-            📈 Method Comparison
+            📈&nbsp;&nbsp;Method Comparison
           </button>
         </div>
 
@@ -384,18 +435,29 @@ function App() {
                             <span>{event.target_audience}</span>
                           </div>
                         )}
-                        {event.date && (
-                          <div className="event-detail">
-                            <span className="detail-icon">📅</span>
-                            <span>{event.date}</span>
+                        <div className="event-details-row">
+                          <div className="event-details-column">
+                            {event.date && (
+                              <div className="event-detail">
+                                <span className="detail-icon">📅</span>
+                                <span>{event.date}</span>
+                              </div>
+                            )}
+                            {event.cost && (
+                              <div className="event-detail">
+                                <span className="detail-icon">💰</span>
+                                <span className="event-cost">{event.cost}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {event.cost && (
-                          <div className="event-detail">
-                            <span className="detail-icon">💰</span>
-                            <span className="event-cost">{event.cost}</span>
-                          </div>
-                        )}
+                          <button 
+                            className="event-more-info-btn"
+                            onClick={(e) => handleShowEventDetails(event, e)}
+                            title="View full details"
+                          >
+                            More Info
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -452,8 +514,19 @@ function App() {
           ))}
 
           {isLoading && (
-            <div className="message loading">
-              Searching school events data...
+            <div className="message assistant loading-message">
+              <div className="message-icon loading-icon">
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div className="message-content">
+                <div className="loading-text">
+                  Searching school events data...
+                </div>
+              </div>
             </div>
           )}
 
@@ -746,6 +819,13 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Event Details Popup */}
+        <EventPopup 
+          event={selectedEventDetails}
+          onClose={handleCloseEventPopup}
+          onAskAI={handleEventClick}
+        />
       </div>
     </div>
   );

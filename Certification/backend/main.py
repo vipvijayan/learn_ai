@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('backend.log'),
+        logging.FileHandler('logs/backend.log'),
         logging.StreamHandler()
     ]
 )
@@ -31,7 +31,7 @@ logger.info("="*80)
 
 # LangChain imports
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain_community.vectorstores import Qdrant
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
@@ -39,17 +39,53 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Import custom tool
-from school_events_tool import create_school_events_tool
+from app.tools.school_events_tool import create_school_events_tool
 
 # Import multi-agent system
-from multi_agent_system import create_school_events_agents, query_with_agent
+from app.agents.multi_agent_system import create_school_events_agents, query_with_agent
+
+# ============================================================
+# CONSTANTS AND CONFIGURATION
+# ============================================================
+
+# CORS configuration
+FRONTEND_URL = "http://localhost:3000"
+
+# Retrieval method configuration
+RETRIEVAL_METHODS = {
+    "original": "Original RAG (k=4, query expansion)",
+    "naive": "Naive Retrieval (k=10, LCEL chain from Advanced Retrieval)"
+}
+
+# ============================================================
+# GLOBAL VARIABLES
+# ============================================================
+
+# RAG components
+vector_store = None
+retriever = None
+generator_chain = None
+agent_tools = None
+school_events_tool = None
+multi_agents = None
+
+# Active retrieval method
+active_retrieval_method = "naive"  # Default to naive retrieval
+original_retriever = None
+naive_retriever = None
+original_chain = None
+naive_chain = None
+
+# ============================================================
+# FASTAPI APP SETUP
+# ============================================================
 
 app = FastAPI(title="School Events RAG API")
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_origins=[FRONTEND_URL],  # React dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,6 +107,10 @@ async def startup_event():
     logger.info("🔍 Active Retrieval Method: Naive Retrieval (default)")
     logger.info("="*80)
 
+# ============================================================
+# PYDANTIC MODELS
+# ============================================================
+
 class QueryRequest(BaseModel):
     question: str
 
@@ -78,24 +118,9 @@ class QueryResponse(BaseModel):
     answer: str
     context: List[str]
 
-# Global variables for RAG components
-vector_store = None
-retriever = None
-generator_chain = None
-agent_tools = None
-school_events_tool = None
-multi_agents = None
-
-# Retrieval method configuration
-RETRIEVAL_METHODS = {
-    "original": "Original RAG (k=4, query expansion)",
-    "naive": "Naive Retrieval (k=10, LCEL chain from Advanced Retrieval)"
-}
-active_retrieval_method = "naive"  # Default to naive retrieval
-original_retriever = None
-naive_retriever = None
-original_chain = None
-naive_chain = None
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
 
 def setup_agent_tools():
     """Initialize agent tools including custom school events tool"""
@@ -142,7 +167,7 @@ def setup_rag_pipeline():
     global original_retriever, naive_retriever, original_chain, naive_chain
     global active_retrieval_method
     
-    logger.info("� Setting up RAG pipeline with BOTH retrieval methods...")
+    logger.info("📝 Setting up RAG pipeline with BOTH retrieval methods...")
     
     # Load the JSON files from data directory
     all_events = []
@@ -166,15 +191,36 @@ def setup_rag_pipeline():
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     logger.info(f"🔤 Using embedding model: text-embedding-3-small")
     
-    # Create vector store with Chroma
-    from langchain_community.vectorstores import Chroma
+    # Create documents with text splitting for better retrieval
+    from langchain_community.vectorstores import Qdrant
     from langchain_core.documents import Document
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
     
+    # Create text splitter to chunk large JSON documents
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len,
+        separators=["\n\n", "\n", ",", " ", ""]
+    )
+    
+    # Create initial documents
     documents = [Document(page_content=text, metadata={"source": source}) 
                  for text, source in zip(all_events, sources)]
     
-    vectorstore = Chroma.from_documents(documents=documents, embedding=embeddings)
-    logger.info(f"💾 Vector store created with {len(documents)} documents")
+    # Split documents into smaller chunks for better retrieval
+    split_documents = text_splitter.split_documents(documents)
+    logger.info(f"📄 Split {len(documents)} documents into {len(split_documents)} chunks")
+    # Split documents into smaller chunks for better retrieval
+    split_documents = text_splitter.split_documents(documents)
+    logger.info(f"📄 Split {len(documents)} documents into {len(split_documents)} chunks")
+    
+    vectorstore = Qdrant.from_documents(
+        documents=split_documents,
+        embedding=embeddings,
+        location=":memory:"
+    )
+    logger.info(f"💾 Qdrant vector store created with {len(split_documents)} chunks")
     
     # ============================================================
     # METHOD 1: ORIGINAL RETRIEVAL (k=4, no query expansion in chain)

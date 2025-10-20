@@ -17,7 +17,7 @@ from langchain_core.tools import tool
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import create_react_agent
 
-from school_events_tool import create_school_events_tool
+from app.tools.school_events_tool import create_school_events_tool
 
 # Configure logging
 logging.basicConfig(
@@ -158,7 +158,9 @@ def create_school_events_agents():
 
 def create_simple_agent_graph():
     """
-    Create a simple agent graph that routes between web search and local events search.
+    Create a sequential agent graph with fallback strategy:
+    1. Try LocalEvents first (search local database)
+    2. If no useful results, fall back to WebSearch (Tavily)
     
     Returns:
         Compiled LangGraph
@@ -169,47 +171,82 @@ def create_simple_agent_graph():
     workflow = StateGraph(AgentState)
     
     # Add nodes
-    workflow.add_node("WebSearch", agents["search_node"])
     workflow.add_node("LocalEvents", agents["local_events_node"])
+    workflow.add_node("WebSearch", agents["search_node"])
     
-    # Define routing logic
-    def router(state):
-        """Route to appropriate agent based on the last message"""
+    # Router to check if LocalEvents found useful results
+    def check_local_results(state):
+        """
+        Check if LocalEvents found useful information.
+        If not, route to WebSearch for online search.
+        """
         messages = state["messages"]
         last_message = messages[-1]
-        
-        # Simple routing: if message mentions "local", "school events", "programs"
-        # use local events, otherwise use web search
         content = last_message.content.lower()
         
-        logger.info(f"\n🔀 ROUTING DECISION")
-        logger.info(f"   Query: {last_message.content[:100]}...")
+        logger.info(f"\n� CHECKING LOCAL RESULTS")
+        logger.info(f"   Response preview: {content[:150]}...")
         
-        if any(keyword in content for keyword in [
-            "local", "school event", "program", "camp", "class",
-            "registration", "when is", "available", "coding program",
-            "art class", "music program"
-        ]):
-            logger.info(f"   ➡️  Routing to: LocalEvents Agent")
-            logger.info(f"   Reason: Query contains local event keywords")
-            return "LocalEvents"
-        else:
-            logger.info(f"   ➡️  Routing to: WebSearch Agent")
-            logger.info(f"   Reason: Query appears to be general/web search")
+        # Check for indicators that no results were found
+        no_results_indicators = [
+            "i don't have",
+            "i couldn't find",
+            "no information",
+            "unable to",
+            "not available",
+            "can't find",
+            "cannot find",
+            "issue with accessing",
+            "unable to retrieve",
+            "no specific information",
+            "i'm currently unable",
+            "there are no",
+            "no events",
+            "no programs",
+            "no sports events",
+            "appears that there are no",
+            "it seems that there",
+            "unfortunately",
+            "not found",
+            "no results"
+        ]
+        
+        if any(indicator in content for indicator in no_results_indicators):
+            logger.info(f"   ❌ Local search found no useful results")
+            logger.info(f"   Detected phrase indicating no results")
+            logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
             return "WebSearch"
+        
+        # Check if response is too short (likely unhelpful)
+        if len(content.strip()) < 50:
+            logger.info(f"   ⚠️  Response too short ({len(content)} chars)")
+            logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
+            return "WebSearch"
+        
+        logger.info(f"   ✅ Local search found useful results")
+        logger.info(f"   ➡️  Ending search (no fallback needed)")
+        return END
     
-    # Set entry point
-    workflow.set_conditional_entry_point(
-        router,
+    # Set entry point - always start with LocalEvents
+    logger.info("\n🔧 WORKFLOW CONFIGURATION:")
+    logger.info("   Strategy: Sequential Search with Fallback")
+    logger.info("   1️⃣  First: LocalEvents (search local database)")
+    logger.info("   2️⃣  Fallback: WebSearch (if local finds nothing)")
+    
+    workflow.set_entry_point("LocalEvents")
+    
+    # After LocalEvents, check results and decide whether to fallback
+    workflow.add_conditional_edges(
+        "LocalEvents",
+        check_local_results,
         {
             "WebSearch": "WebSearch",
-            "LocalEvents": "LocalEvents"
+            END: END
         }
     )
     
-    # Both nodes end after execution
+    # WebSearch always ends
     workflow.add_edge("WebSearch", END)
-    workflow.add_edge("LocalEvents", END)
     
     return workflow.compile()
 

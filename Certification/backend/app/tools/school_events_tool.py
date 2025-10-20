@@ -54,7 +54,7 @@ class SchoolEventsSearchTool(BaseTool):
         """Initialize the vector store with school events data"""
         try:
             # Load school events data
-            data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+            data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
             documents = []
             
             # Load all JSON files from data directory
@@ -105,20 +105,85 @@ class SchoolEventsSearchTool(BaseTool):
         
         # Handle different data structures
         if "program_name" in data:
-            # It's a program like CodeWizardsHQ
+            # It's a program like CodeWizardsHQ or Chess Club
             lines.append(f"Program: {data['program_name']}")
+            
+            if "organization" in data:
+                lines.append(f"Organization: {data['organization']}")
+            
+            if "category" in data:
+                lines.append(f"Category: {data['category']}")
+            
+            if "age_range" in data:
+                lines.append(f"Age Range: {data['age_range']}")
+            
+            # PRICING INFORMATION - CRITICAL!
+            if "pricing" in data:
+                pricing = data["pricing"]
+                if isinstance(pricing, dict):
+                    lines.append("Pricing:")
+                    for key, value in pricing.items():
+                        formatted_key = key.replace("_", " ").title()
+                        lines.append(f"  - {formatted_key}: {value}")
+                else:
+                    lines.append(f"Pricing: {pricing}")
+            
+            # Meeting schedules
+            if "meeting_schedule" in data:
+                schedule = data["meeting_schedule"]
+                if isinstance(schedule, dict):
+                    lines.append("Meeting Schedule:")
+                    for level, time in schedule.items():
+                        lines.append(f"  - {level.title()}: {time}")
+                else:
+                    lines.append(f"Meeting Schedule: {schedule}")
+            
+            # Program features
+            if "program_features" in data and isinstance(data["program_features"], list):
+                lines.append("Program Features:")
+                for feature in data["program_features"]:
+                    lines.append(f"  - {feature}")
+            
+            # Benefits
+            if "benefits" in data and isinstance(data["benefits"], list):
+                lines.append("Benefits:")
+                for benefit in data["benefits"]:
+                    lines.append(f"  - {benefit}")
+            
+            # Skill levels
+            if "skill_levels" in data and isinstance(data["skill_levels"], dict):
+                lines.append("Skill Levels:")
+                for level, info in data["skill_levels"].items():
+                    if isinstance(info, dict):
+                        lines.append(f"  - {level.title()}: {info.get('description', '')}")
+                        if "topics" in info:
+                            lines.append(f"    Topics: {', '.join(info['topics'])}")
             
             if "registration" in data and isinstance(data["registration"], dict):
                 reg = data["registration"]
+                lines.append("Registration:")
                 if "status" in reg:
-                    lines.append(f"Registration Status: {reg['status']}")
+                    lines.append(f"  - Status: {reg['status']}")
+                if "trial_session" in reg:
+                    lines.append(f"  - Trial Session: {reg['trial_session']}")
                 if "call_to_action" in reg:
-                    lines.append(f"Call to Action: {reg['call_to_action']}")
+                    lines.append(f"  - Call to Action: {reg['call_to_action']}")
                 if "link" in reg:
-                    lines.append(f"Registration Link: {reg['link']}")
+                    lines.append(f"  - Registration Link: {reg['link']}")
+            
+            # Contact information
+            if "contact" in data and isinstance(data["contact"], dict):
+                contact = data["contact"]
+                lines.append("Contact Information:")
+                if "website" in contact:
+                    lines.append(f"  - Website: {contact['website']}")
+                if "email" in contact:
+                    lines.append(f"  - Email: {contact['email']}")
+                if "phone" in contact:
+                    lines.append(f"  - Phone: {contact['phone']}")
             
             if "details" in data:
-                lines.append(f"Full Details: {json.dumps(data['details'], indent=2)}")
+                lines.append(f"Additional Details: {json.dumps(data['details'], indent=2)}")
         
         elif "calendar" in data and isinstance(data["calendar"], list):
             # It's a calendar of events
@@ -153,6 +218,20 @@ class SchoolEventsSearchTool(BaseTool):
             if "grade_levels" in data:
                 lines.append(f"Grade Levels: {data['grade_levels']}")
             
+            # PRICING INFORMATION - Handle both 'cost' and 'pricing' fields
+            if "cost" in data:
+                lines.append(f"Cost: {data['cost']}")
+            
+            if "pricing" in data:
+                pricing = data["pricing"]
+                if isinstance(pricing, dict):
+                    lines.append("Pricing:")
+                    for key, value in pricing.items():
+                        formatted_key = key.replace("_", " ").title()
+                        lines.append(f"  - {formatted_key}: {value}")
+                else:
+                    lines.append(f"Pricing: {pricing}")
+            
             if "registration" in data:
                 reg = data["registration"]
                 if isinstance(reg, dict):
@@ -163,9 +242,6 @@ class SchoolEventsSearchTool(BaseTool):
                 else:
                     lines.append(f"Registration: {reg}")
             
-            if "cost" in data:
-                lines.append(f"Cost: {data['cost']}")
-            
             if "contact" in data:
                 contact = data["contact"]
                 if isinstance(contact, dict):
@@ -173,6 +249,8 @@ class SchoolEventsSearchTool(BaseTool):
                         lines.append(f"Contact Email: {contact['email']}")
                     if "phone" in contact:
                         lines.append(f"Contact Phone: {contact['phone']}")
+                    if "website" in contact:
+                        lines.append(f"Contact Website: {contact['website']}")
                 else:
                     lines.append(f"Contact: {contact}")
             
