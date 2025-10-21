@@ -4,7 +4,7 @@ Custom LangChain Tool for searching school events and programs
 from langchain.tools import BaseTool
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain_community.vectorstores import Chroma
+from langchain_community.vectorstores import Qdrant
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -43,19 +43,18 @@ class SchoolEventsSearchTool(BaseTool):
     """
     args_schema: Type[BaseModel] = SchoolEventsSearchInput
     
-    vector_store: Optional[Chroma] = None
+    vector_store: Optional[Qdrant] = None
     
     def __init__(self):
         super().__init__()
         self._setup_vector_store()
     
     def _setup_vector_store(self):
-        """Initialize the vector store with school events data"""
+        """Initialize the vector store with school events data using Qdrant"""
         try:
             # Load school events data from text files
             data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
             documents = []
-            
             # Load all TXT files from data directory
             if os.path.exists(data_dir):
                 for filename in os.listdir(data_dir):
@@ -63,18 +62,14 @@ class SchoolEventsSearchTool(BaseTool):
                         file_path = os.path.join(data_dir, filename)
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
-                            
-                            # Use the text content directly (already in readable format)
                             metadata = {
                                 "source": filename,
                                 "type": "school_event"
                             }
                             documents.append(Document(page_content=content, metadata=metadata))
-            
             if not documents:
                 print("Warning: No TXT files found in data directory")
                 return
-            
             # Split documents into chunks
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000,
@@ -82,17 +77,14 @@ class SchoolEventsSearchTool(BaseTool):
                 length_function=len,
             )
             chunks = text_splitter.split_documents(documents)
-            
             # Create embeddings and vector store
             embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-            self.vector_store = Chroma.from_documents(
+            self.vector_store = Qdrant.from_documents(
                 documents=chunks,
                 embedding=embeddings,
-                collection_name="school_events_tool"
+                location=":memory:"
             )
-            
-            print(f"✅ School Events Tool initialized with {len(documents)} documents and {len(chunks)} chunks")
-            
+            print(f"✅ School Events Tool initialized with {len(documents)} documents and {len(chunks)} chunks (Qdrant)")
         except Exception as e:
             print(f"❌ Error initializing School Events Tool: {e}")
             raise e

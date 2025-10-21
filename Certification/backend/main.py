@@ -309,93 +309,6 @@ Context:
 async def root():
     return {"message": "School Events RAG API is running!", "status": "healthy"}
 
-@app.post("/query", response_model=QueryResponse)
-async def query_events(request: QueryRequest):
-    """Process user query using the active retrieval method (Original or Naive)"""
-    from datetime import datetime
-    start_time = datetime.now()
-    
-    # Declare global variables FIRST
-    global retriever, generator_chain, active_retrieval_method
-    global original_retriever, naive_retriever, original_chain, naive_chain
-    
-    logger.info("="*80)
-    logger.info(f"📥 /query ENDPOINT")
-    logger.info(f"Query: {request.question}")
-    logger.info(f"Active Method: {active_retrieval_method}")
-    
-    try:
-        # Initialize RAG pipeline if not already done
-        if not retriever or not generator_chain:
-            logger.info("⚙️ RAG pipeline not initialized, setting up...")
-            setup_rag_pipeline()
-        
-        if not retriever or not generator_chain:
-            logger.error("❌ RAG pipeline initialization failed")
-            raise HTTPException(status_code=500, detail="RAG pipeline initialization failed")
-        
-        # Route to the appropriate retrieval method
-        if active_retrieval_method == "original":
-            # ORIGINAL METHOD: k=4, simple chain
-            logger.info(f"🔍 Using Original Retrieval (k=4)")
-            retrieved_docs = original_retriever.invoke(request.question)
-            
-            logger.info(f"📄 Retrieved {len(retrieved_docs)} documents")
-            
-            # Log source files
-            sources = [doc.metadata.get('source', 'unknown') for doc in retrieved_docs]
-            unique_sources = list(set(sources))
-            logger.info(f"📚 Sources used: {', '.join(unique_sources)}")
-            
-            # Prepare context
-            context = "\n\n".join([doc.page_content for doc in retrieved_docs])
-            
-            # Generate response
-            logger.info(f"🤖 Using Original Chain (simple prompt | llm | parser)")
-            response_text = original_chain.invoke({
-                "question": request.question,
-                "context": context
-            })
-            
-            # Extract context snippets for display
-            context_snippets = [doc.page_content[:200] + "..." for doc in retrieved_docs[:3]]
-            
-        else:  # naive method
-            # NAIVE METHOD: k=10, LCEL chain
-            logger.info(f"🔍 Using Naive Retrieval Chain (LCEL pattern, k=10)")
-            result = naive_chain.invoke({"question": request.question})
-            
-            # Extract response and documents
-            response_text = result["response"].content
-            retrieved_docs = result["context"]
-            
-            logger.info(f"📄 Retrieved {len(retrieved_docs)} documents")
-            
-            # Log source files
-            sources = [doc.metadata.get('source', 'unknown') for doc in retrieved_docs]
-            unique_sources = list(set(sources))
-            logger.info(f"📚 Sources used: {', '.join(unique_sources)}")
-            
-            # Extract context snippets for display
-            context_snippets = [doc.page_content[:200] + "..." for doc in retrieved_docs[:3]]
-        
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.info(f"✅ Query completed in {duration:.2f}s")
-        logger.info(f"Response length: {len(response_text)} characters")
-        logger.info(f"📊 Method used: {RETRIEVAL_METHODS[active_retrieval_method]}")
-        logger.info("="*80)
-        
-        return QueryResponse(
-            answer=response_text,
-            context=context_snippets
-        )
-        
-    except Exception as e:
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.error(f"❌ Query failed after {duration:.2f}s: {str(e)}")
-        logger.error("="*80)
-        print(f"Error in query_events: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
 
 @app.get("/retrieval-methods")
 async def get_retrieval_methods():
@@ -567,71 +480,7 @@ async def get_events():
         logger.error(f"❌ Error retrieving events: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving events: {str(e)}")
 
-@app.post("/agent-query")
-async def agent_query_events(request: QueryRequest):
-    """Process user query using agent tools (for demonstration/testing)"""
-    from datetime import datetime
-    start_time = datetime.now()
-    
-    logger.info("="*80)
-    logger.info(f"📥 /agent-query ENDPOINT")
-    logger.info(f"Query: {request.question}")
-    
-    try:
-        # Initialize agent tools if not already done
-        global agent_tools, school_events_tool
-        if not agent_tools:
-            logger.info("⚙️ Agent tools not initialized, setting up...")
-            setup_agent_tools()
-        
-        if not school_events_tool:
-            logger.error("❌ Agent tools initialization failed")
-            raise HTTPException(status_code=500, detail="Agent tools initialization failed")
-        
-        # Use the school events tool directly
-        logger.info(f"🔧 Using tool: {school_events_tool.name}")
-        tool_result = school_events_tool._run(request.question)
-        
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.info(f"✅ Agent query completed in {duration:.2f}s")
-        logger.info(f"Result length: {len(tool_result)} characters")
-        logger.info("="*80)
-        
-        # Return structured response
-        return {
-            "answer": tool_result,
-            "tool_used": school_events_tool.name,
-            "context": [tool_result[:200] + "..."] if len(tool_result) > 200 else [tool_result]
-        }
-        
-    except Exception as e:
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.error(f"❌ Agent query failed after {duration:.2f}s: {str(e)}")
-        logger.error("="*80)
-        print(f"Error in agent_query_events: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing agent query: {str(e)}")
 
-@app.get("/tools")
-async def list_tools():
-    """List available agent tools"""
-    try:
-        global agent_tools
-        if not agent_tools:
-            setup_agent_tools()
-        
-        tools_info = []
-        for tool in agent_tools:
-            tools_info.append({
-                "name": tool.name,
-                "description": tool.description,
-            })
-        
-        return {
-            "tools": tools_info,
-            "count": len(tools_info)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing tools: {str(e)}")
 
 @app.post("/multi-agent-query")
 async def multi_agent_query_events(request: QueryRequest):
@@ -697,34 +546,6 @@ async def multi_agent_query_events(request: QueryRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error processing multi-agent query: {str(e)}")
 
-@app.get("/agents")
-async def list_agents():
-    """List available agents in the multi-agent system"""
-    try:
-        global multi_agents
-        if not multi_agents:
-            multi_agents = create_school_events_agents()
-        
-        agents_info = [
-            {
-                "name": "WebSearch",
-                "description": "Research assistant for up-to-date web information using Tavily",
-                "tools": ["tavily_search_results_json"]
-            },
-            {
-                "name": "LocalEvents",
-                "description": "Local school events specialist with access to school events database",
-                "tools": ["school_events_search"]
-            }
-        ]
-        
-        return {
-            "agents": agents_info,
-            "count": len(agents_info),
-            "routing": "Automatic based on query content"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing agents: {str(e)}")
 
 @app.post("/evaluate-ragas")
 async def evaluate_rag_with_ragas():
