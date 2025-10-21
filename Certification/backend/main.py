@@ -4,13 +4,11 @@ from pydantic import BaseModel
 import json
 import os
 import logging
-from typing import List, Dict, Any
 from dotenv import load_dotenv
 
-# Directory paths - use absolute paths relative to this script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, "data")
-GENERATED_RESULTS_DIR = os.path.join(SCRIPT_DIR, "generated_results")
+# Directory paths
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+GENERATED_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_results")
 
 # Configure logging
 logging.basicConfig(
@@ -62,7 +60,6 @@ RETRIEVAL_METHODS = {
 # ============================================================
 
 # RAG components
-vector_store = None
 retriever = None
 generator_chain = None
 agent_tools = None
@@ -116,7 +113,7 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     answer: str
-    context: List[str]
+    context: list[str]
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -463,7 +460,7 @@ async def get_active_retrieval_method():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "rag_initialized": vector_store is not None}
+    return {"status": "healthy", "rag_initialized": retriever is not None}
 
 @app.get("/events")
 async def get_events():
