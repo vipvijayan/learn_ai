@@ -472,130 +472,94 @@ async def get_events():
         events = []
         
         for filename in os.listdir(DATA_DIR):
-            if filename.endswith('.json'):
+            if filename.endswith('.txt'):
                 filepath = os.path.join(DATA_DIR, filename)
-                with open(filepath, 'r') as f:
-                    data = json.load(f)
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read()
                     
-                    # Extract key information
-                    # Generate a meaningful event name
-                    event_name = None
-                    if "event_name" in data:
-                        event_name = data["event_name"]
-                    elif "program_name" in data:
-                        event_name = data["program_name"]
-                    elif "event_type" in data:
-                        event_name = data["event_type"]
-                    elif "program_type" in data:
-                        event_name = data["program_type"]
-                    elif "programs" in data and isinstance(data["programs"], dict):
-                        # Extract from programs structure
-                        first_program = next(iter(data["programs"].values()))
-                        if isinstance(first_program, dict) and "name" in first_program:
-                            event_name = first_program["name"]
+                    # Parse the text file to extract key information
+                    lines = content.split('\n')
                     
-                    # If still no name, generate from organization and type/description
-                    if not event_name:
-                        org = data.get("organization", "")
-                        if org:
-                            # Check for program type or other identifying info
-                            if "program_type" in data:
-                                event_name = f"{org} - {data['program_type']}"
-                            elif "chapter" in data:
-                                event_name = f"{org} {data['chapter']}"
-                            else:
-                                event_name = f"{org} Programs"
-                        else:
-                            event_name = "Special Program"
+                    # First line is typically the event/program name
+                    event_name = lines[0].strip() if lines else filename.replace('.txt', '').replace('_', ' ').title()
+                    
+                    # Extract organization, category, and age range from second paragraph
+                    organization = ""
+                    category = ""
+                    target_audience = ""
+                    description = ""
+                    cost = ""
+                    date = ""
+                    
+                    # Parse the content for key information
+                    for i, line in enumerate(lines):
+                        line_lower = line.lower().strip()
+                        
+                        # Extract organization (usually in first few lines)
+                        if 'organized by' in line_lower or 'organization:' in line_lower:
+                            parts = line.split('organized by')
+                            if len(parts) > 1:
+                                organization = parts[1].split('.')[0].strip()
+                        
+                        # Extract category
+                        if 'category' in line_lower and not category:
+                            if 'falls under the' in line_lower:
+                                parts = line.split('falls under the')
+                                if len(parts) > 1:
+                                    category = parts[1].split('category')[0].strip()
+                        
+                        # Extract age range
+                        if 'age range' in line_lower or 'ages ' in line_lower or 'grades' in line_lower:
+                            if 'designed for' in line_lower or 'age range' in line_lower:
+                                # Extract the age/grade info
+                                if 'ages' in line_lower:
+                                    import re
+                                    age_match = re.search(r'ages?\s+[\d\-\+\s]+', line_lower)
+                                    if age_match:
+                                        target_audience = age_match.group(0).title()
+                                if 'grades' in line_lower:
+                                    import re
+                                    grade_match = re.search(r'grades?\s+[k\d\-\+\s]+', line_lower, re.IGNORECASE)
+                                    if grade_match:
+                                        target_audience = grade_match.group(0).title()
+                        
+                        # Extract pricing
+                        if 'pricing information:' in line_lower or 'cost:' in line_lower:
+                            # Look for price in next few lines
+                            for j in range(i, min(i+10, len(lines))):
+                                price_line = lines[j]
+                                if '$' in price_line:
+                                    # Extract first price found
+                                    import re
+                                    price_match = re.search(r'\$\d+(?:\.\d{2})?(?:\s*(?:per|/)\s*\w+)?', price_line)
+                                    if price_match and not cost:
+                                        cost = price_match.group(0)
+                                        break
+                        
+                        # Extract dates (look for date patterns)
+                        if any(month in line_lower for month in ['january', 'february', 'march', 'april', 'may', 'june', 
+                                                                   'july', 'august', 'september', 'october', 'november', 'december']) and not date:
+                            date = line.strip()[:100]  # Limit length
+                    
+                    # Create description from first paragraph after title
+                    if len(lines) > 1:
+                        # Get first substantial paragraph
+                        for line in lines[1:]:
+                            if len(line.strip()) > 50:
+                                description = line.strip()[:200]  # Limit to 200 chars
+                                break
                     
                     event = {
-                        "id": filename.replace('.json', ''),
+                        "id": filename.replace('.txt', ''),
                         "name": event_name,
-                        "organization": data.get("organization", ""),
-                        "description": "",
-                        "target_audience": "",
-                        "date": "",
-                        "cost": "",
-                        "type": "",
+                        "organization": organization,
+                        "description": description,
+                        "target_audience": target_audience,
+                        "date": date,
+                        "cost": cost,
+                        "type": category if category else "Event",
                         "filename": filename
                     }
-                    
-                    # Extract description
-                    if "event_description" in data:
-                        event["description"] = data["event_description"]
-                    elif "program_features" in data and "includes" in data["program_features"]:
-                        event["description"] = ", ".join(data["program_features"]["includes"][:2])
-                    elif "features" in data and isinstance(data["features"], list):
-                        event["description"] = ", ".join(data["features"][:2])
-                    elif "divisions" in data and isinstance(data["divisions"], dict):
-                        # Extract from divisions (like National Children's Chorus)
-                        first_div = next(iter(data["divisions"].values()))
-                        if isinstance(first_div, dict) and "features" in first_div:
-                            event["description"] = ", ".join(first_div["features"][:2])
-                    elif "programs" in data and isinstance(data["programs"], dict):
-                        # Extract from programs (like Cordovan Art School)
-                        first_prog = next(iter(data["programs"].values()))
-                        if isinstance(first_prog, dict):
-                            if "mediums" in first_prog:
-                                event["description"] = f"Learn {', '.join(first_prog['mediums'][:3])}"
-                            elif "name" in first_prog:
-                                event["description"] = first_prog["name"]
-                    elif "activities_offered" in data:
-                        event["description"] = ", ".join(data["activities_offered"][:2])
-                    else:
-                        # Create description from organization and type
-                        if event["organization"]:
-                            event["description"] = f"Quality program by {event['organization']}"
-                        else:
-                            event["description"] = "Exciting educational opportunity"
-                    
-                    # Extract target audience
-                    if "target_audience" in data:
-                        if isinstance(data["target_audience"], dict):
-                            parts = []
-                            if "age_range" in data["target_audience"]:
-                                parts.append(data["target_audience"]["age_range"])
-                            elif "grades" in data["target_audience"]:
-                                parts.append("Grades " + data["target_audience"]["grades"])
-                            elif "age_description" in data["target_audience"]:
-                                parts.append(data["target_audience"]["age_description"])
-                            if "gender" in data["target_audience"]:
-                                parts.append(data["target_audience"]["gender"])
-                            event["target_audience"] = " - ".join(parts) if parts else ""
-                        else:
-                            event["target_audience"] = str(data["target_audience"])
-                    elif "divisions" in data and isinstance(data["divisions"], dict):
-                        # Extract from divisions (like National Children's Chorus)
-                        ages = []
-                        for div_data in data["divisions"].values():
-                            if isinstance(div_data, dict) and "age_range" in div_data:
-                                ages.append(div_data["age_range"])
-                        if ages:
-                            event["target_audience"] = ", ".join(ages)
-                    
-                    # Extract dates
-                    if "event_details" in data and "date" in data["event_details"]:
-                        event["date"] = data["event_details"]["date"]
-                    elif "competition_details" in data and "dates" in data["competition_details"]:
-                        event["date"] = data["competition_details"]["dates"]
-                    elif "camp_schedule_2025" in data and len(data["camp_schedule_2025"]) > 0:
-                        event["date"] = data["camp_schedule_2025"][0]["date"]
-                    
-                    # Extract cost
-                    if "event_details" in data and "cost" in data["event_details"]:
-                        event["cost"] = data["event_details"]["cost"]
-                    elif "registration" in data and "cost" in data["registration"]:
-                        event["cost"] = data["registration"]["cost"]
-                    
-                    # Extract type
-                    if "event_type" in data:
-                        event["type"] = data["event_type"]
-                    elif "event_details" in data and "type" in data["event_details"]:
-                        event["type"] = data["event_details"]["type"]
-                    elif "program_name" in data:
-                        event["type"] = "Day Camp"
-                    else:
-                        event["type"] = "Event"
                     
                     events.append(event)
         
