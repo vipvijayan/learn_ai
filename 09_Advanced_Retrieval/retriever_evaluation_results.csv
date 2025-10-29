@@ -1,0 +1,6 @@
+,context_recall,context_entity_recall,latency_seconds
+Naive,0.0417,0.0417,38.2255
+BM25,0.0,0.0,27.4656
+Multi-Query,0.0833,0.0417,70.5679
+Parent Document,0.0,0.0,34.467
+Compression (Rerank),0.0,0.0,21.8872
