@@ -600,7 +600,7 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                 logger.info("⚙️ Multi-Agent system not initialized, setting up...")
                 await websocket.send_json({
                     "type": "status",
-                    "content": "Initializing multi-agent system..."
+                    "content": "Initializing search..."
                 })
                 multi_agents = create_school_events_agents()
                 logger.info("✅ Multi-Agent system ready")
