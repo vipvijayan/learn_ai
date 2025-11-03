@@ -95,6 +95,19 @@ const formatResponseText = (text) => {
         currentParagraph = [];
       }
       elements.push({ type: 'h1', content: line.replace(/^#\s+/, '') });
+    } else if (line.match(/^\d+\.\s+/)) {
+      // Numbered list (e.g., "1. ", "2. ")
+      if (currentParagraph.length > 0) {
+        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+        currentParagraph = [];
+      }
+      // Collect consecutive numbered items
+      const numberedItems = [line.replace(/^\d+\.\s*/, '')];
+      while (i + 1 < lines.length && lines[i + 1].match(/^\d+\.\s+/)) {
+        i++;
+        numberedItems.push(lines[i].replace(/^\d+\.\s*/, ''));
+      }
+      elements.push({ type: 'numbered-list', items: numberedItems });
     } else if (line.startsWith('•') || line.startsWith('-')) {
       // Bullet point
       if (currentParagraph.length > 0) {
@@ -134,6 +147,12 @@ const formatResponseText = (text) => {
         return <h3 key={idx} className="response-header" style={{ fontSize: '1.2em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
           {renderMarkdownText(element.content, idx)}
         </h3>;
+      case 'numbered-list':
+        return <ol key={idx} className="formatted-list" style={{ marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em' }}>
+          {element.items.map((item, i) => (
+            <li key={i}>{renderMarkdownText(item, i)}</li>
+          ))}
+        </ol>;
       case 'list':
         return <ul key={idx} className="formatted-list" style={{ marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em' }}>
           {element.items.map((item, i) => (
@@ -161,24 +180,31 @@ function App() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('chat'); // 'events', 'chat', 'evaluation', or 'comparison'
+  const [activeTab, setActiveTab] = useState('chat'); // 'events', 'chat', 'evaluation', 'comparison', or 'settings'
   const [evaluationResults, setEvaluationResults] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [comparisonResults, setComparisonResults] = useState({
     original: null,
     naive: null
   });
+  // eslint-disable-next-line no-unused-vars
   const [isComparing, setIsComparing] = useState(false);
   const [isRunningComparison, setIsRunningComparison] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [currentMethod, setCurrentMethod] = useState('naive');
   const messagesEndRef = useRef(null);
   const [events, setEvents] = useState([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [backendStatus, setBackendStatus] = useState('checking'); // 'checking', 'online', 'offline'
+  // eslint-disable-next-line no-unused-vars
   const [backendError, setBackendError] = useState('');
+  const [useWebSocket, setUseWebSocket] = useState(true); // Toggle for WebSocket vs HTTP
+  const wsRef = useRef(null); // WebSocket connection reference
+  const [streamingMessage, setStreamingMessage] = useState(null); // Current streaming message
   
   // Check backend health on mount
   useEffect(() => {
@@ -261,6 +287,103 @@ function App() {
     setInputValue(query);
   };
 
+  const sendMessageWithWebSocket = (userMessage) => {
+    // Create WebSocket connection if not exists
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      const ws = new WebSocket('ws://localhost:8000/ws/multi-agent-stream');
+      
+      ws.onopen = () => {
+        console.log('🔌 WebSocket connected');
+        // Send the question
+        ws.send(JSON.stringify({ question: userMessage }));
+        
+        // Initialize streaming message with initial status
+        setStreamingMessage({
+          type: 'assistant',
+          content: '🔍 Starting search...',
+          source: 'System',
+          isStreaming: true
+        });
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('📨 WebSocket message:', data);
+        
+        // Helper function to remove [Source: ...] prefix from content
+        const cleanContent = (content) => {
+          if (!content) return content;
+          // Remove [Source: ...] tag if present at the beginning
+          return content.replace(/^\[Source:\s*[^\]]+\]\s*/i, '').trim();
+        };
+        
+        if (data.type === 'status') {
+          // Show status update
+          setStreamingMessage(prev => ({
+            ...prev,
+            content: cleanContent(data.content),
+            source: 'System',
+            tool: data.tool
+          }));
+        } else if (data.type === 'update') {
+          // Update streaming content - show tool information
+          const toolInfo = data.tool ? ` (using ${data.tool})` : '';
+          const displayContent = data.agent === 'system' 
+            ? cleanContent(data.content) 
+            : cleanContent(data.content);
+          
+          setStreamingMessage(prev => ({
+            ...prev,
+            content: displayContent,
+            source: data.agent,
+            tool: data.tool
+          }));
+        } else if (data.type === 'final') {
+          // Final message received - clean the content
+          const cleanedContent = cleanContent(data.content);
+          setMessages(prev => [...prev, {
+            type: 'assistant',
+            content: cleanedContent,
+            source: data.agent,
+            tool: data.tool,
+            responseTime: data.response_time
+          }]);
+          setStreamingMessage(null);
+          setIsLoading(false);
+        } else if (data.type === 'error') {
+          setError(`❌ ${data.content}`);
+          setStreamingMessage(null);
+          setIsLoading(false);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+        setError('❌ WebSocket connection error');
+        setStreamingMessage(null);
+        setIsLoading(false);
+      };
+      
+      ws.onclose = () => {
+        console.log('🔌 WebSocket disconnected');
+        wsRef.current = null;
+      };
+      
+      wsRef.current = ws;
+    } else {
+      // WebSocket already open, send message
+      wsRef.current.send(JSON.stringify({ question: userMessage }));
+      
+      // Initialize streaming message with initial status
+      setStreamingMessage({
+        type: 'assistant',
+        content: '🔍 Starting search...',
+        source: 'System',
+        isStreaming: true
+      });
+    }
+  };
+
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
@@ -272,6 +395,13 @@ function App() {
     setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
     setIsLoading(true);
 
+    // Use WebSocket for streaming if enabled
+    if (useWebSocket) {
+      sendMessageWithWebSocket(userMessage);
+      return;
+    }
+
+    // Fall back to HTTP POST (original behavior)
     try {
       const response = await axios.post(`${API_BASE_URL}/multi-agent-query`, {
         question: userMessage
@@ -422,8 +552,8 @@ function App() {
       <div className="splash-screen error-screen">
         <div className="splash-content">
           <div className="error-icon">⚠️</div>
-          <h1 className="splash-title error-title">Backend Server Unavailable</h1>
-          <p className="error-message">Unable to connect to the backend server.</p>
+          <h1 className="splash-title error-title">Server Unavailable</h1>
+          <p className="error-message">Unable to connect to the server.</p>
           <button 
             className="retry-button"
             onClick={() => window.location.reload()}
@@ -498,6 +628,12 @@ function App() {
             onClick={handleComparisonTabClick}
           >
             📈&nbsp;&nbsp;Method Comparison
+          </button>
+          <button 
+            className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            ⚙️&nbsp;&nbsp;Settings
           </button>
         </div>
 
@@ -576,13 +712,13 @@ function App() {
           )}
 
           {activeTab === 'chat' && (
-        <div className="chat-container">
-        <div className="messages">
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
+            <div className="chat-container">
+              <div className="messages">
+                {error && (
+                  <div className="error-message">
+                    {error}
+                  </div>
+                )}
 
           {messages.length === 0 && (
             <div className="welcome-message">
@@ -614,7 +750,8 @@ function App() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'flex-end',
-                    gap: '12px'
+                    gap: '12px',
+                    flexWrap: 'wrap'
                   }}>
                     <div className="source-badge" style={{
                       fontSize: '0.85em',
@@ -625,6 +762,19 @@ function App() {
                     }}>
                       📚 Source: {message.source}
                     </div>
+                    {message.tool && (
+                      <div style={{
+                        fontSize: '0.75em',
+                        color: '#757575',
+                        fontStyle: 'italic',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <span>🔧</span>
+                        <span>{message.tool}</span>
+                      </div>
+                    )}
                     {message.responseTime && (
                       <div className="response-time-badge" style={{
                         fontSize: '0.85em',
@@ -650,7 +800,72 @@ function App() {
             </div>
           ))}
 
-          {isLoading && (
+          {/* Show streaming message */}
+          {streamingMessage && (
+            <div className="message assistant streaming">
+              <div className="message-icon">
+                🤖
+              </div>
+              <div className="message-content">
+                {streamingMessage.content 
+                  ? formatResponseText(streamingMessage.content)
+                  : <div style={{ fontStyle: 'italic', color: '#999' }}>Waiting for response...</div>
+                }
+                <div style={{ 
+                  marginTop: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  {streamingMessage.source !== 'system' && (
+                    <>
+                      <div className="source-badge" style={{
+                        fontSize: '0.85em',
+                        fontWeight: '500',
+                        color: streamingMessage.source === 'Gmail' ? '#f57c00' : 
+                              streamingMessage.source === 'Local Database' ? '#1976d2' : 
+                              streamingMessage.source === 'Web Search' ? '#7b1fa2' : '#616161',
+                        animation: 'pulse 1.5s ease-in-out infinite'
+                      }}>
+                        📡 {streamingMessage.source} (streaming...)
+                      </div>
+                      {streamingMessage.tool && (
+                        <div style={{
+                          fontSize: '0.75em',
+                          color: '#757575',
+                          fontStyle: 'italic',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <span>🔧</span>
+                          <span>{streamingMessage.tool}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {streamingMessage.source === 'system' && (
+                    <div style={{
+                      fontSize: '0.85em',
+                      fontWeight: '500',
+                      color: '#4caf50',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span>⚡</span>
+                      <span>Live Status Update</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isLoading && !streamingMessage && (
             <div className="message assistant loading-message">
               <div className="message-icon loading-icon">
                 <div className="typing-indicator">
@@ -665,184 +880,184 @@ function App() {
                 </div>
               </div>
             </div>
-          )}
+                )}
 
-          <div ref={messagesEndRef} />
-        </div>
+                <div ref={messagesEndRef} />
+              </div>
 
-        <div className="input-container">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask about school events and programs..."
-            className="message-input"
-            disabled={isLoading}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!inputValue.trim() || isLoading}
-            className="send-button"
-          >
-            {isLoading ? 'Sending...' : 'Send'}
-          </button>
-        </div>
-      </div>
+              <div className="input-container">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Ask about school events and programs..."
+                  className="message-input"
+                  disabled={isLoading}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!inputValue.trim() || isLoading}
+                  className="send-button"
+                >
+                  {isLoading ? 'Sending...' : 'Send'}
+                </button>
+              </div>
+            </div>
           )}
 
           {activeTab === 'evaluation' && (
             <div className="evaluation-container">
-          <div className="evaluation-header">
-            <h2>📊 RAGAS Evaluation Results</h2>
-            <p>Evaluate the RAG pipeline using RAGAS metrics: Faithfulness, Response Relevancy, Context Precision, and Context Recall</p>
-            {!isEvaluating && !evaluationResults && (
-              <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
-                Evaluation will start automatically...
-              </p>
-            )}
-            {evaluationResults && (
-              <button 
-                onClick={runEvaluation} 
-                disabled={isEvaluating}
-                className="run-evaluation-button"
-              >
-                {isEvaluating ? '⏳ Re-running Evaluation...' : '🔄 Re-run Evaluation'}
-              </button>
-            )}
-          </div>
-
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
-
-          {isEvaluating && (
-            <div className="evaluation-loading">
-              <div className="spinner"></div>
-              <p>Running RAGAS evaluation... This may take 1-2 minutes.</p>
-            </div>
-          )}
-
-          {evaluationResults && !isEvaluating && (
-            <div className="evaluation-results">
-              <div className="results-summary">
-                <h3>✅ Evaluation Complete!</h3>
-                <p className="success-message">{evaluationResults.message}</p>
-                <p className="test-info">Evaluated with {evaluationResults.test_questions_count} test questions</p>
+              <div className="evaluation-header">
+                <h2>📊 RAGAS Evaluation Results</h2>
+                <p>Evaluate the RAG pipeline using RAGAS metrics: Faithfulness, Response Relevancy, Context Precision, and Context Recall</p>
+                {!isEvaluating && !evaluationResults && (
+                  <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
+                    Evaluation will start automatically...
+                  </p>
+                )}
+                {evaluationResults && (
+                  <button 
+                    onClick={runEvaluation} 
+                    disabled={isEvaluating}
+                    className="run-evaluation-button"
+                  >
+                    {isEvaluating ? '⏳ Re-running Evaluation...' : '🔄 Re-run Evaluation'}
+                  </button>
+                )}
               </div>
 
-              <div className="metrics-grid">
-                <div className="metric-card">
-                  <div className="metric-icon">🎯</div>
-                  <div className="metric-name">Faithfulness</div>
-                  <div className="metric-value">{(evaluationResults.metrics.faithfulness * 100).toFixed(1)}%</div>
-                  <div className="metric-description">Factual consistency with context</div>
-                  <div className="metric-bar">
-                    <div 
-                      className="metric-bar-fill" 
-                      style={{width: `${evaluationResults.metrics.faithfulness * 100}%`}}
-                    ></div>
+              {error && (
+                <div className="error-message">
+                  {error}
+                </div>
+              )}
+
+              {isEvaluating && (
+                <div className="evaluation-loading">
+                  <div className="spinner"></div>
+                  <p>Running RAGAS evaluation... This may take 1-2 minutes.</p>
+                </div>
+              )}
+
+              {evaluationResults && !isEvaluating && (
+                <div className="evaluation-results">
+                  <div className="results-summary">
+                    <h3>✅ Evaluation Complete!</h3>
+                    <p className="success-message">{evaluationResults.message}</p>
+                    <p className="test-info">Evaluated with {evaluationResults.test_questions_count} test questions</p>
+                  </div>
+
+                  <div className="metrics-grid">
+                    <div className="metric-card">
+                      <div className="metric-icon">🎯</div>
+                      <div className="metric-name">Faithfulness</div>
+                      <div className="metric-value">{(evaluationResults.metrics.faithfulness * 100).toFixed(1)}%</div>
+                      <div className="metric-description">Factual consistency with context</div>
+                      <div className="metric-bar">
+                        <div 
+                          className="metric-bar-fill" 
+                          style={{width: `${evaluationResults.metrics.faithfulness * 100}%`}}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-icon">📝</div>
+                      <div className="metric-name">Answer Relevancy</div>
+                      <div className="metric-value">{(evaluationResults.metrics.answer_relevancy * 100).toFixed(1)}%</div>
+                      <div className="metric-description">Relevance to the question</div>
+                      <div className="metric-bar">
+                        <div 
+                          className="metric-bar-fill" 
+                          style={{width: `${evaluationResults.metrics.answer_relevancy * 100}%`}}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-icon">🎲</div>
+                      <div className="metric-name">Context Precision</div>
+                      <div className="metric-value">{(evaluationResults.metrics.context_precision * 100).toFixed(1)}%</div>
+                      <div className="metric-description">Precision of retrieved contexts</div>
+                      <div className="metric-bar">
+                        <div 
+                          className="metric-bar-fill" 
+                          style={{width: `${evaluationResults.metrics.context_precision * 100}%`}}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-icon">📚</div>
+                      <div className="metric-name">Context Recall</div>
+                      <div className="metric-value">{(evaluationResults.metrics.context_recall * 100).toFixed(1)}%</div>
+                      <div className="metric-description">Coverage of required context</div>
+                      <div className="metric-bar">
+                        <div 
+                          className="metric-bar-fill" 
+                          style={{width: `${evaluationResults.metrics.context_recall * 100}%`}}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="files-generated">
+                    <p style={{color: '#666', fontStyle: 'italic', marginTop: '20px'}}>
+                      💾 Evaluation results have been saved to the server for further analysis.
+                    </p>
                   </div>
                 </div>
-
-                <div className="metric-card">
-                  <div className="metric-icon">📝</div>
-                  <div className="metric-name">Answer Relevancy</div>
-                  <div className="metric-value">{(evaluationResults.metrics.answer_relevancy * 100).toFixed(1)}%</div>
-                  <div className="metric-description">Relevance to the question</div>
-                  <div className="metric-bar">
-                    <div 
-                      className="metric-bar-fill" 
-                      style={{width: `${evaluationResults.metrics.answer_relevancy * 100}%`}}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="metric-card">
-                  <div className="metric-icon">🎲</div>
-                  <div className="metric-name">Context Precision</div>
-                  <div className="metric-value">{(evaluationResults.metrics.context_precision * 100).toFixed(1)}%</div>
-                  <div className="metric-description">Precision of retrieved contexts</div>
-                  <div className="metric-bar">
-                    <div 
-                      className="metric-bar-fill" 
-                      style={{width: `${evaluationResults.metrics.context_precision * 100}%`}}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="metric-card">
-                  <div className="metric-icon">📚</div>
-                  <div className="metric-name">Context Recall</div>
-                  <div className="metric-value">{(evaluationResults.metrics.context_recall * 100).toFixed(1)}%</div>
-                  <div className="metric-description">Coverage of required context</div>
-                  <div className="metric-bar">
-                    <div 
-                      className="metric-bar-fill" 
-                      style={{width: `${evaluationResults.metrics.context_recall * 100}%`}}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="files-generated">
-                <p style={{color: '#666', fontStyle: 'italic', marginTop: '20px'}}>
-                  💾 Evaluation results have been saved to the server for further analysis.
-                </p>
-              </div>
-            </div>
-          )}
+              )}
             </div>
           )}
 
           {activeTab === 'comparison' && (
             <div className="evaluation-container">
-          <div className="evaluation-header">
-            <h2>📈 Retrieval Methods Comparison</h2>
-            <p>Compare Original RAG (k=4) vs Naive Retrieval (k=10) using RAGAS metrics</p>
-            {comparisonResults.original && comparisonResults.naive && (
-              <button 
-                onClick={runComparison} 
-                disabled={isRunningComparison}
-                className="run-evaluation-button"
-              >
-                {isRunningComparison ? '⏳ Re-running Comparison...' : '🔄 Re-run Comparison'}
-              </button>
-            )}
-          </div>
-
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
-
-          {isRunningComparison && (
-            <div className="evaluation-loading">
-              <div className="spinner"></div>
-              <p>Running comparison evaluation... This may take 3-5 minutes</p>
-              <p style={{fontSize: '14px', color: '#666'}}>
-                Evaluating both Original (k=4) and Naive (k=10) methods
-              </p>
-            </div>
-          )}
-
-          {!isRunningComparison && comparisonResults.original && comparisonResults.naive && (
-            <div className="comparison-results">
-              <div className="comparison-summary">
-                <h3>✅ Comparison Complete</h3>
-                <p>Both retrieval methods have been evaluated with {comparisonResults.original.test_questions_count} test questions</p>
+              <div className="evaluation-header">
+                <h2>📈 Retrieval Methods Comparison</h2>
+                <p>Compare Original RAG (k=4) vs Naive Retrieval (k=10) using RAGAS metrics</p>
+                {comparisonResults.original && comparisonResults.naive && (
+                  <button 
+                    onClick={runComparison} 
+                    disabled={isRunningComparison}
+                    className="run-evaluation-button"
+                  >
+                    {isRunningComparison ? '⏳ Re-running Comparison...' : '🔄 Re-run Comparison'}
+                  </button>
+                )}
               </div>
 
-              <div className="comparison-table-container">
-                <table className="comparison-table">
-                  <thead>
-                    <tr>
-                      <th>Metric</th>
-                      <th>Original RAG (k=4)</th>
-                      <th>Naive Retrieval (k=10)</th>
+              {error && (
+                <div className="error-message">
+                  {error}
+                </div>
+              )}
+
+              {isRunningComparison && (
+                <div className="evaluation-loading">
+                  <div className="spinner"></div>
+                  <p>Running comparison evaluation... This may take 3-5 minutes</p>
+                  <p style={{fontSize: '14px', color: '#666'}}>
+                    Evaluating both Original (k=4) and Naive (k=10) methods
+                  </p>
+                </div>
+              )}
+
+              {!isRunningComparison && comparisonResults.original && comparisonResults.naive && (
+                <div className="comparison-results">
+                  <div className="comparison-summary">
+                    <h3>✅ Comparison Complete</h3>
+                    <p>Both retrieval methods have been evaluated with {comparisonResults.original.test_questions_count} test questions</p>
+                  </div>
+
+                  <div className="comparison-table-container">
+                    <table className="comparison-table">
+                      <thead>
+                        <tr>
+                          <th>Metric</th>
+                          <th>Original RAG (k=4)</th>
+                          <th>Naive Retrieval (k=10)</th>
                       <th>Improvement</th>
                     </tr>
                   </thead>
@@ -955,15 +1170,74 @@ function App() {
           )}
             </div>
           )}
-        </div>
 
-        {/* Event Details Popup */}
-        <EventPopup 
-          event={selectedEventDetails}
-          onClose={handleCloseEventPopup}
-          onAskAI={handleEventClick}
-        />
+          {activeTab === 'settings' && (
+            <div className="settings-container">
+              <div className="settings-section">
+                <h3>🔌 Connection Settings</h3>
+                <div className="setting-item">
+                  <div className="setting-content">
+                    <div className="setting-label-group">
+                      <label htmlFor="websocket-toggle" className="setting-label">
+                        Real-time Streaming (WebSocket)
+                      </label>
+                      <p className="setting-description">
+                        Enable live streaming of agent responses as they are generated. 
+                        When disabled, responses will be delivered in full after completion.
+                      </p>
+                    </div>
+                    <div className="toggle-switch">
+                      <input
+                        id="websocket-toggle"
+                        type="checkbox"
+                        checked={useWebSocket}
+                        onChange={(e) => setUseWebSocket(e.target.checked)}
+                        className="toggle-input"
+                      />
+                      <label htmlFor="websocket-toggle" className="toggle-label">
+                        <span className="toggle-button"></span>
+                      </label>
+                    </div>
+                  </div>
+                  {useWebSocket && (
+                    <div className="setting-status">
+                      <span className="status-indicator active"></span>
+                      <span className="status-text">Live updates enabled</span>
+                    </div>
+                  )}
+                  {!useWebSocket && (
+                    <div className="setting-status">
+                      <span className="status-indicator inactive"></span>
+                      <span className="status-text">Using standard HTTP requests</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h3>ℹ️ About</h3>
+                <div className="about-info">
+                  <p><strong>School Events RAG Application</strong></p>
+                  <p>Multi-agent system for searching and discovering school events</p>
+                  <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
+                    <li>Gmail integration for email search</li>
+                    <li>Local database with curated school events</li>
+                    <li>Web search for the latest information</li>
+                    <li>Real-time streaming via WebSocket</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Event Details Popup */}
+      <EventPopup 
+        event={selectedEventDetails}
+        onClose={handleCloseEventPopup}
+        onAskAI={handleEventClick}
+      />
     </div>
   );
 }

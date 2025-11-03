@@ -450,3 +450,148 @@ def query_with_agent(question: str):
     return result
 
 
+async def query_with_agent_stream(question: str, callback):
+    """
+    Query using the agent graph with streaming updates.
+    
+    Args:
+        question: User's question
+        callback: Async function to call with updates (agent_name, content, is_final, tool_name)
+        
+    Returns:
+        Agent's final response
+    """
+    logger.info("\n" + "🔵"*40)
+    logger.info(f"📝 NEW STREAMING QUERY RECEIVED: {question}")
+    logger.info("🔵"*40 + "\n")
+    
+    graph = create_simple_agent_graph()
+    
+    start_time = datetime.now()
+    
+    # Send initial status with progress
+    await callback("system", "🚀 Initializing multi-agent search system...", False, "initialization")
+    await callback("system", "� Search Pipeline: Gmail → Local Database → Web Search", False, "pipeline")
+    await callback("system", "�🔍 Starting intelligent search across all sources...", False, "starting")
+    
+    # Track which agents we've seen and their order
+    agents_processing = set()
+    agent_order = ["GmailAgent", "LocalEvents", "WebSearch"]
+    agents_completed = []
+    
+    # Stream the graph execution
+    try:
+        result = None
+        async for event in graph.astream({
+            "messages": [HumanMessage(content=question)]
+        }):
+            logger.info(f"📡 Stream event: {list(event.keys())}")
+            
+            # Extract node name and messages from event
+            for node_name, node_data in event.items():
+                if node_name == "__start__" or node_name == "__end__":
+                    continue
+                
+                # Map agent name to friendly name and tool
+                agent_map = {
+                    "GmailAgent": {"name": "Gmail", "tool": "Gmail API", "icon": "📧", "step": 1},
+                    "LocalEvents": {"name": "Local Database", "tool": "Vector Database", "icon": "💾", "step": 2},
+                    "WebSearch": {"name": "Web Search", "tool": "Tavily Search API", "icon": "🌐", "step": 3}
+                }
+                
+                agent_info = agent_map.get(node_name, {"name": node_name, "tool": "Unknown", "icon": "🔧", "step": 0})
+                
+                # Send agent start status if first time seeing this agent
+                if node_name not in agents_processing:
+                    agents_processing.add(node_name)
+                    
+                    # Calculate progress
+                    total_agents = len(agent_order)
+                    current_step = agent_info.get('step', 0)
+                    progress_percent = int((current_step / total_agents) * 100)
+                    
+                    # Show progress bar
+                    progress_bar = "█" * (current_step) + "░" * (total_agents - current_step)
+                    
+                    await callback(
+                        "system",
+                        f"[Step {current_step}/{total_agents}] {progress_bar} {progress_percent}%",
+                        False,
+                        f"progress_{node_name}"
+                    )
+                    
+                    await callback(
+                        "system",
+                        f"{agent_info['icon']} Querying {agent_info['name']} using {agent_info['tool']}...",
+                        False,
+                        f"agent_start_{node_name}"
+                    )
+                    
+                # Get messages from the node data
+                if isinstance(node_data, dict) and "messages" in node_data:
+                    messages = node_data["messages"]
+                    if messages and len(messages) > 0:
+                        last_message = messages[-1]
+                        content = last_message.content if last_message.content else ""
+                        
+                        if content:
+                            # Send processing status
+                            await callback(
+                                "system",
+                                f"✨ Processing results from {agent_info['name']}...",
+                                False,
+                                f"processing_{node_name}"
+                            )
+                            
+                            # Mark agent as completed
+                            if node_name not in agents_completed:
+                                agents_completed.append(node_name)
+                                completed_count = len(agents_completed)
+                                await callback(
+                                    "system",
+                                    f"✅ {agent_info['name']} completed ({completed_count}/{len(agent_order)} sources searched)",
+                                    False,
+                                    f"completed_{node_name}"
+                                )
+                            
+                            # Send the actual content
+                            logger.info(f"   📤 Sending update from {agent_info['name']}: {len(content)} chars")
+                            await callback(agent_info['name'], content, False, agent_info['tool'])
+                        
+                        result = node_data
+        
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        # Send completion status
+        await callback("system", "🎉 All sources searched successfully!", False, "all_complete")
+        await callback("system", f"📊 Total time: {duration:.2f}s | Sources: {len(agents_completed)}", False, "summary")
+        await callback("system", "✅ Compiling final comprehensive answer...", False, "finalizing")
+        
+        # Send final message
+        if result and "messages" in result:
+            last_message = result["messages"][-1]
+            agent_name = getattr(last_message, 'name', 'Unknown')
+            
+            agent_map = {
+                "GmailAgent": {"name": "Gmail", "tool": "Gmail API"},
+                "LocalEvents": {"name": "Local Database", "tool": "Vector Database"},
+                "WebSearch": {"name": "Web Search", "tool": "Tavily Search API"}
+            }
+            agent_info = agent_map.get(agent_name, {"name": "Unknown", "tool": "Unknown"})
+            
+            await callback(agent_info['name'], last_message.content, True, agent_info['tool'], duration)
+        
+        logger.info("\n" + "🟢"*40)
+        logger.info(f"✅ STREAMING QUERY COMPLETED (Total time: {duration:.2f}s)")
+        logger.info("🟢"*40 + "\n")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Streaming query failed: {str(e)}")
+        await callback("error", f"Error: {str(e)}", True)
+        raise
+
+
+

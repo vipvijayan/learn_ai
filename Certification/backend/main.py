@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
@@ -40,7 +40,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from app.tools.school_events_tool import create_school_events_tool
 
 # Import multi-agent system
-from app.agents.multi_agent_system import create_school_events_agents, query_with_agent
+from app.agents.multi_agent_system import create_school_events_agents, query_with_agent, query_with_agent_stream
 
 # ============================================================
 # CONSTANTS AND CONFIGURATION
@@ -571,6 +571,81 @@ async def multi_agent_query_events(request: QueryRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error processing multi-agent query: {str(e)}")
+
+
+@app.websocket("/ws/multi-agent-stream")
+async def websocket_multi_agent_stream(websocket: WebSocket):
+    """WebSocket endpoint for streaming multi-agent responses in real-time"""
+    await websocket.accept()
+    logger.info("🔌 WebSocket connection established")
+    
+    try:
+        while True:
+            # Receive the query from client
+            data = await websocket.receive_json()
+            question = data.get("question", "")
+            
+            if not question:
+                await websocket.send_json({
+                    "type": "error",
+                    "content": "No question provided"
+                })
+                continue
+            
+            logger.info(f"📥 WebSocket query received: {question}")
+            
+            # Initialize multi-agents if not already done
+            global multi_agents
+            if not multi_agents:
+                logger.info("⚙️ Multi-Agent system not initialized, setting up...")
+                await websocket.send_json({
+                    "type": "status",
+                    "content": "Initializing multi-agent system..."
+                })
+                multi_agents = create_school_events_agents()
+                logger.info("✅ Multi-Agent system ready")
+            
+            # Define callback to send updates via WebSocket
+            async def send_update(agent_name: str, content: str, is_final: bool, tool_name: str = None, duration: float = None):
+                try:
+                    message = {
+                        "type": "final" if is_final else "update",
+                        "agent": agent_name,
+                        "content": content
+                    }
+                    
+                    if tool_name:
+                        message["tool"] = tool_name
+                    
+                    if is_final and duration:
+                        message["response_time"] = round(duration, 2)
+                    
+                    await websocket.send_json(message)
+                    logger.info(f"📤 Sent {'final' if is_final else 'update'} from {agent_name}")
+                except Exception as e:
+                    logger.error(f"❌ Error sending WebSocket update: {e}")
+            
+            # Process query with streaming
+            try:
+                await query_with_agent_stream(question, send_update)
+            except Exception as e:
+                logger.error(f"❌ Error in streaming query: {e}")
+                await websocket.send_json({
+                    "type": "error",
+                    "content": f"Error processing query: {str(e)}"
+                })
+    
+    except WebSocketDisconnect:
+        logger.info("🔌 WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"❌ WebSocket error: {e}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "content": f"Server error: {str(e)}"
+            })
+        except:
+            pass
 
 
 def _run_ragas_evaluation_sync(active_method, orig_retriever, orig_chain, nv_retriever, nv_chain):
