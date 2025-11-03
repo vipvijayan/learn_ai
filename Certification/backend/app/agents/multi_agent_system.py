@@ -123,24 +123,21 @@ def create_school_events_agents():
     search_agent = create_agent(
         llm,
         [tavily_tool],
-        "You are a school events research specialist who searches for information about K-12 school events, "
-        "activities, programs, and extracurricular opportunities. "
-        "FOCUS: Only search for and return information about school-related events such as: "
-        "- School programs (coding, arts, music, sports, academic clubs) "
-        "- School camps and workshops "
-        "- School competitions and tournaments "
-        "- School performances and auditions "
-        "- After-school activities and clubs "
-        "- Educational enrichment programs for students "
+        "You search for K-12 school events on the web. "
+        "Focus ONLY on: school programs, camps, competitions, performances, clubs, and student activities. "
+        "Exclude: adult events, general entertainment, non-educational activities. "
         "\n"
-        "Do NOT return information about: adult events, general entertainment, non-educational activities, "
-        "or events not designed for school-age children (K-12). "
-        "When searching, include keywords like 'school', 'kids', 'students', 'children', 'education' in your queries. "
-        "\n\n⚠️ CRITICAL INSTRUCTION: You MUST start your FIRST LINE of response with exactly '[Source: Web Search]' "
-        "(including the square brackets). This is required for proper source attribution. "
-        "Example:\n"
-        "[Source: Web Search]\n"
-        "Based on my web search, I found these school events..."
+        "FORMAT YOUR RESPONSE:\n"
+        "Line 1: [Source: Web Search]\n"
+        "Line 2: Brief intro (1 sentence)\n"
+        "Then list each event as:\n"
+        "1. Event Name (Date if available)\n"
+        "   • Organizer: Name\n"
+        "   • Type: Category\n"
+        "   • Details: Brief description (1-2 sentences max)\n"
+        "   • Link: URL if available\n"
+        "\n"
+        "Keep it concise. No preambles or explanations."
     )
     search_node = functools.partial(agent_node, agent=search_agent, name="WebSearch")
     logger.info("   ✅ WebSearch agent configured")
@@ -150,27 +147,22 @@ def create_school_events_agents():
     local_events_agent = create_agent(
         llm,
         [school_events_tool],
-        "You are a local school events specialist. Use the school_events_search tool to find information "
-        "about K-12 school events, programs, camps, classes, and activities from our database. "
+        "You search the local database for K-12 school events. "
+        "Only return events that DIRECTLY match the query. "
+        "If no match, say: 'No matching events found in local database.'"
         "\n"
-        "FOCUS ON: School-related events only, including: "
-        "- After-school programs and clubs "
-        "- School camps (STEM, arts, sports) "
-        "- Educational classes and workshops "
-        "- School competitions and tournaments "
-        "- Youth programs and activities "
-        "- Academic enrichment programs "
+        "FORMAT YOUR RESPONSE:\n"
+        "Line 1: [Source: Local Database]\n"
+        "Line 2: Brief intro (1 sentence)\n"
+        "Then list each event as:\n"
+        "1. Event Name\n"
+        "   • Organizer: Name\n"
+        "   • Type: Category\n"
+        "   • Category: Type\n"
+        "   • Registration: Requirements\n"
+        "   • Contact: Email or phone\n"
         "\n"
-        "IMPORTANT: Only report events that DIRECTLY match the user's query AND are school-related. "
-        "If the search results don't contain school events that are actually relevant to what the user asked for, "
-        "you MUST respond with 'No matching school events found in the local database.' "
-        "Do NOT try to make connections or suggest events that only loosely relate to the query. "
-        "Be strict and accurate - only return genuine school events for students. "
-        "\n\n⚠️ CRITICAL INSTRUCTION: When you find relevant results, you MUST start your FIRST LINE of response "
-        "with exactly '[Source: Local Database]' (including the square brackets). This is required for proper source attribution. "
-        "Example:\n"
-        "[Source: Local Database]\n"
-        "I found the following school events in our local database..."
+        "Be concise. No extra explanation."
     )
     local_events_node = functools.partial(agent_node, agent=local_events_agent, name="LocalEvents")
     logger.info("   ✅ LocalEvents agent configured")
@@ -180,28 +172,20 @@ def create_school_events_agents():
     gmail_agent = create_agent(
         llm,
         gmail_tools,
-        "You are a Gmail specialist focused on finding school-related emails. "
-        "Use the Gmail tools to search for and retrieve email content about K-12 school events, "
-        "programs, activities, and educational opportunities from the user's inbox. "
+        "You search Gmail for school event emails. "
+        "Use keywords: 'school events', 'Round Rock schools', 'student activities', school names. "
+        "Focus on K-12 school events only."
         "\n"
-        "SEARCH FOR: Emails about school events such as: "
-        "- School programs (after-school clubs, enrichment programs) "
-        "- School camps and workshops "
-        "- School competitions, tournaments, and performances "
-        "- Educational activities for students "
-        "- School announcements and event notifications "
-        "- Youth programs and student activities "
+        "FORMAT YOUR RESPONSE:\n"
+        "Line 1: [Source: Gmail]\n"
+        "Line 2: Brief intro (1 sentence)\n"
+        "Then list each event as:\n"
+        "1. Event Name (Date if in subject/body)\n"
+        "   • From: Sender name\n"
+        "   • Summary: What it's about (1-2 sentences)\n"
+        "   • Key Details: Date, time, location, registration info\n"
         "\n"
-        "SEARCH STRATEGY: Use keywords like 'school events', 'Round Rock schools', 'student activities', "
-        "'kids programs', 'school calendar', 'youth', 'children', 'education', or specific school names. "
-        "Focus on emails that contain information about events designed for K-12 students. "
-        "\n"
-        "Provide summaries of found emails with key details about the school events. "
-        "\n\n⚠️ CRITICAL INSTRUCTION: You MUST start your FIRST LINE of response with exactly '[Source: Gmail]' "
-        "(including the square brackets). This is required for proper source attribution. "
-        "Example:\n"
-        "[Source: Gmail]\n"
-        "Here are the school event emails I found..."
+        "Keep it brief and structured. No preambles."
     )
     gmail_node = functools.partial(agent_node, agent=gmail_agent, name="GmailAgent")
     logger.info("   ✅ Gmail agent configured")
@@ -470,9 +454,9 @@ async def query_with_agent_stream(question: str, callback):
     start_time = datetime.now()
     
     # Send initial status with progress
-    await callback("system", "🚀 Initializing multi-agent search system...", False, "initialization")
-    await callback("system", "� Search Pipeline: Gmail → Local Database → Web Search", False, "pipeline")
-    await callback("system", "�🔍 Starting intelligent search across all sources...", False, "starting")
+    await callback("system", "🚀 Initiating search...", False, "initialization")
+    await callback("system", "🚀 Searching: Gmail → Local Database → Web Search", False, "pipeline")
+    await callback("system", "🚀 Starting intelligent search across all sources...", False, "starting")
     
     # Track which agents we've seen and their order
     agents_processing = set()

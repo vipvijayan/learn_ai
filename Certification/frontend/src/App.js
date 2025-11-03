@@ -57,9 +57,9 @@ const formatResponseTime = (seconds) => {
   const secs = Math.floor(seconds % 60);
   
   if (hours > 0) {
-    return `${hours} hour${hours > 1 ? 's' : ''}: ${minutes} min: ${secs} sec${secs !== 1 ? 's' : ''}`;
+    return `${hours}h: ${minutes}m: ${secs}s`;
   } else {
-    return `${minutes} min: ${secs} sec${secs !== 1 ? 's' : ''}`;
+    return `${minutes}m: ${secs}s`;
   }
 };
 
@@ -71,9 +71,88 @@ const formatResponseText = (text) => {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   const elements = [];
   let currentParagraph = [];
+  let inEventBlock = false;
+  let eventBlockContent = [];
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    
+    // Skip intro lines that mention "found the following" or similar 
+    if (line.match(/(?:found the following|here (?:are|is)|based on)/i) && line.length < 150) {
+      continue;
+    }
+    
+    // Check if this line introduces an event (e.g., "...database: EventName")
+    const eventIntroMatch = line.match(/(?:database|search|inbox):\s+(.+)$/i);
+    if (eventIntroMatch && !inEventBlock) {
+      // Extract event title from the intro line
+      const eventTitle = eventIntroMatch[1].trim();
+      // Flush current paragraph
+      if (currentParagraph.length > 0) {
+        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
+        currentParagraph = [];
+      }
+      inEventBlock = true;
+      eventBlockContent.push({ type: 'event-title', content: eventTitle, number: '' });
+      continue;
+    }
+    
+    // Check if this is an event title (numbered item that looks like a title)
+    const eventTitleMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    if (eventTitleMatch && !line.includes(':') && line.length > 10) {
+      // This is likely an event title - start a new event block
+      if (inEventBlock && eventBlockContent.length > 0) {
+        // Save previous event block
+        elements.push({ type: 'event-block', content: eventBlockContent });
+        eventBlockContent = [];
+      }
+      inEventBlock = true;
+      eventBlockContent.push({ type: 'event-title', content: eventTitleMatch[2], number: eventTitleMatch[1] });
+      continue;
+    }
+    
+    // If we're in an event block, collect content
+    if (inEventBlock) {
+      // Check for field labels in bullet points or plain format
+      const fieldMatch = line.match(/^[•-]?\s*(Organizer|Type|Category|Registration|Call to Action|Contact Information|Website|Email|Phone|From|Summary|Key Details|Date|Location|Time|Description):\s*(.+)$/i);
+      if (fieldMatch) {
+        const label = fieldMatch[1];
+        const content = fieldMatch[2].trim();
+        eventBlockContent.push({ type: 'field', label, content });
+        continue;
+      }
+      
+      // Check if we're starting a new numbered item (next event)
+      if (line.match(/^\d+\.\s+/) && !line.includes(':') && line.length > 10) {
+        // Save current event block and start new one
+        if (eventBlockContent.length > 0) {
+          elements.push({ type: 'event-block', content: eventBlockContent });
+          eventBlockContent = [];
+        }
+        const match = line.match(/^(\d+)\.\s+(.+)$/);
+        eventBlockContent.push({ type: 'event-title', content: match[2], number: match[1] });
+        continue;
+      }
+      
+      // Check if this line signals end of event block (no colon, not a bullet, looks like regular text)
+      if (!line.startsWith('•') && !line.startsWith('-') && !line.match(/^\d+\./) && line.length > 20 && !line.match(/:/)) {
+        // End event block and add this as regular text
+        if (eventBlockContent.length > 0) {
+          elements.push({ type: 'event-block', content: eventBlockContent });
+          eventBlockContent = [];
+          inEventBlock = false;
+        }
+        currentParagraph.push(line);
+        continue;
+      }
+      
+      // Add other content to current event block (strip bullet if present)
+      const cleanLine = line.replace(/^[•-]\s*/, '');
+      if (cleanLine) {
+        eventBlockContent.push({ type: 'text', content: cleanLine });
+      }
+      continue;
+    }
     
     // Check for markdown headers
     if (line.match(/^###\s+/)) {
@@ -127,6 +206,11 @@ const formatResponseText = (text) => {
     }
   }
   
+  // Flush remaining event block
+  if (inEventBlock && eventBlockContent.length > 0) {
+    elements.push({ type: 'event-block', content: eventBlockContent });
+  }
+  
   // Flush remaining paragraph
   if (currentParagraph.length > 0) {
     elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
@@ -135,6 +219,45 @@ const formatResponseText = (text) => {
   // Render elements
   return elements.map((element, idx) => {
     switch (element.type) {
+      case 'event-block':
+        return <div key={idx} className="event-card" style={{
+          border: '2px solid #e3f2fd',
+          borderRadius: '12px',
+          padding: '24px',
+          marginBottom: '24px',
+          backgroundColor: '#fafafa',
+          transition: 'all 0.3s ease'
+        }}>
+          {element.content.map((item, i) => {
+            if (item.type === 'event-title') {
+              return <h3 key={i} style={{
+                color: '#1976d2',
+                marginBottom: '16px',
+                fontSize: '1.3em',
+                fontWeight: '600',
+                borderBottom: '2px solid #e3f2fd',
+                paddingBottom: '12px'
+              }}>
+                {item.number}. {renderMarkdownText(item.content, i)}
+              </h3>;
+            } else if (item.type === 'field') {
+              return <div key={i} style={{
+                marginBottom: '12px',
+                paddingLeft: '8px',
+                borderLeft: '3px solid #90caf9'
+              }}>
+                <strong style={{ color: '#1565c0', fontSize: '0.95em' }}>{item.label}:</strong>
+                {' '}
+                <span style={{ color: '#424242' }}>{renderMarkdownText(item.content, i)}</span>
+              </div>;
+            } else if (item.type === 'text') {
+              return <p key={i} style={{ color: '#616161', lineHeight: '1.6', marginTop: '8px' }}>
+                {renderMarkdownText(item.content, i)}
+              </p>;
+            }
+            return null;
+          })}
+        </div>;
       case 'h1':
         return <h1 key={idx} className="response-header" style={{ fontSize: '1.6em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
           {renderMarkdownText(element.content, idx)}
@@ -857,7 +980,7 @@ function App() {
                       gap: '6px'
                     }}>
                       <span>⚡</span>
-                      <span>Live Status Update</span>
+                      <span>Waiting for the magic...</span>
                     </div>
                   )}
                 </div>
@@ -1217,13 +1340,13 @@ function App() {
               <div className="settings-section">
                 <h3>ℹ️ About</h3>
                 <div className="about-info">
-                  <p><strong>School Events RAG Application</strong></p>
-                  <p>Multi-agent system for searching and discovering school events</p>
+                  <p><strong>Your School Events Assistant</strong></p>
+                  <p>I help you find school events by searching multiple places at once:</p>
                   <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                    <li>Gmail integration for email search</li>
-                    <li>Local database with curated school events</li>
-                    <li>Web search for the latest information</li>
-                    <li>Real-time streaming via WebSocket</li>
+                    <li>📧 Your Gmail inbox for school emails</li>
+                    <li>📚 Our local database of curated events</li>
+                    <li>🌐 The web for the newest updates</li>
+                    <li>⚡ Live updates as you search</li>
                   </ul>
                 </div>
               </div>

@@ -476,8 +476,7 @@ code {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  transition: border 0.3s ease, box-shadow 0.3s ease;
+  transition: border 0.3s ease;
   border: 2px solid rgba(255, 255, 255, 0.5);
   animation: slideInCard 0.5s ease-out backwards;
   cursor: pointer;
@@ -529,9 +528,6 @@ code {
 
 .event-card:hover {
   border-color: #1976D2;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 
-              0 0 20px rgba(25, 118, 210, 0.6),
-              0 0 40px rgba(25, 118, 210, 0.4);
 }
 
 .event-header {
