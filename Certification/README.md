@@ -2,6 +2,38 @@
 
 A simple chat application that helps parents find information about school events and programs using RAG (Retrieval Augmented Generation).
 
+## 🆕 New: Gmail MCP Integration
+
+The application now includes **Gmail MCP (Model Context Protocol) integration** that searches your Gmail inbox for Round Rock school data!
+
+# School Events RAG Application
+
+A simple chat application that helps parents find information about school events and programs using RAG (Retrieval Augmented Generation).
+
+## 🆕 New: Gmail Integration
+
+The application now includes **Gmail integration** that searches your Gmail inbox for Round Rock school data using Google's Gmail API!
+
+### 🔐 Gmail Authentication Required
+
+To use Gmail search, you must authenticate first:
+
+```bash
+cd backend
+python authenticate_gmail.py
+```
+
+👉 **[Complete Gmail Integration Guide →](GMAIL_INTEGRATION_GUIDE.md)** - Comprehensive setup, authentication, and usage guide
+
+## Project Structure
+
+### Documentation
+- **[Gmail Authentication](GMAIL_AUTHENTICATION.md)** - How to authenticate for first-time users
+- **[Quick Start Guide](README_GMAIL_MCP.md)** - Overview and commands
+- **[Setup Checklist](GMAIL_MCP_CHECKLIST.md)** - Step-by-step setup
+- **[Detailed Setup](GMAIL_MCP_SETUP.md)** - Complete instructions
+- **[Implementation Details](GMAIL_MCP_IMPLEMENTATION.md)** - Technical documentation
+
 ## Project Structure
 
 ```

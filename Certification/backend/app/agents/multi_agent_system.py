@@ -18,6 +18,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import create_react_agent
 
 from app.tools.school_events_tool import create_school_events_tool
+from app.tools.gmail_tool import create_gmail_tools
 
 # Configure logging
 logging.basicConfig(
@@ -112,6 +113,9 @@ def create_school_events_agents():
     school_events_tool = create_school_events_tool()
     logger.info(f"   ✅ School Events Search Tool created")
     
+    gmail_tools = create_gmail_tools()
+    logger.info(f"   ✅ Gmail Tools created ({len(gmail_tools)} tools)")
+    
     logger.info("\n🤖 Creating Agents...")
     
     # Agent 1: Search Agent (uses Tavily for web search)
@@ -119,9 +123,24 @@ def create_school_events_agents():
     search_agent = create_agent(
         llm,
         [tavily_tool],
-        "You are a research assistant who can search for up-to-date information using the Tavily search engine. "
-        "Use this to find current information about schools, programs, organizations, or general educational topics. "
-        "When searching, be specific and return relevant, factual information."
+        "You are a school events research specialist who searches for information about K-12 school events, "
+        "activities, programs, and extracurricular opportunities. "
+        "FOCUS: Only search for and return information about school-related events such as: "
+        "- School programs (coding, arts, music, sports, academic clubs) "
+        "- School camps and workshops "
+        "- School competitions and tournaments "
+        "- School performances and auditions "
+        "- After-school activities and clubs "
+        "- Educational enrichment programs for students "
+        "\n"
+        "Do NOT return information about: adult events, general entertainment, non-educational activities, "
+        "or events not designed for school-age children (K-12). "
+        "When searching, include keywords like 'school', 'kids', 'students', 'children', 'education' in your queries. "
+        "\n\n⚠️ CRITICAL INSTRUCTION: You MUST start your FIRST LINE of response with exactly '[Source: Web Search]' "
+        "(including the square brackets). This is required for proper source attribution. "
+        "Example:\n"
+        "[Source: Web Search]\n"
+        "Based on my web search, I found these school events..."
     )
     search_node = functools.partial(agent_node, agent=search_agent, name="WebSearch")
     logger.info("   ✅ WebSearch agent configured")
@@ -132,16 +151,65 @@ def create_school_events_agents():
         llm,
         [school_events_tool],
         "You are a local school events specialist. Use the school_events_search tool to find information "
-        "about local school events, programs, camps, classes, and activities from our database. "
-        "Provide detailed information including dates, times, registration links, and age requirements."
+        "about K-12 school events, programs, camps, classes, and activities from our database. "
+        "\n"
+        "FOCUS ON: School-related events only, including: "
+        "- After-school programs and clubs "
+        "- School camps (STEM, arts, sports) "
+        "- Educational classes and workshops "
+        "- School competitions and tournaments "
+        "- Youth programs and activities "
+        "- Academic enrichment programs "
+        "\n"
+        "IMPORTANT: Only report events that DIRECTLY match the user's query AND are school-related. "
+        "If the search results don't contain school events that are actually relevant to what the user asked for, "
+        "you MUST respond with 'No matching school events found in the local database.' "
+        "Do NOT try to make connections or suggest events that only loosely relate to the query. "
+        "Be strict and accurate - only return genuine school events for students. "
+        "\n\n⚠️ CRITICAL INSTRUCTION: When you find relevant results, you MUST start your FIRST LINE of response "
+        "with exactly '[Source: Local Database]' (including the square brackets). This is required for proper source attribution. "
+        "Example:\n"
+        "[Source: Local Database]\n"
+        "I found the following school events in our local database..."
     )
     local_events_node = functools.partial(agent_node, agent=local_events_agent, name="LocalEvents")
     logger.info("   ✅ LocalEvents agent configured")
     
+    # Agent 3: Gmail Agent (uses Gmail MCP tools)
+    logger.info("\n--- Agent 3: Gmail Agent ---")
+    gmail_agent = create_agent(
+        llm,
+        gmail_tools,
+        "You are a Gmail specialist focused on finding school-related emails. "
+        "Use the Gmail tools to search for and retrieve email content about K-12 school events, "
+        "programs, activities, and educational opportunities from the user's inbox. "
+        "\n"
+        "SEARCH FOR: Emails about school events such as: "
+        "- School programs (after-school clubs, enrichment programs) "
+        "- School camps and workshops "
+        "- School competitions, tournaments, and performances "
+        "- Educational activities for students "
+        "- School announcements and event notifications "
+        "- Youth programs and student activities "
+        "\n"
+        "SEARCH STRATEGY: Use keywords like 'school events', 'Round Rock schools', 'student activities', "
+        "'kids programs', 'school calendar', 'youth', 'children', 'education', or specific school names. "
+        "Focus on emails that contain information about events designed for K-12 students. "
+        "\n"
+        "Provide summaries of found emails with key details about the school events. "
+        "\n\n⚠️ CRITICAL INSTRUCTION: You MUST start your FIRST LINE of response with exactly '[Source: Gmail]' "
+        "(including the square brackets). This is required for proper source attribution. "
+        "Example:\n"
+        "[Source: Gmail]\n"
+        "Here are the school event emails I found..."
+    )
+    gmail_node = functools.partial(agent_node, agent=gmail_agent, name="GmailAgent")
+    logger.info("   ✅ Gmail agent configured")
+    
     logger.info("\n" + "="*80)
     logger.info("✅ MULTI-AGENT SYSTEM INITIALIZATION COMPLETE")
-    logger.info(f"   Total Agents: 2 (WebSearch, LocalEvents)")
-    logger.info(f"   Total Tools: 2 (Tavily, SchoolEventsSearch)")
+    logger.info(f"   Total Agents: 3 (WebSearch, LocalEvents, GmailAgent)")
+    logger.info(f"   Total Tools: {2 + len(gmail_tools)} (Tavily, SchoolEventsSearch, Gmail)")
     logger.info("="*80 + "\n")
     
     return {
@@ -149,9 +217,12 @@ def create_school_events_agents():
         "search_node": search_node,
         "local_events_agent": local_events_agent,
         "local_events_node": local_events_node,
+        "gmail_agent": gmail_agent,
+        "gmail_node": gmail_node,
         "tools": {
             "tavily": tavily_tool,
-            "school_events": school_events_tool
+            "school_events": school_events_tool,
+            "gmail": gmail_tools
         }
     }
 
@@ -159,8 +230,9 @@ def create_school_events_agents():
 def create_simple_agent_graph():
     """
     Create a sequential agent graph with fallback strategy:
-    1. Try LocalEvents first (search local database)
-    2. If no useful results, fall back to WebSearch (Tavily)
+    1. Try Gmail first (search emails for Round Rock school data)
+    2. If no useful results, try LocalEvents (search local database)
+    3. If still no useful results, fall back to WebSearch (Tavily)
     
     Returns:
         Compiled LangGraph
@@ -171,14 +243,92 @@ def create_simple_agent_graph():
     workflow = StateGraph(AgentState)
     
     # Add nodes
+    workflow.add_node("GmailAgent", agents["gmail_node"])
     workflow.add_node("LocalEvents", agents["local_events_node"])
     workflow.add_node("WebSearch", agents["search_node"])
     
-    # Router to check if LocalEvents found useful results
+    # Router to check if Gmail found useful results
+    def check_gmail_results(state):
+        """
+        Check if Gmail found useful information.
+        If not, route to LocalEvents to search local database.
+        """
+        messages = state["messages"]
+        last_message = messages[-1]
+        content = last_message.content.lower() if last_message.content else ""
+        
+        logger.info(f"\n📧 CHECKING GMAIL RESULTS")
+        logger.info(f"   Response length: {len(content)} chars")
+        logger.info(f"   Response preview: {content[:200] if content else '(empty)'}")
+        logger.info(f"   Content type: {type(last_message.content)}")
+        logger.info(f"   Content value: {repr(last_message.content)}")
+        
+        # Check if response is empty or too short
+        if not content or len(content.strip()) < 20:
+            logger.info(f"   ❌ Gmail response is empty or too short ({len(content)} chars)")
+            logger.info(f"   ➡️  Checking LocalEvents database")
+            return "LocalEvents"
+        
+        # Check for indicators that no results were found OR authentication issues
+        no_results_indicators = [
+            "no emails found",
+            "no relevant emails",
+            "no emails matching",
+            "gmail api error",
+            "error calling gmail",
+            "error:",
+            "unable to",
+            "couldn't find",
+            "could not find",
+            "no response from gmail",
+            "i don't have",
+            "i do not have",
+            "no information",
+            "not available",
+            "gmail not authenticated",
+            "authentication",
+            "permission",
+            "no results"
+        ]
+        
+        # Check for positive indicators that results were found
+        # These are very specific to actual email content
+        positive_indicators = [
+            "subject:",
+            "from:",
+            "date:",
+            "email content:",
+            "snippet:",
+            "sender:",
+            "received:",
+            "message id:"
+        ]
+        
+        has_no_results = any(indicator in content for indicator in no_results_indicators)
+        has_positive_results = any(indicator in content for indicator in positive_indicators)
+        
+        logger.info(f"   has_no_results: {has_no_results}")
+        logger.info(f"   has_positive_results: {has_positive_results}")
+        
+        # Gmail should only be considered successful if it has positive indicators AND no error indicators
+        if has_no_results or not has_positive_results:
+            logger.info(f"   ❌ Gmail search failed or found no useful results")
+            if has_no_results:
+                logger.info(f"   Detected error or no-results indicator")
+            if not has_positive_results:
+                logger.info(f"   No specific email content indicators found")
+            logger.info(f"   ➡️  Checking LocalEvents database")
+            return "LocalEvents"
+        
+        logger.info(f"   ✅ Gmail search found useful results")
+        logger.info(f"   ➡️  Ending search (no fallback needed)")
+        return END
+    
+    # Router to check LocalEvents results
     def check_local_results(state):
         """
         Check if LocalEvents found useful information.
-        If not, route to WebSearch for online search.
+        If not, route to WebSearch as final fallback.
         """
         messages = state["messages"]
         last_message = messages[-1]
@@ -208,34 +358,44 @@ def create_simple_agent_graph():
             "it seems that there",
             "unfortunately",
             "not found",
-            "no results"
+            "no results",
+            "no matching events",
+            "may be related",
+            "may include",
+            "might be",
+            "could be",
+            "loosely relate"
         ]
         
         if any(indicator in content for indicator in no_results_indicators):
             logger.info(f"   ❌ Local search found no useful results")
-            logger.info(f"   Detected phrase indicating no results")
-            logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
-            return "WebSearch"
-        
-        # Check if response is too short (likely unhelpful)
-        if len(content.strip()) < 50:
-            logger.info(f"   ⚠️  Response too short ({len(content)} chars)")
             logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
             return "WebSearch"
         
         logger.info(f"   ✅ Local search found useful results")
-        logger.info(f"   ➡️  Ending search (no fallback needed)")
+        logger.info(f"   ➡️  Ending search")
         return END
     
-    # Set entry point - always start with LocalEvents
+    # Set entry point - always start with Gmail
     logger.info("\n🔧 WORKFLOW CONFIGURATION:")
-    logger.info("   Strategy: Sequential Search with Fallback")
-    logger.info("   1️⃣  First: LocalEvents (search local database)")
-    logger.info("   2️⃣  Fallback: WebSearch (if local finds nothing)")
+    logger.info("   Strategy: Sequential Search with Multiple Fallbacks")
+    logger.info("   1️⃣  First: GmailAgent (search email inbox)")
+    logger.info("   2️⃣  Second: LocalEvents (search local database)")
+    logger.info("   3️⃣  Fallback: WebSearch (if both Gmail and local find nothing)")
     
-    workflow.set_entry_point("LocalEvents")
+    workflow.set_entry_point("GmailAgent")
     
-    # After LocalEvents, check results and decide whether to fallback
+    # After Gmail, check results and decide whether to try LocalEvents
+    workflow.add_conditional_edges(
+        "GmailAgent",
+        check_gmail_results,
+        {
+            "LocalEvents": "LocalEvents",
+            END: END
+        }
+    )
+    
+    # After LocalEvents, check results and decide whether to fallback to web search
     workflow.add_conditional_edges(
         "LocalEvents",
         check_local_results,
@@ -277,6 +437,14 @@ def query_with_agent(question: str):
     logger.info("\n" + "🟢"*40)
     logger.info(f"✅ QUERY COMPLETED (Total time: {duration:.2f}s)")
     logger.info(f"   Messages in response: {len(result.get('messages', []))}")
+    
+    # Log all messages for debugging
+    for i, msg in enumerate(result.get('messages', [])):
+        msg_type = type(msg).__name__
+        msg_name = getattr(msg, 'name', 'N/A')
+        msg_content_preview = msg.content[:100] if msg.content else '(empty)'
+        logger.info(f"   Message {i+1}: {msg_type} | name={msg_name} | content={msg_content_preview}...")
+    
     logger.info("🟢"*40 + "\n")
     
     return result

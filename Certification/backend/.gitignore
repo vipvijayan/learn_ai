@@ -16,6 +16,12 @@ ENV/
 # Environment Variables
 .env
 
+# Gmail/MCP Credentials (NEVER commit these!)
+credentials/
+gmail_credentials.json
+gmail_token.json
+*.json
+
 # Logs
 logs/*.log
 *.log

@@ -46,6 +46,23 @@ const renderMarkdownText = (text, key) => {
   );
 };
 
+// Function to format time in seconds to readable format
+const formatResponseTime = (seconds) => {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  if (hours > 0) {
+    return `${hours} hour${hours > 1 ? 's' : ''}: ${minutes} min: ${secs} sec${secs !== 1 ? 's' : ''}`;
+  } else {
+    return `${minutes} min: ${secs} sec${secs !== 1 ? 's' : ''}`;
+  }
+};
+
 // Function to format LLM response text into HTML
 const formatResponseText = (text) => {
   if (!text) return '';
@@ -159,6 +176,42 @@ function App() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
+  const [backendStatus, setBackendStatus] = useState('checking'); // 'checking', 'online', 'offline'
+  const [backendError, setBackendError] = useState('');
+  
+  // Check backend health on mount
+  useEffect(() => {
+    const checkBackendHealth = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/health`, {
+          timeout: 5000
+        });
+        
+        if (response.status === 200) {
+          setBackendStatus('online');
+          
+          // Hide splash screen after 4 seconds if backend is online
+          setTimeout(() => {
+            setShowSplash(false);
+          }, 4000);
+        }
+      } catch (err) {
+        console.error('Backend health check failed:', err);
+        setBackendStatus('offline');
+        
+        if (err.code === 'ECONNABORTED') {
+          setBackendError('Connection timeout - Backend server is not responding');
+        } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
+          setBackendError('Backend server is not running on http://localhost:8000');
+        } else {
+          setBackendError(`Backend error: ${err.message}`);
+        }
+      }
+    };
+    
+    checkBackendHealth();
+  }, []);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -224,18 +277,26 @@ function App() {
         question: userMessage
       });
 
-      const { answer, context, agent_used } = response.data;
+      const { answer, context, agent_used, source, response_time } = response.data;
       
       // Optional: Log which agent was used for debugging
       if (agent_used) {
         console.log(`🤖 Query answered by: ${agent_used}`);
+      }
+      if (source) {
+        console.log(`📚 Source: ${source}`);
+      }
+      if (response_time) {
+        console.log(`⏱️ Response time: ${response_time}s`);
       }
 
       // Add assistant response to chat
       setMessages(prev => [...prev, { 
         type: 'assistant', 
         content: answer,
-        context: context 
+        context: context,
+        source: source || 'Unknown',
+        responseTime: response_time
       }]);
 
     } catch (err) {
@@ -354,6 +415,54 @@ function App() {
       runComparison();
     }
   };
+
+  // Error screen if backend is offline
+  if (backendStatus === 'offline') {
+    return (
+      <div className="splash-screen error-screen">
+        <div className="splash-content">
+          <div className="error-icon">⚠️</div>
+          <h1 className="splash-title error-title">Backend Server Unavailable</h1>
+          <p className="error-message">Unable to connect to the backend server.</p>
+          <button 
+            className="retry-button"
+            onClick={() => window.location.reload()}
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Splash screen
+  if (showSplash) {
+    return (
+      <div className="splash-screen">
+        <div className="splash-content">
+          <SchoolIcon className="splash-icon" />
+          <h1 className="splash-title">School Events Assistant</h1>
+          <div className="splash-loader">
+            <div className="loader-dot"></div>
+            <div className="loader-dot"></div>
+            <div className="loader-dot"></div>
+          </div>
+        </div>
+        <div className="backend-status">
+          {backendStatus === 'checking' && (
+            <span className="status-checking">
+              🔍 Checking backend...
+            </span>
+          )}
+          {backendStatus === 'online' && (
+            <span className="status-online">
+              ✅ Backend connected
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -499,6 +608,34 @@ function App() {
                   ? formatResponseText(message.content)
                   : message.content
                 }
+                {message.type === 'assistant' && message.source && (
+                  <div style={{ 
+                    marginTop: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '12px'
+                  }}>
+                    <div className="source-badge" style={{
+                      fontSize: '0.85em',
+                      fontWeight: '500',
+                      color: message.source === 'Local Database' ? '#1976d2' : 
+                            message.source === 'Gmail' ? '#f57c00' : 
+                            message.source === 'Web Search' ? '#7b1fa2' : '#616161'
+                    }}>
+                      📚 Source: {message.source}
+                    </div>
+                    {message.responseTime && (
+                      <div className="response-time-badge" style={{
+                        fontSize: '0.85em',
+                        fontWeight: '500',
+                        color: '#666'
+                      }}>
+                        ⏱️ {formatResponseTime(message.responseTime)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {/* {message.context && (
                 <div className="context-info">

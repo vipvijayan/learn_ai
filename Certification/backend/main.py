@@ -77,20 +77,12 @@ naive_chain = None
 # FASTAPI APP SETUP
 # ============================================================
 
-app = FastAPI(title="School Events RAG API")
+from contextlib import asynccontextmanager
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[FRONTEND_URL],  # React dev server
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.on_event("startup")
-async def startup_event():
-    """Log available endpoints and capabilities on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events"""
+    # Startup
     logger.info("📋 AVAILABLE ENDPOINTS:")
     logger.info("   /query → RAG Query (switchable between Original and Naive)")
     logger.info("   /agent-query → Direct Tool Use (school_events_search)")
@@ -103,6 +95,22 @@ async def startup_event():
     logger.info("   /health → Health check")
     logger.info("🔍 Active Retrieval Method: Naive Retrieval (default)")
     logger.info("="*80)
+    
+    yield
+    
+    # Shutdown (cleanup if needed)
+    logger.info("👋 Shutting down School Events RAG API")
+
+app = FastAPI(title="School Events RAG API", lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],  # React dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ============================================================
 # PYDANTIC MODELS
@@ -513,18 +521,36 @@ async def multi_agent_query_events(request: QueryRequest):
             response_text = last_message.content
             agent_name = getattr(last_message, 'name', 'Unknown')
             
+            # Map agent name directly to source
+            source_map = {
+                "LocalEvents": "Local Database",
+                "GmailAgent": "Gmail",
+                "WebSearch": "Web Search"
+            }
+            source = source_map.get(agent_name, "Unknown")
+            
+            # Remove source tag from response if LLM included it
+            clean_response = response_text
+            for tag in ["[Source: Local Database]", "[Source: Gmail]", "[Source: Web Search]"]:
+                if tag in clean_response:
+                    clean_response = clean_response.replace(tag, "").strip()
+                    break
+            
             duration = (datetime.now() - start_time).total_seconds()
             logger.info(f"✅ Multi-agent query completed in {duration:.2f}s")
             logger.info(f"Agent used: {agent_name}")
+            logger.info(f"Source: {source}")
             logger.info(f"Messages exchanged: {len(result['messages'])}")
-            logger.info(f"Response length: {len(response_text)} characters")
+            logger.info(f"Response length: {len(clean_response)} characters")
             logger.info("="*80)
             
             return {
-                "answer": response_text,
+                "answer": clean_response,
                 "agent_used": agent_name,
+                "source": source,
+                "response_time": round(duration, 2),
                 "message_count": len(result["messages"]),
-                "context": [response_text[:200] + "..."] if len(response_text) > 200 else [response_text]
+                "context": [clean_response[:200] + "..."] if len(clean_response) > 200 else [clean_response]
             }
         else:
             duration = (datetime.now() - start_time).total_seconds()
@@ -545,6 +571,186 @@ async def multi_agent_query_events(request: QueryRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error processing multi-agent query: {str(e)}")
+
+
+def _run_ragas_evaluation_sync(active_method, orig_retriever, orig_chain, nv_retriever, nv_chain):
+    """
+    Synchronous function to run RAGAS evaluation in a separate thread.
+    This avoids uvloop compatibility issues by running in a fresh event loop.
+    
+    Args:
+        active_method: The active retrieval method ("original" or "naive")
+        orig_retriever: The original retriever
+        orig_chain: The original chain
+        nv_retriever: The naive retriever
+        nv_chain: The naive chain
+    """
+    from ragas import evaluate, EvaluationDataset
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.metrics import (
+        LLMContextRecall,
+        Faithfulness,
+        ResponseRelevancy,
+        ContextPrecision
+    )
+    from ragas import RunConfig
+    import pandas as pd
+    
+    logger.info("📚 Creating test dataset...")
+    
+    # Test questions covering all event types
+    test_questions = [
+        {
+            "user_input": "What coding programs are available for kids?",
+            "reference": "CodeWizardsHQ Logic Challenge for grades 3-12"
+        },
+        {
+            "user_input": "What art classes does Cordovan Art School offer?",
+            "reference": "Painting, Drawing, Anime, Clay and more for ages 4-Adult"
+        },
+        {
+            "user_input": "Are there any music programs for children?",
+            "reference": "National Children's Chorus with Junior and Senior divisions"
+        },
+        {
+            "user_input": "What are the school holiday camp options?",
+            "reference": "All-inclusive day camps with sports, STEM, martial arts"
+        },
+        {
+            "user_input": "What sports programs are available?",
+            "reference": "Texas Tomahawks lacrosse clinics for grades K-8"
+        },
+        {
+            "user_input": "When are the art camp dates?",
+            "reference": "October 2025 through January 2026"
+        },
+        {
+            "user_input": "What age groups can participate in coding programs?",
+            "reference": "Students in grades 3-12"
+        },
+        {
+            "user_input": "Where is Cordovan Art School located?",
+            "reference": "Cedar Park, Georgetown, NW Austin, Round Rock, SW Austin"
+        }
+    ]
+    
+    logger.info(f"✅ Created {len(test_questions)} test questions")
+    
+    # Run queries through RAG pipeline
+    logger.info("🚀 Running queries through RAG pipeline...")
+    eval_data = []
+    
+    for i, test_case in enumerate(test_questions, 1):
+        question = test_case["user_input"]
+        reference = test_case["reference"]
+        
+        logger.info(f"  {i}/{len(test_questions)}: {question[:50]}...")
+        
+        # Query the RAG using the active method (passed as parameter)
+        if active_method == "original":
+            # Original method: manually retrieve and pass to chain
+            retrieved_docs = orig_retriever.invoke(question)
+            context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+            response = orig_chain.invoke({
+                "context": context,
+                "question": question
+            })
+        else:  # naive
+            # Naive method: LCEL chain handles retrieval internally
+            result = nv_chain.invoke({"question": question})
+            response = result["response"].content  # Extract content from AIMessage
+            retrieved_docs = result["context"]  # This is the list of documents
+        
+        eval_data.append({
+            "user_input": question,
+            "response": response,
+            "retrieved_contexts": [doc.page_content for doc in retrieved_docs],
+            "reference": reference
+        })
+    
+    logger.info("✅ All queries completed")
+    
+    # Convert to RAGAS EvaluationDataset
+    logger.info("📊 Preparing RAGAS evaluation dataset...")
+    df = pd.DataFrame(eval_data)
+    evaluation_dataset = EvaluationDataset.from_pandas(df)
+    
+    # Setup evaluator LLM
+    logger.info("🤖 Setting up evaluator LLM (gpt-4o-mini)...")
+    evaluator_llm = LangchainLLMWrapper(ChatOpenAI(model="gpt-4o-mini"))
+    
+    # Run RAGAS evaluation
+    logger.info("🔬 Running RAGAS evaluation...")
+    logger.info("   Metrics: Faithfulness, Response Relevancy, Context Precision, Context Recall")
+    
+    custom_run_config = RunConfig(timeout=360)
+    
+    result = evaluate(
+        dataset=evaluation_dataset,
+        metrics=[
+            LLMContextRecall(),
+            Faithfulness(),
+            ResponseRelevancy(),
+            ContextPrecision()
+        ],
+        llm=evaluator_llm,
+        run_config=custom_run_config
+    )
+    
+    # Extract metrics
+    result_df = result.to_pandas()
+    
+    # Debug: Log available columns
+    logger.info(f"📋 Available RAGAS columns: {list(result_df.columns)}")
+    logger.info(f"📊 Sample row:\n{result_df.head(1)}")
+    
+    # Extract metrics with actual column names
+    available_cols = list(result_df.columns)
+    metrics = {}
+    
+    # Map expected names to actual column names
+    if "faithfulness" in available_cols:
+        metrics["faithfulness"] = float(result_df["faithfulness"].mean())
+    if "answer_relevancy" in available_cols:
+        metrics["answer_relevancy"] = float(result_df["answer_relevancy"].mean())
+    if "response_relevancy" in available_cols:
+        metrics["response_relevancy"] = float(result_df["response_relevancy"].mean())
+    if "context_precision" in available_cols:
+        metrics["context_precision"] = float(result_df["context_precision"].mean())
+    if "context_recall" in available_cols:
+        metrics["context_recall"] = float(result_df["context_recall"].mean())
+    
+    # Save results to generated_results directory
+    os.makedirs(GENERATED_RESULTS_DIR, exist_ok=True)
+    
+    results_csv_path = os.path.join(GENERATED_RESULTS_DIR, "ragas_evaluation_results.csv")
+    summary_json_path = os.path.join(GENERATED_RESULTS_DIR, "ragas_evaluation_summary.json")
+    
+    result_df.to_csv(results_csv_path, index=False)
+    
+    with open(summary_json_path, "w") as f:
+        json.dump(metrics, f, indent=2)
+    
+    logger.info("="*80)
+    logger.info("📊 RAGAS EVALUATION RESULTS")
+    logger.info("="*80)
+    for metric_name, metric_value in metrics.items():
+        logger.info(f"{metric_name:.<25} {metric_value:.4f}")
+    logger.info("="*80)
+    logger.info(f"💾 Results saved to: {results_csv_path}")
+    logger.info(f"💾 Summary saved to: {summary_json_path}")
+    logger.info("="*80)
+    
+    return {
+        "status": "success",
+        "metrics": metrics,
+        "test_questions_count": len(test_questions),
+        "files_generated": [
+            results_csv_path,
+            summary_json_path
+        ],
+        "message": "RAGAS evaluation completed successfully"
+    }
 
 
 @app.post("/evaluate-ragas")
@@ -570,175 +776,26 @@ async def evaluate_rag_with_ragas():
             setup_rag_pipeline()
             logger.info("✅ RAG pipeline ready")
         
-        # Import RAGAS
-        from ragas import evaluate, EvaluationDataset
-        from ragas.llms import LangchainLLMWrapper
-        from ragas.metrics import (
-            LLMContextRecall,
-            Faithfulness,
-            ResponseRelevancy,
-            ContextPrecision
-        )
-        from ragas import RunConfig
-        import pandas as pd
+        # Run RAGAS evaluation in a separate thread to avoid uvloop compatibility issues
+        # RAGAS tries to patch the event loop, but uvloop doesn't support it
+        logger.info("🔧 Running RAGAS in separate thread to avoid uvloop conflicts...")
+        import concurrent.futures
         
-        logger.info("📚 Creating test dataset...")
+        # Pass all necessary data to the thread
+        global active_retrieval_method, original_retriever, naive_retriever, original_chain, naive_chain
         
-        # Test questions covering all event types
-        test_questions = [
-            {
-                "user_input": "What coding programs are available for kids?",
-                "reference": "CodeWizardsHQ Logic Challenge for grades 3-12"
-            },
-            {
-                "user_input": "What art classes does Cordovan Art School offer?",
-                "reference": "Painting, Drawing, Anime, Clay and more for ages 4-Adult"
-            },
-            {
-                "user_input": "Are there any music programs for children?",
-                "reference": "National Children's Chorus with Junior and Senior divisions"
-            },
-            {
-                "user_input": "What are the school holiday camp options?",
-                "reference": "All-inclusive day camps with sports, STEM, martial arts"
-            },
-            {
-                "user_input": "What sports programs are available?",
-                "reference": "Texas Tomahawks lacrosse clinics for grades K-8"
-            },
-            {
-                "user_input": "When are the art camp dates?",
-                "reference": "October 2025 through January 2026"
-            },
-            {
-                "user_input": "What age groups can participate in coding programs?",
-                "reference": "Students in grades 3-12"
-            },
-            {
-                "user_input": "Where is Cordovan Art School located?",
-                "reference": "Cedar Park, Georgetown, NW Austin, Round Rock, SW Austin"
-            }
-        ]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(
+                _run_ragas_evaluation_sync,
+                active_retrieval_method,
+                original_retriever,
+                original_chain,
+                naive_retriever,
+                naive_chain
+            )
+            result = future.result()
         
-        logger.info(f"✅ Created {len(test_questions)} test questions")
-        
-        # Run queries through RAG pipeline
-        logger.info("🚀 Running queries through RAG pipeline...")
-        eval_data = []
-        
-        for i, test_case in enumerate(test_questions, 1):
-            question = test_case["user_input"]
-            reference = test_case["reference"]
-            
-            logger.info(f"  {i}/{len(test_questions)}: {question[:50]}...")
-            
-            # Query the RAG using the active method
-            global active_retrieval_method, original_retriever, naive_retriever, original_chain, naive_chain
-            
-            if active_retrieval_method == "original":
-                # Original method: manually retrieve and pass to chain
-                retrieved_docs = original_retriever.invoke(question)
-                context = "\n\n".join([doc.page_content for doc in retrieved_docs])
-                response = original_chain.invoke({
-                    "context": context,
-                    "question": question
-                })
-            else:  # naive
-                # Naive method: LCEL chain handles retrieval internally
-                result = naive_chain.invoke({"question": question})
-                response = result["response"].content  # Extract content from AIMessage
-                retrieved_docs = result["context"]  # This is the list of documents
-            
-            eval_data.append({
-                "user_input": question,
-                "response": response,
-                "retrieved_contexts": [doc.page_content for doc in retrieved_docs],
-                "reference": reference
-            })
-        
-        logger.info("✅ All queries completed")
-        
-        # Convert to RAGAS EvaluationDataset
-        logger.info("📊 Preparing RAGAS evaluation dataset...")
-        df = pd.DataFrame(eval_data)
-        evaluation_dataset = EvaluationDataset.from_pandas(df)
-        
-        # Setup evaluator LLM
-        logger.info("🤖 Setting up evaluator LLM (gpt-4o-mini)...")
-        evaluator_llm = LangchainLLMWrapper(ChatOpenAI(model="gpt-4o-mini"))
-        
-        # Run RAGAS evaluation
-        logger.info("🔬 Running RAGAS evaluation...")
-        logger.info("   Metrics: Faithfulness, Response Relevancy, Context Precision, Context Recall")
-        
-        custom_run_config = RunConfig(timeout=360)
-        
-        result = evaluate(
-            dataset=evaluation_dataset,
-            metrics=[
-                LLMContextRecall(),
-                Faithfulness(),
-                ResponseRelevancy(),
-                ContextPrecision()
-            ],
-            llm=evaluator_llm,
-            run_config=custom_run_config
-        )
-        
-        # Extract metrics
-        result_df = result.to_pandas()
-        
-        # Debug: Log available columns
-        logger.info(f"📋 Available RAGAS columns: {list(result_df.columns)}")
-        logger.info(f"📊 Sample row:\n{result_df.head(1)}")
-        
-        # Extract metrics with actual column names
-        available_cols = list(result_df.columns)
-        metrics = {}
-        
-        # Map expected names to actual column names
-        if "faithfulness" in available_cols:
-            metrics["faithfulness"] = float(result_df["faithfulness"].mean())
-        if "answer_relevancy" in available_cols:
-            metrics["answer_relevancy"] = float(result_df["answer_relevancy"].mean())
-        if "response_relevancy" in available_cols:
-            metrics["response_relevancy"] = float(result_df["response_relevancy"].mean())
-        if "context_precision" in available_cols:
-            metrics["context_precision"] = float(result_df["context_precision"].mean())
-        if "context_recall" in available_cols:
-            metrics["context_recall"] = float(result_df["context_recall"].mean())
-        
-        # Save results to generated_results directory
-        os.makedirs(GENERATED_RESULTS_DIR, exist_ok=True)
-        
-        results_csv_path = os.path.join(GENERATED_RESULTS_DIR, "ragas_evaluation_results.csv")
-        summary_json_path = os.path.join(GENERATED_RESULTS_DIR, "ragas_evaluation_summary.json")
-        
-        result_df.to_csv(results_csv_path, index=False)
-        
-        with open(summary_json_path, "w") as f:
-            json.dump(metrics, f, indent=2)
-        
-        logger.info("="*80)
-        logger.info("📊 RAGAS EVALUATION RESULTS")
-        logger.info("="*80)
-        for metric_name, metric_value in metrics.items():
-            logger.info(f"{metric_name:.<25} {metric_value:.4f}")
-        logger.info("="*80)
-        logger.info(f"💾 Results saved to: {results_csv_path}")
-        logger.info(f"💾 Summary saved to: {summary_json_path}")
-        logger.info("="*80)
-        
-        return {
-            "status": "success",
-            "metrics": metrics,
-            "test_questions_count": len(test_questions),
-            "files_generated": [
-                results_csv_path,
-                summary_json_path
-            ],
-            "message": "RAGAS evaluation completed successfully"
-        }
+        return result
         
     except Exception as e:
         logger.error(f"❌ RAGAS evaluation failed: {str(e)}")
