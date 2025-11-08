@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, field_validator
 from typing import List, Optional
 import json
@@ -62,7 +63,11 @@ from app.database import (
     # Bookmarks functions
     add_bookmark,
     remove_bookmark,
-    get_user_bookmarks
+    get_user_bookmarks,
+    # Gmail OAuth functions
+    save_user_gmail_token,
+    get_user_gmail_token,
+    disconnect_user_gmail
 )
 
 # ============================================================
@@ -527,6 +532,7 @@ async def get_user_selected_schools(email: str):
 
 
 @app.post("/api/auth/reset-database")
+@app.get("/api/auth/reset-database")  # Allow GET for browser access
 async def reset_database_endpoint():
     """
     Reset the entire database - drops all tables and recreates them.
@@ -870,6 +876,354 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "rag_initialized": retriever is not None}
 
+
+@app.get("/test-gmail", response_class=HTMLResponse)
+async def test_gmail_page():
+    """Serve Gmail integration test page"""
+    html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        .info { border-left: 4px solid #17a2b8; }
+        .warning { border-left: 4px solid #ffc107; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        input {
+            padding: 10px;
+            width: 100%;
+            max-width: 400px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            overflow-x: auto;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        h1 { color: #333; }
+        h2 { color: #555; font-size: 18px; margin-top: 0; }
+        .result-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Gmail Integration Test</h1>
+    
+    <div class="section info">
+        <h2>📋 Step 1: Check Gmail Status in Database</h2>
+        <input type="email" id="userEmail" placeholder="Enter your email" value="vipinvijayan23@gmail.com">
+        <br>
+        <button onclick="checkDatabase()">Check Database</button>
+        <div id="dbResult" class="result-box"></div>
+    </div>
+    
+    <div class="section info">
+        <h2>🌐 Step 2: Test WebSocket Query</h2>
+        <input type="text" id="query" placeholder="Enter query" value="school programs">
+        <br>
+        <button onclick="testWebSocket()">Send WebSocket Query</button>
+        <button onclick="clearMessages()">Clear Messages</button>
+        <div id="wsResult" class="result-box"></div>
+    </div>
+    
+    <div class="section info">
+        <h2>📊 Step 3: Database Tables</h2>
+        <button onclick="loadTables()">Load Database Tables</button>
+        <div id="tablesResult" class="result-box"></div>
+    </div>
+    
+    <div class="section info">
+        <h2>📝 Step 4: Backend Logs</h2>
+        <p><em>Check terminal/logs for backend activity</em></p>
+        <pre>tail -f backend/nohup.out</pre>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        
+        async function checkDatabase() {
+            const result = document.getElementById('dbResult');
+            const email = document.getElementById('userEmail').value;
+            result.innerHTML = '<p>⏳ Checking database...</p>';
+            
+            try {
+                const response = await fetch(API_URL + '/api/auth/gmail/status?email=' + encodeURIComponent(email));
+                const data = await response.json();
+                
+                const parent = result.closest('.section');
+                parent.className = data.connected ? 'section success' : 'section error';
+                
+                result.innerHTML = '<strong>Result:</strong><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                
+                if (!data.connected) {
+                    result.innerHTML += '<p style="color: #dc3545;">❌ Gmail not connected! Please sign in with Gmail OAuth first.</p>';
+                }
+            } catch (error) {
+                result.innerHTML = '<p style="color: #dc3545;">❌ Error: ' + error.message + '</p>';
+                result.closest('.section').className = 'section error';
+            }
+        }
+        
+        function clearMessages() {
+            document.getElementById('wsResult').innerHTML = '';
+            document.getElementById('wsResult').closest('.section').className = 'section info';
+        }
+        
+        function testWebSocket() {
+            const email = document.getElementById('userEmail').value;
+            const query = document.getElementById('query').value;
+            const result = document.getElementById('wsResult');
+            
+            result.innerHTML = '<p>⏳ Connecting to WebSocket...</p>';
+            
+            const ws = new WebSocket('ws://' + window.location.host + '/ws/multi-agent-stream');
+            
+            let gmailFound = false;
+            
+            ws.onopen = () => {
+                result.innerHTML = '<p>✅ Connected! Sending query...</p>';
+                
+                const message = {
+                    question: query,
+                    user_email: email,
+                    email_suffixes: null,
+                    school_districts: null
+                };
+                
+                console.log('📤 Sending:', message);
+                result.innerHTML += '<pre>Sent: ' + JSON.stringify(message, null, 2) + '</pre>';
+                
+                ws.send(JSON.stringify(message));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('📥 Received:', data);
+                
+                if (data.type === 'update' && data.agent === 'Gmail') {
+                    gmailFound = true;
+                    const content = data.content;
+                    
+                    result.innerHTML += '<div style="margin: 15px 0; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">';
+                    result.innerHTML += '<strong>📧 Gmail Agent Response:</strong><br>';
+                    result.innerHTML += content;
+                    result.innerHTML += '</div>';
+                    
+                    if (content.includes('unable to access') || content.includes('not connected')) {
+                        result.closest('.section').className = 'section error';
+                        result.innerHTML += '<p style="color: #dc3545; font-weight: bold;">❌ Gmail search FAILED!</p>';
+                    } else if (content.includes('Found') && content.includes('email')) {
+                        result.closest('.section').className = 'section success';
+                        result.innerHTML += '<p style="color: #28a745; font-weight: bold;">✅ Gmail search SUCCESS!</p>';
+                    }
+                }
+                
+                if (data.type === 'final') {
+                    result.innerHTML += '<p style="margin-top: 15px;"><strong>✅ Query complete!</strong></p>';
+                    
+                    if (!gmailFound) {
+                        result.innerHTML += '<p style="color: #dc3545;">⚠️ Warning: No Gmail agent response received!</p>';
+                        result.closest('.section').className = 'section warning';
+                    }
+                    
+                    ws.close();
+                }
+            };
+            
+            ws.onerror = (error) => {
+                result.innerHTML += '<p style="color: #dc3545;">❌ WebSocket Error</p>';
+                result.closest('.section').className = 'section error';
+            };
+            
+            ws.onclose = () => {
+                result.innerHTML += '<p><em>Connection closed</em></p>';
+            };
+        }
+        
+        async function loadTables() {
+            const result = document.getElementById('tablesResult');
+            result.innerHTML = '<p>⏳ Loading database tables...</p>';
+            
+            try {
+                const response = await fetch(API_URL + '/api/debug/tables');
+                const data = await response.json();
+                
+                result.closest('.section').className = 'section success';
+                
+                let html = '<h3>Database Tables</h3>';
+                
+                for (const [tableName, tableData] of Object.entries(data.tables)) {
+                    html += '<div style="margin: 20px 0; border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">';
+                    html += '<div style="background: #007bff; color: white; padding: 10px; font-weight: bold;">';
+                    html += '📋 ' + tableName + ' (' + tableData.count + ' rows)';
+                    html += '</div>';
+                    
+                    if (tableData.data && tableData.data.length > 0) {
+                        html += '<div style="overflow-x: auto;">';
+                        html += '<table style="width: 100%; border-collapse: collapse;">';
+                        
+                        // Header
+                        html += '<thead><tr style="background: #f8f9fa;">';
+                        for (const col of tableData.columns) {
+                            html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: left;">' + col + '</th>';
+                        }
+                        html += '</tr></thead>';
+                        
+                        // Data rows
+                        html += '<tbody>';
+                        for (const row of tableData.data) {
+                            html += '<tr>';
+                            for (const col of tableData.columns) {
+                                let value = row[col];
+                                
+                                // Truncate long values
+                                if (typeof value === 'string' && value.length > 100) {
+                                    value = value.substring(0, 100) + '...';
+                                }
+                                
+                                // Highlight NULL values
+                                if (value === null || value === undefined) {
+                                    value = '<em style="color: #999;">NULL</em>';
+                                }
+                                
+                                html += '<td style="padding: 8px; border: 1px solid #ddd;">' + value + '</td>';
+                            }
+                            html += '</tr>';
+                        }
+                        html += '</tbody>';
+                        html += '</table>';
+                        html += '</div>';
+                    } else {
+                        html += '<div style="padding: 20px; text-align: center; color: #999;">No data</div>';
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = '<p style="color: #dc3545;">❌ Error: ' + error.message + '</p>';
+                result.closest('.section').className = 'section error';
+            }
+        }
+        
+        // Auto-load on page load
+        window.onload = () => {
+            console.log('Test page loaded. API URL:', API_URL);
+        };
+    </script>
+</body>
+</html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@app.get("/api/debug/tables")
+async def get_debug_tables():
+    """
+    Get all tables and their data from the database for debugging.
+    Returns table names, row counts, column names, and data.
+    """
+    import sqlite3
+    
+    try:
+        db_path = os.path.join(DATA_DIR, "school_events.db")
+        if not os.path.exists(db_path):
+            return {"error": f"Database file not found at {db_path}", "tables": {}}
+        
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row  # Enable column access by name
+        cursor = conn.cursor()
+        
+        # Get all table names
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        table_names = [row[0] for row in cursor.fetchall()]
+        
+        tables_data = {}
+        
+        for table_name in table_names:
+            # Skip SQLite internal tables
+            if table_name.startswith('sqlite_'):
+                continue
+            
+            # Get row count
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            count = cursor.fetchone()[0]
+            
+            # Get column names
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            # Get all data (limit to 100 rows for safety)
+            cursor.execute(f"SELECT * FROM {table_name} LIMIT 100")
+            rows = cursor.fetchall()
+            
+            # Convert rows to list of dicts
+            data = []
+            for row in rows:
+                row_dict = {}
+                for col in columns:
+                    value = row[col]
+                    # Truncate long values in the response itself
+                    if value and isinstance(value, str) and len(value) > 200:
+                        value = value[:200] + "..."
+                    row_dict[col] = value
+                data.append(row_dict)
+            
+            tables_data[table_name] = {
+                "count": count,
+                "columns": columns,
+                "data": data
+            }
+        
+        conn.close()
+        
+        return {"tables": tables_data}
+        
+    except Exception as e:
+        print(f"Error reading database: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "tables": {}}
+
+
 @app.get("/events")
 async def get_events():
     """Get all events from the data directory"""
@@ -1143,6 +1497,193 @@ async def multi_agent_query_events(request: QueryRequest):
         raise HTTPException(status_code=500, detail=f"Error processing multi-agent query: {str(e)}")
 
 
+# ============================================================
+# GMAIL OAUTH ENDPOINTS
+# ============================================================
+
+from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
+import google.auth.exceptions
+
+# Gmail OAuth configuration
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+REDIRECT_URI = 'http://localhost:8000/api/auth/gmail/callback'
+CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), 'credentials', 'gmail_credentials.json')
+
+def get_gmail_oauth_flow():
+    """Get OAuth flow from file or environment variables"""
+    # Try to use credentials file first
+    if os.path.exists(CREDENTIALS_PATH):
+        return Flow.from_client_secrets_file(
+            CREDENTIALS_PATH,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+    
+    # Fall back to environment variables
+    client_id = os.getenv('GOOGLE_CLIENT_ID')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+    
+    if not client_id or not client_secret:
+        raise ValueError(
+            "Gmail OAuth not configured. Please either:\n"
+            "1. Create credentials/gmail_credentials.json file, OR\n"
+            "2. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables"
+        )
+    
+    client_config = {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [REDIRECT_URI]
+        }
+    }
+    
+    return Flow.from_client_config(
+        client_config,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+
+@app.get("/api/auth/gmail/authorize")
+async def gmail_authorize(email: str):
+    """Generate Gmail OAuth authorization URL"""
+    try:
+        # Create OAuth flow
+        flow = get_gmail_oauth_flow()
+        
+        # Generate authorization URL with user email as state
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            state=email  # Pass user email as state to retrieve in callback
+        )
+        
+        logger.info(f"📧 Generated Gmail OAuth URL for: {email}")
+        return {
+            "authorization_url": authorization_url,
+            "state": state
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating OAuth URL: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/gmail/callback")
+async def gmail_callback(code: str, state: str):
+    """Handle Gmail OAuth callback, create/login user, and save token"""
+    try:
+        # Exchange authorization code for tokens
+        flow = get_gmail_oauth_flow()
+        flow.fetch_token(code=code)
+        
+        # Get credentials
+        creds = flow.credentials
+        
+        # Get Gmail email address from Google
+        from googleapiclient.discovery import build
+        service = build('gmail', 'v1', credentials=creds)
+        profile = service.users().getProfile(userId='me').execute()
+        gmail_email = profile.get('emailAddress')
+        
+        # Create or get user with this Gmail email
+        user = get_or_create_user(gmail_email)
+        
+        # Save token to database for this user
+        token_data = {
+            'token': creds.token,
+            'refresh_token': creds.refresh_token,
+            'token_uri': creds.token_uri,
+            'client_id': creds.client_id,
+            'client_secret': creds.client_secret,
+            'scopes': creds.scopes,
+            'expiry': creds.expiry.isoformat() if creds.expiry else None
+        }
+        
+        save_user_gmail_token(gmail_email, json.dumps(token_data), gmail_email)
+        
+        logger.info(f"✅ Gmail OAuth login successful for: {gmail_email}")
+        
+        # Return HTML that closes popup and signals success to parent window
+        return HTMLResponse(content=f"""
+            <html>
+                <head><title>Sign In Successful</title></head>
+                <body>
+                    <script>
+                        // Store the Gmail email in a way the parent can access
+                        window.opener.postMessage({{
+                            type: 'gmail_oauth_success',
+                            email: '{gmail_email}'
+                        }}, '*');
+                        window.close();
+                    </script>
+                    <div style="
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        font-family: Arial, sans-serif;
+                        flex-direction: column;
+                        gap: 20px;
+                    ">
+                        <h2>✅ Sign In Successful!</h2>
+                        <p>You can close this window now.</p>
+                        <p style="color: #666; font-size: 0.9em;">Redirecting...</p>
+                    </div>
+                </body>
+            </html>
+        """)
+        
+    except Exception as e:
+        logger.error(f"Error in Gmail callback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/gmail/disconnect")
+async def gmail_disconnect(request: dict):
+    """Disconnect user's Gmail account"""
+    try:
+        email = request.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email required")
+        
+        disconnect_user_gmail(email)
+        logger.info(f"🔌 Gmail disconnected for: {email}")
+        
+        return {"status": "success", "message": "Gmail account disconnected"}
+        
+    except Exception as e:
+        logger.error(f"Error disconnecting Gmail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/gmail/status")
+async def gmail_status(email: str):
+    """Check if user has Gmail connected"""
+    try:
+        token_data = get_user_gmail_token(email)
+        
+        if token_data:
+            return {
+                "connected": True,
+                "gmail_email": token_data['gmail_email'],
+                "connected_at": token_data['connected_at']
+            }
+        else:
+            return {"connected": False}
+            
+    except Exception as e:
+        logger.error(f"Error checking Gmail status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# WEBSOCKET ENDPOINTS
+# ============================================================
+
 @app.websocket("/ws/multi-agent-stream")
 async def websocket_multi_agent_stream(websocket: WebSocket):
     """WebSocket endpoint for streaming multi-agent responses in real-time"""
@@ -1153,7 +1694,10 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
         while True:
             # Receive the query from client
             data = await websocket.receive_json()
+            logger.info(f"📦 Raw WebSocket data received: {data}")
+            
             question = data.get("question", "")
+            user_email = data.get("user_email")  # User email for per-user Gmail auth
             email_suffix = data.get("email_suffix")  # Legacy single school
             email_suffixes = data.get("email_suffixes")  # Multi-school support
             school_district = data.get("school_district")  # Legacy single school
@@ -1167,21 +1711,15 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                 continue
             
             logger.info(f"📥 WebSocket query received: {question}")
+            logger.info(f"👤 User Email: {user_email}")
+            
+            # Warn if no user email (Gmail won't work)
+            if not user_email:
+                logger.warning("⚠️ No user_email received from frontend - Gmail search will not work!")
+                logger.warning("⚠️ User may need to refresh page or re-login")
+            
             logger.info(f"Email Suffix (single): {email_suffix}")
             logger.info(f"Email Suffixes (multiple): {email_suffixes}")
-            
-            # Set email suffixes for Gmail tool - support both single and multiple schools
-            from app.tools.gmail_tool import get_gmail_client
-            gmail_client = get_gmail_client()
-            
-            if email_suffixes and len(email_suffixes) > 0:
-                # Multi-school mode
-                gmail_client.set_email_suffixes(email_suffixes)
-                logger.info(f"✉️ Gmail search will filter by {len(email_suffixes)} school(s): {', '.join(['@' + s for s in email_suffixes])}")
-            elif email_suffix:
-                # Legacy single school mode
-                gmail_client.set_email_suffix(email_suffix)
-                logger.info(f"✉️ Gmail search will filter by: @{email_suffix}")
             
             # Set school context for Tavily tool if school info is provided
             if school_districts and len(school_districts) > 0:
@@ -1205,16 +1743,28 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                 tavily_client.set_school_context(district=district_name, email_suffix=email_suffix)
                 logger.info(f"🏫 Tavily search context set to: {district_name}")
             
-            # Initialize multi-agents if not already done
-            global multi_agents
-            if not multi_agents:
-                logger.info("⚙️ Multi-Agent system not initialized, setting up...")
-                await websocket.send_json({
-                    "type": "status",
-                    "content": "Initializing search..."
-                })
-                multi_agents = create_school_events_agents()
-                logger.info("✅ Multi-Agent system ready")
+            # Initialize multi-agents with current user's email for per-user Gmail auth
+            # Note: We recreate agents each time to ensure correct per-user credentials
+            logger.info(f"⚙️ Setting up Multi-Agent system for user: {user_email}")
+            await websocket.send_json({
+                "type": "status",
+                "content": "Initializing search..."
+            })
+            multi_agents = create_school_events_agents(user_email=user_email)
+            logger.info("✅ Multi-Agent system ready with user-specific credentials")
+            
+            # Set email suffixes for Gmail tool AFTER agents are created
+            from app.tools.gmail_tool import get_gmail_client
+            gmail_client = get_gmail_client()
+            
+            if email_suffixes and len(email_suffixes) > 0:
+                # Multi-school mode
+                gmail_client.set_email_suffixes(email_suffixes)
+                logger.info(f"✉️ Gmail search will filter by {len(email_suffixes)} school(s): {', '.join(['@' + s for s in email_suffixes])}")
+            elif email_suffix:
+                # Legacy single school mode
+                gmail_client.set_email_suffix(email_suffix)
+                logger.info(f"✉️ Gmail search will filter by: @{email_suffix}")
             
             # Store final response for evaluation
             final_response = None
@@ -1245,7 +1795,7 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
             
             # Process query with streaming
             try:
-                result = await query_with_agent_stream(question, send_update)
+                result = await query_with_agent_stream(question, send_update, agents=multi_agents)
                 
                 # Run evaluation after streaming completes
                 if final_response and result:

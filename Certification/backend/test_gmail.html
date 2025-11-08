@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        input {
+            padding: 8px;
+            width: 300px;
+            margin: 5px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Gmail Integration Test</h1>
+    
+    <div class="section info">
+        <h2>Step 1: Check User in Database</h2>
+        <button onclick="checkDatabase()">Check Database</button>
+        <div id="dbResult"></div>
+    </div>
+    
+    <div class="section info">
+        <h2>Step 2: Test WebSocket with User Email</h2>
+        <input type="email" id="userEmail" placeholder="Enter your email" value="vipinvijayan23@gmail.com">
+        <br>
+        <input type="text" id="query" placeholder="Enter query" value="school programs">
+        <br>
+        <button onclick="testWebSocket()">Send WebSocket Query</button>
+        <div id="wsResult"></div>
+    </div>
+    
+    <div class="section info">
+        <h2>Step 3: Direct API Test</h2>
+        <button onclick="testDirectAPI()">Test Gmail Service Directly</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        
+        async function checkDatabase() {
+            const result = document.getElementById('dbResult');
+            result.innerHTML = '<p>Checking database...</p>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/gmail/status?email=${document.getElementById('userEmail').value}`);
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                result.parentElement.className = data.connected ? 'section success' : 'section error';
+            } catch (error) {
+                result.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                result.parentElement.className = 'section error';
+            }
+        }
+        
+        function testWebSocket() {
+            const email = document.getElementById('userEmail').value;
+            const query = document.getElementById('query').value;
+            const result = document.getElementById('wsResult');
+            
+            result.innerHTML = '<p>Connecting to WebSocket...</p>';
+            
+            const ws = new WebSocket('ws://localhost:8000/ws/multi-agent-stream');
+            
+            let messages = [];
+            
+            ws.onopen = () => {
+                result.innerHTML = '<p>✅ Connected! Sending query...</p>';
+                
+                const message = {
+                    question: query,
+                    user_email: email,
+                    email_suffixes: null,
+                    school_districts: null
+                };
+                
+                console.log('Sending:', message);
+                ws.send(JSON.stringify(message));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                messages.push(data);
+                
+                console.log('Received:', data);
+                
+                if (data.type === 'update' && data.agent === 'Gmail') {
+                    result.innerHTML += `
+                        <div style="margin: 10px 0; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107;">
+                            <strong>Gmail Response:</strong><br>
+                            ${data.content}
+                        </div>
+                    `;
+                    
+                    if (data.content.includes('unable to access') || data.content.includes('not connected')) {
+                        result.parentElement.className = 'section error';
+                    } else {
+                        result.parentElement.className = 'section success';
+                    }
+                }
+                
+                if (data.type === 'final') {
+                    result.innerHTML += '<p><strong>✅ Query complete!</strong></p>';
+                    ws.close();
+                }
+            };
+            
+            ws.onerror = (error) => {
+                result.innerHTML += `<p style="color: red;">WebSocket Error: ${error.message}</p>`;
+                result.parentElement.className = 'section error';
+            };
+            
+            ws.onclose = () => {
+                result.innerHTML += '<p>Connection closed</p>';
+            };
+        }
+        
+        async function testDirectAPI() {
+            const email = document.getElementById('userEmail').value;
+            const result = document.getElementById('apiResult');
+            
+            result.innerHTML = '<p>Testing direct API access...</p>';
+            
+            try {
+                // This would need a custom test endpoint
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <p>✅ Backend is healthy</p>
+                    <p>Now run this in terminal to test Gmail directly:</p>
+                    <pre>cd backend && venv/bin/python test_gmail_diagnostic.py</pre>
+                `;
+                result.parentElement.className = 'section success';
+            } catch (error) {
+                result.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                result.parentElement.className = 'section error';
+            }
+        }
+    </script>
+</body>
+</html>

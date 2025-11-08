@@ -21,9 +21,42 @@ def get_db_connection():
     return conn
 
 
+def _migrate_database(conn):
+    """Apply database migrations to add new columns to existing tables"""
+    cursor = conn.cursor()
+    
+    try:
+        # Check if gmail columns exist in users table
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        # Add gmail_token column if it doesn't exist
+        if 'gmail_token' not in columns:
+            logger.info("Adding gmail_token column to users table")
+            cursor.execute("ALTER TABLE users ADD COLUMN gmail_token TEXT")
+            
+        # Add gmail_email column if it doesn't exist
+        if 'gmail_email' not in columns:
+            logger.info("Adding gmail_email column to users table")
+            cursor.execute("ALTER TABLE users ADD COLUMN gmail_email TEXT")
+            
+        # Add gmail_connected_at column if it doesn't exist
+        if 'gmail_connected_at' not in columns:
+            logger.info("Adding gmail_connected_at column to users table")
+            cursor.execute("ALTER TABLE users ADD COLUMN gmail_connected_at TIMESTAMP")
+        
+        conn.commit()
+        logger.info("Database migration completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error during database migration: {e}")
+        conn.rollback()
+        raise
+
+
 def init_database():
     """Initialize the database with required tables"""
-    conn = get_db_connection()
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
@@ -35,6 +68,9 @@ def init_database():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
                 selected_school_id INTEGER,
+                gmail_token TEXT,
+                gmail_email TEXT,
+                gmail_connected_at TIMESTAMP,
                 FOREIGN KEY (selected_school_id) REFERENCES schools (id)
             )
         """)
@@ -124,6 +160,9 @@ def init_database():
         
         conn.commit()
         logger.info(f"Database initialized successfully at {DB_PATH}")
+        
+        # Migrate existing tables to add new columns if they don't exist
+        _migrate_database(conn)
         
         # Insert some sample schools if table is empty
         cursor.execute("SELECT COUNT(*) FROM schools")
@@ -590,6 +629,83 @@ def get_user_bookmarks(email: str):
     except Exception as e:
         logger.error(f"Error getting user bookmarks: {e}")
         return []
+    finally:
+        conn.close()
+
+
+def save_user_gmail_token(email: str, gmail_token: str, gmail_email: str):
+    """Save Gmail OAuth token for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            UPDATE users 
+            SET gmail_token = ?, 
+                gmail_email = ?,
+                gmail_connected_at = CURRENT_TIMESTAMP
+            WHERE email = ?
+        """, (gmail_token, gmail_email, email))
+        
+        conn.commit()
+        logger.info(f"✅ Gmail token saved for user: {email} (Gmail: {gmail_email})")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving Gmail token: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+def get_user_gmail_token(email: str):
+    """Get Gmail OAuth token for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT gmail_token, gmail_email, gmail_connected_at
+            FROM users
+            WHERE email = ?
+        """, (email,))
+        
+        result = cursor.fetchone()
+        if result and result['gmail_token']:
+            return {
+                'token': result['gmail_token'],
+                'gmail_email': result['gmail_email'],
+                'connected_at': result['gmail_connected_at']
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Error getting Gmail token: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def disconnect_user_gmail(email: str):
+    """Disconnect Gmail for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            UPDATE users 
+            SET gmail_token = NULL,
+                gmail_email = NULL,
+                gmail_connected_at = NULL
+            WHERE email = ?
+        """, (email,))
+        
+        conn.commit()
+        logger.info(f"✅ Gmail disconnected for user: {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Error disconnecting Gmail: {e}")
+        conn.rollback()
+        return False
     finally:
         conn.close()
 

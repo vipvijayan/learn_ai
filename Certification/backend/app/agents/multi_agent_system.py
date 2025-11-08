@@ -91,9 +91,12 @@ def create_agent(
     return agent
 
 
-def create_school_events_agents():
+def create_school_events_agents(user_email: str = None):
     """
     Create specialized agents for the school assistant application.
+    
+    Args:
+        user_email: Email of the user (for per-user Gmail authentication)
     
     Returns:
         Dictionary containing all agent nodes
@@ -114,7 +117,20 @@ def create_school_events_agents():
     school_events_tool = create_school_events_tool()
     logger.info(f"   ✅ School Events Search Tool created")
     
-    gmail_tools = create_gmail_tools()
+    # Get user's Gmail token if available
+    user_gmail_token = None
+    if user_email:
+        from app.database import get_user_gmail_token
+        token_data = get_user_gmail_token(user_email)
+        if token_data:
+            user_gmail_token = token_data['token']
+            logger.info(f"   📧 Using per-user Gmail authentication for: {user_email}")
+        else:
+            logger.warning(f"   ⚠️ No Gmail token found for user: {user_email}")
+    else:
+        logger.warning(f"   ⚠️ No user_email provided - Gmail will not be available")
+    
+    gmail_tools = create_gmail_tools(user_gmail_token)
     logger.info(f"   ✅ Gmail Tools created ({len(gmail_tools)} tools)")
     
     logger.info("\n🤖 Creating Agents...")
@@ -211,17 +227,21 @@ def create_school_events_agents():
     }
 
 
-def create_simple_agent_graph():
+def create_simple_agent_graph(agents=None):
     """
     Create a sequential agent graph with fallback strategy:
     1. Try Gmail first (search emails for school-related information)
     2. If no useful results, try LocalEvents (search local database)
     3. If still no useful results, fall back to WebSearch (Tavily)
     
+    Args:
+        agents: Pre-created agents dict (if None, will create new ones without user context)
+    
     Returns:
         Compiled LangGraph
     """
-    agents = create_school_events_agents()
+    if agents is None:
+        agents = create_school_events_agents()
     
     # Define the graph
     workflow = StateGraph(AgentState)
@@ -317,6 +337,7 @@ def create_simple_agent_graph():
         messages = state["messages"]
         last_message = messages[-1]
         content = last_message.content.lower()
+        original_query = messages[0].content.lower()
         
         logger.info(f"\n� CHECKING LOCAL RESULTS")
         logger.info(f"   Response preview: {content[:150]}...")
@@ -350,6 +371,23 @@ def create_simple_agent_graph():
             "could be",
             "loosely relate"
         ]
+        
+        # Check if query has specific year constraints
+        import re
+        year_pattern = r'\b(19|20)\d{2}\b'
+        query_years = re.findall(year_pattern, original_query)
+        
+        if query_years:
+            # Query has specific year(s), check if response addresses them
+            response_years = re.findall(year_pattern, content)
+            years_matched = any(year in response_years for year in query_years)
+            
+            if not years_matched:
+                logger.info(f"   ⚠️  Query asks about specific year(s): {query_years}")
+                logger.info(f"   ⚠️  Response doesn't mention those years")
+                logger.info(f"   ❌ Local database doesn't have data for requested year")
+                logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
+                return "WebSearch"
         
         if any(indicator in content for indicator in no_results_indicators):
             logger.info(f"   ❌ Local search found no useful results")
@@ -434,13 +472,14 @@ def query_with_agent(question: str):
     return result
 
 
-async def query_with_agent_stream(question: str, callback):
+async def query_with_agent_stream(question: str, callback, agents=None):
     """
     Query using the agent graph with streaming updates.
     
     Args:
         question: User's question
         callback: Async function to call with updates (agent_name, content, is_final, tool_name)
+        agents: Pre-created agents dict with user-specific credentials (optional)
         
     Returns:
         Agent's final response
@@ -449,7 +488,7 @@ async def query_with_agent_stream(question: str, callback):
     logger.info(f"📝 NEW STREAMING QUERY RECEIVED: {question}")
     logger.info("🔵"*40 + "\n")
     
-    graph = create_simple_agent_graph()
+    graph = create_simple_agent_graph(agents=agents)
     
     start_time = datetime.now()
     

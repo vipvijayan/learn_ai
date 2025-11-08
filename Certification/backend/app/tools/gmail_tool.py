@@ -16,18 +16,24 @@ logger = logging.getLogger(__name__)
 class GmailToolClient:
     """Client for interacting with Gmail API directly"""
     
-    def __init__(self):
+    def __init__(self, user_token_data: Optional[Dict[str, Any]] = None):
+        """
+        Initialize Gmail client.
+        
+        Args:
+            user_token_data: User-specific token data from database (required for per-user auth)
+        """
         # Get credentials directory (one level up from this file)
         self.credentials_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
             "credentials"
         )
         
-        # Paths for credentials
+        # Path for OAuth credentials file
         self.credentials_path = os.path.join(self.credentials_dir, "gmail_credentials.json")
-        self.token_path = os.path.join(self.credentials_dir, "gmail_token.json")
         self._service = None
         self.email_suffixes = []  # List of email suffixes for multi-school support
+        self.user_token_data = user_token_data  # Per-user token data from database
     
     def set_email_suffix(self, email_suffix: str):
         """Set a single email suffix for filtering Gmail searches (legacy support)"""
@@ -39,7 +45,7 @@ class GmailToolClient:
         self.email_suffixes = email_suffixes if email_suffixes else []
     
     def get_gmail_service(self):
-        """Get authenticated Gmail service"""
+        """Get authenticated Gmail service using per-user credentials only"""
         if self._service:
             return self._service
             
@@ -47,20 +53,38 @@ class GmailToolClient:
             from google.auth.transport.requests import Request
             from google.oauth2.credentials import Credentials
             from googleapiclient.discovery import build
+            import json
+            from datetime import datetime
             
-            # Check if token exists
-            if not os.path.exists(self.token_path):
-                logger.warning("Gmail token not found. Please authenticate first.")
+            # Require user-specific token (no fallback)
+            if not self.user_token_data:
+                logger.warning("⚠️ No Gmail token found for user. User must sign in with Gmail.")
                 return None
             
-            # Load credentials
-            creds = Credentials.from_authorized_user_file(self.token_path, ['https://www.googleapis.com/auth/gmail.readonly'])
+            logger.info("✅ Using per-user Gmail authentication")
+            
+            # Parse token data from database
+            token_json = json.loads(self.user_token_data)
+            
+            # Create credentials from token data
+            creds = Credentials(
+                token=token_json.get('token'),
+                refresh_token=token_json.get('refresh_token'),
+                token_uri=token_json.get('token_uri'),
+                client_id=token_json.get('client_id'),
+                client_secret=token_json.get('client_secret'),
+                scopes=token_json.get('scopes'),
+            )
+            
+            # Set expiry if available
+            if token_json.get('expiry'):
+                creds.expiry = datetime.fromisoformat(token_json['expiry'])
             
             # Refresh if expired
-            if creds and creds.expired and creds.refresh_token:
+            if creds.expired and creds.refresh_token:
+                logger.info("🔄 Refreshing expired user Gmail token")
                 creds.refresh(Request())
-                with open(self.token_path, 'w') as token:
-                    token.write(creds.to_json())
+                # Note: Token refresh should update database, but for now just use refreshed creds
             
             # Build service
             self._service = build('gmail', 'v1', credentials=creds)
@@ -68,6 +92,8 @@ class GmailToolClient:
             
         except Exception as e:
             logger.error(f"Error getting Gmail service: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def search_emails(self, query: str, max_results: int = 10) -> str:
@@ -76,11 +102,10 @@ class GmailToolClient:
             service = self.get_gmail_service()
             if not service:
                 return (
-                    "Gmail not authenticated. To enable Gmail search:\n"
-                    "1. Run: python authenticate_gmail.py\n"
-                    "2. Sign in with your Gmail account\n"
-                    "3. Grant permission to read emails\n"
-                    "See GMAIL_AUTHENTICATION.md for detailed instructions."
+                    "📧 Gmail is not connected for this user.\n\n"
+                    "To search your Gmail, your account needs to be connected with Gmail access. "
+                    "Since you signed in with Gmail, your account should already have access. "
+                    "If you're seeing this message, please sign out and sign in again to reconnect Gmail."
                 )
             
             # Build search query with multiple email suffix filters if available
@@ -214,13 +239,22 @@ class GmailToolClient:
 
 # Global Gmail client
 _gmail_client = None
+_gmail_client_token = None  # Current user-specific token from database
+_gmail_client_last_token = None  # Last token used to create client
 
 
 def get_gmail_client() -> GmailToolClient:
-    """Get or create Gmail client singleton"""
-    global _gmail_client
-    if _gmail_client is None:
-        _gmail_client = GmailToolClient()
+    """Get or create Gmail client - recreates when token changes"""
+    global _gmail_client, _gmail_client_token, _gmail_client_last_token
+    
+    # Recreate client if:
+    # 1. Client doesn't exist yet
+    # 2. Token has changed (different user or token updated)
+    if _gmail_client is None or _gmail_client_token != _gmail_client_last_token:
+        logger.info(f"🔄 Creating Gmail client for user")
+        _gmail_client = GmailToolClient(user_token_data=_gmail_client_token)
+        _gmail_client_last_token = _gmail_client_token
+    
     return _gmail_client
 
 
@@ -271,11 +305,18 @@ def get_gmail_email_content(message_id: str) -> str:
     return client.get_email_content(message_id)
 
 
-def create_gmail_tools() -> List:
+def create_gmail_tools(user_token_data: Optional[str] = None) -> List:
     """
     Create and return Gmail tools for LangChain agents.
     
+    Args:
+        user_token_data: User-specific Gmail token JSON string from database
+        
     Returns:
         List of Gmail-related tools
     """
+    # Store user token in global variable (will be used by tool functions)
+    global _gmail_client_token
+    _gmail_client_token = user_token_data
+    
     return [search_gmail_emails, get_gmail_email_content]

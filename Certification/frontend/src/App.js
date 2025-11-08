@@ -362,7 +362,21 @@ function App() {
   }, []);
 
   // Handle successful login
-  const handleLoginSuccess = (userData) => {
+  const handleLoginSuccess = async (userData) => {
+    // Fetch Gmail connection status
+    try {
+      const gmailStatus = await axios.get(`${API_BASE_URL}/api/auth/gmail/status`, {
+        params: { email: userData.email }
+      });
+      
+      if (gmailStatus.data.connected) {
+        userData.gmail_email = gmailStatus.data.gmail_email;
+        userData.gmail_connected_at = gmailStatus.data.connected_at;
+      }
+    } catch (error) {
+      console.error('Error fetching Gmail status:', error);
+    }
+    
     setUser(userData);
     setIsAuthenticated(true);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -396,6 +410,71 @@ function App() {
     setActiveTab('chat');
     
     console.log('User logged out, localStorage cleared');
+  };
+  
+  // Connect Gmail account
+  const handleConnectGmail = async () => {
+    try {
+      // Get OAuth authorization URL
+      const response = await axios.get(`${API_BASE_URL}/api/auth/gmail/authorize`, {
+        params: { email: user.email }
+      });
+      
+      // Open OAuth popup
+      const authUrl = response.data.authorization_url;
+      const popup = window.open(authUrl, 'Gmail OAuth', 'width=600,height=700');
+      
+      // Poll for popup closure and refresh user data
+      const checkPopup = setInterval(async () => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          
+          // Check Gmail connection status
+          const statusResponse = await axios.get(`${API_BASE_URL}/api/auth/gmail/status`, {
+            params: { email: user.email }
+          });
+          
+          if (statusResponse.data.connected) {
+            // Update user object with Gmail info
+            setUser({
+              ...user,
+              gmail_email: statusResponse.data.gmail_email,
+              gmail_connected_at: statusResponse.data.connected_at
+            });
+            alert('Gmail connected successfully!');
+          }
+        }
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error connecting Gmail:', error);
+      alert('Failed to connect Gmail. Please try again.');
+    }
+  };
+  
+  // Disconnect Gmail account
+  const handleDisconnectGmail = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your Gmail account?')) {
+      return;
+    }
+    
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/gmail/disconnect`, {
+        email: user.email
+      });
+      
+      // Update user object to remove Gmail info
+      setUser({
+        ...user,
+        gmail_email: null,
+        gmail_connected_at: null
+      });
+      
+      alert('Gmail disconnected successfully');
+    } catch (error) {
+      console.error('Error disconnecting Gmail:', error);
+      alert('Failed to disconnect Gmail');
+    }
   };
   
   // Copy message content to clipboard
@@ -627,9 +706,13 @@ function App() {
           school_districts
         });
         
-        // Send the question with email suffixes and school districts
+        // Send the question with email suffixes, school districts, and user email
+        console.log('📧 Sending WebSocket message with user email:', user?.email);
+        console.log('📧 Full user object:', user);
+        
         ws.send(JSON.stringify({ 
           question: userMessage,
+          user_email: user?.email,  // For per-user Gmail authentication
           email_suffixes: email_suffixes.length > 0 ? email_suffixes : null,
           school_districts: school_districts.length > 0 ? school_districts : null,
           // Legacy fields for backwards compatibility
@@ -1691,7 +1774,7 @@ function App() {
                   alignItems: 'center',
                   marginBottom: '16px'
                 }}>
-                  <h3 style={{ margin: 0 }}>👤 User Information</h3>
+                  <h3 style={{ margin: 0 }}>👤 Account & Gmail</h3>
                   <button 
                     className="logout-button"
                     onClick={handleLogout}
@@ -1724,15 +1807,66 @@ function App() {
                     <span>Logout</span>
                   </button>
                 </div>
+                
+                {/* Gmail Account Status */}
                 <div className="setting-item">
                   <div className="setting-content">
                     <div className="setting-label-group">
                       <label className="setting-label">
-                        Email Address
+                        Gmail Account
                       </label>
-                      <p className="setting-description">
-                        <strong>{user?.email || 'Not logged in'}</strong>
-                      </p>
+                      {user?.gmail_email ? (
+                        <div style={{
+                          padding: '12px',
+                          background: '#e8f5e9',
+                          borderRadius: '8px',
+                          border: '1px solid #4caf50',
+                          marginTop: '8px'
+                        }}>
+                          <p className="setting-description" style={{ marginBottom: '4px', color: '#2e7d32' }}>
+                            ✓ Signed in as: <strong>{user.gmail_email}</strong>
+                          </p>
+                          {user.gmail_connected_at && (
+                            <p className="setting-description" style={{ fontSize: '0.85em', color: '#666', marginTop: '4px' }}>
+                              Connected on {new Date(user.gmail_connected_at).toLocaleDateString()}
+                            </p>
+                          )}
+                          <p className="setting-description" style={{ fontSize: '0.85em', color: '#666', marginTop: '8px' }}>
+                            Your Gmail is connected and can be searched for school-related emails.
+                          </p>
+                          
+                          {/* Disconnect Button */}
+                          <button
+                            onClick={handleDisconnectGmail}
+                            style={{
+                              padding: '8px 14px',
+                              background: '#fff',
+                              color: '#f44336',
+                              border: '2px solid #f44336',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '0.85em',
+                              fontWeight: '500',
+                              transition: 'all 0.2s',
+                              marginTop: '12px'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = '#f44336';
+                              e.target.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = '#fff';
+                              e.target.style.color = '#f44336';
+                            }}
+                          >
+                            Disconnect Gmail
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="setting-description" style={{ color: '#f57c00', marginTop: '8px' }}>
+                          ⚠️ Gmail not connected. Please sign out and sign in again to connect Gmail.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1780,16 +1914,6 @@ function App() {
                               <p className="setting-description" style={{ marginBottom: '4px' }}>
                                 <strong>{school.name}</strong>
                               </p>
-                              {school.email_suffix && (
-                                <p className="setting-description" style={{ 
-                                  color: '#667eea',
-                                  fontFamily: 'monospace',
-                                  fontSize: '0.85em',
-                                  marginTop: '4px'
-                                }}>
-                                  📧 @{school.email_suffix}
-                                </p>
-                              )}
                               {school.location && (
                                 <p className="setting-description" style={{ 
                                   color: '#666',
@@ -1811,6 +1935,7 @@ function App() {
                   </div>
                 </div>
               </div>
+
 
               <div className="settings-section">
                 <h3>🔌 Connection Settings</h3>
