@@ -688,6 +688,9 @@ function App() {
     setInputValue(query);
   };
 
+  // Store accumulated agent responses for combining using useRef for immediate access
+  const accumulatedResponsesRef = React.useRef({});
+  
   const sendMessageWithWebSocket = (userMessage) => {
     // Create WebSocket connection if not exists
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -695,6 +698,9 @@ function App() {
       
       ws.onopen = () => {
         console.log('🔌 WebSocket connected');
+        
+        // Reset accumulated responses for new query
+        accumulatedResponsesRef.current = {};
         
         // Extract email suffixes and district names from all selected schools
         const email_suffixes = user?.schools?.map(s => s.email_suffix).filter(Boolean) || [];
@@ -749,29 +755,98 @@ function App() {
             tool: data.tool
           }));
         } else if (data.type === 'update') {
-          // Update streaming content - show tool information
-          const toolInfo = data.tool ? ` (using ${data.tool})` : '';
-          const displayContent = data.agent === 'system' 
-            ? cleanContent(data.content) 
-            : cleanContent(data.content);
+          // Accumulate agent responses - collect from each agent
+          const cleanedContent = cleanContent(data.content);
           
+          // Store this agent's response in ref for immediate access
+          accumulatedResponsesRef.current[data.agent] = {
+            content: cleanedContent,
+            agent: data.agent,
+            tool: data.tool
+          };
+          
+          console.log(`📊 Accumulated responses from: ${Object.keys(accumulatedResponsesRef.current).join(', ')}`);
+          console.log(`   ${data.agent}: ${cleanedContent.substring(0, 100)}...`);
+          
+          // Show current agent's progress in streaming message
           setStreamingMessage(prev => ({
             ...prev,
-            content: displayContent,
-            source: data.agent,
-            tool: data.tool
-          }));
-        } else if (data.type === 'final') {
-          // Final message received - clean the content
-          const cleanedContent = cleanContent(data.content);
-          setMessages(prev => [...prev, {
-            type: 'assistant',
             content: cleanedContent,
             source: data.agent,
+            tool: data.tool,
+            isStreaming: true
+          }));
+        } else if (data.type === 'final') {
+          // Final message received - combine all accumulated agent responses
+          const cleanedContent = cleanContent(data.content);
+          
+          // Get all agent responses that were collected
+          const allResponses = Object.values(accumulatedResponsesRef.current);
+          
+          console.log(`🎯 FINAL: Combining ${allResponses.length} agent responses into final message`);
+          allResponses.forEach((resp, i) => {
+            console.log(`   Response ${i+1}: ${resp.agent} (${resp.content.length} chars)`);
+          });
+          
+          let combinedContent = '';
+          
+          if (allResponses.length > 1) {
+            // Multiple agents - combine their results
+            // Filter out system messages
+            const meaningfulResponses = allResponses.filter(resp => 
+              resp.agent !== 'system' && 
+              resp.agent !== 'System' &&
+              !resp.content.includes('Compiling final') &&
+              !resp.content.includes('All sources searched')
+            );
+            
+            if (meaningfulResponses.length > 1) {
+              combinedContent = '';
+              
+              meaningfulResponses.forEach((resp, index) => {
+                const agentIcon = {
+                  'Gmail': '📧',
+                  'Local Database': '💾',
+                  'Web Search': '🌐'
+                }[resp.agent] || '📋';
+                
+                // Add source header
+                combinedContent += `${agentIcon} **${resp.agent}**\n\n`;
+                combinedContent += resp.content;
+                
+                if (index < meaningfulResponses.length - 1) {
+                  combinedContent += '\n\n---\n\n';
+                }
+              });
+            } else if (meaningfulResponses.length === 1) {
+              combinedContent = meaningfulResponses[0].content;
+            } else {
+              combinedContent = cleanedContent;
+            }
+            
+            console.log(`✅ Created combined content from ${meaningfulResponses.length} sources: ${combinedContent.length} chars`);
+          } else if (allResponses.length === 1) {
+            // Single agent response
+            combinedContent = allResponses[0].content;
+            console.log(`✅ Single agent response from ${allResponses[0].agent}`);
+          } else {
+            // Fallback to the final message content
+            combinedContent = cleanedContent;
+            console.log(`⚠️ No accumulated responses, using final message content`);
+          }
+          
+          setMessages(prev => [...prev, {
+            type: 'assistant',
+            content: combinedContent,
+            source: allResponses.length > 1 ? 'Multiple Sources' : data.agent,
             tool: data.tool,
             responseTime: data.response_time,
             evaluation: null // Will be updated when evaluation arrives
           }]);
+          
+          // Clear accumulated responses for next query
+          accumulatedResponsesRef.current = {};
+          
           setStreamingMessage(null);
           setIsLoading(false);
         } else if (data.type === 'evaluation') {

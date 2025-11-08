@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database path
-DB_PATH = Path(__file__).parent.parent / "data" / "school_events.db"
+DB_PATH = Path(__file__).parent.parent / "db" / "school_assistant.db"
 
 
 def get_db_connection():

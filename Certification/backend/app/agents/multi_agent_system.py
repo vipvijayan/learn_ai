@@ -35,6 +35,53 @@ class AgentState(TypedDict):
     next: str
 
 
+def count_results_in_content(content: str) -> int:
+    """
+    Count the number of results in agent response.
+    Looks for patterns like "Found X results", "Result 1:", "Result 2:", etc.
+    """
+    import re
+    
+    # Method 1: Look for "Found X results" pattern
+    found_pattern = re.search(r'found\s+(\d+)\s+(?:relevant|results?)', content.lower())
+    if found_pattern:
+        count = int(found_pattern.group(1))
+        logger.info(f"      📊 Detected {count} results from 'Found X' pattern")
+        return count
+    
+    # Method 2: Count result markers like "Result 1:", "Result 2:", etc.
+    result_markers = re.findall(r'(?:^|\n)(?:result|📋 result)\s+(\d+):', content.lower())
+    if result_markers:
+        count = len(result_markers)
+        logger.info(f"      📊 Detected {count} results from result markers")
+        return count
+    
+    # Method 3: Count numbered list items (1., 2., 3., etc.)
+    numbered_items = re.findall(r'(?:^|\n)(\d+)\.\s+', content)
+    if numbered_items:
+        count = len(numbered_items)
+        logger.info(f"      📊 Detected {count} results from numbered list")
+        return count
+    
+    # Method 4: Check for explicit "no results" indicators
+    no_results_indicators = [
+        "no relevant", "no results", "no information", "couldn't find",
+        "unable to", "not available", "no matching", "no emails found",
+        "no events", "no programs"
+    ]
+    if any(indicator in content.lower() for indicator in no_results_indicators):
+        logger.info(f"      📊 Detected 0 results (no-results indicator)")
+        return 0
+    
+    # Default: assume at least 1 result if response is substantial
+    if len(content.strip()) > 100:
+        logger.info(f"      📊 Assuming 1+ results (substantial response)")
+        return 1
+    
+    logger.info(f"      📊 Detected 0 results (short/empty response)")
+    return 0
+
+
 def agent_node(state, agent, name):
     """
     Helper function to create an agent node.
@@ -53,10 +100,21 @@ def agent_node(state, agent, name):
     if "messages" in result and len(result["messages"]) > 0:
         last_message = result["messages"][-1]
         logger.info(f"   Response preview: {last_message.content[:150]}...")
-        return {"messages": [HumanMessage(content=last_message.content, name=name)]}
+        
+        # Count results in the response
+        result_count = count_results_in_content(last_message.content)
+        
+        # Store result count in message metadata for routing decisions
+        message_with_metadata = HumanMessage(
+            content=last_message.content,
+            name=name,
+            additional_kwargs={"result_count": result_count}
+        )
+        
+        return {"messages": [message_with_metadata]}
     
     logger.warning(f"⚠️  AGENT WARNING: {name} returned no messages")
-    return {"messages": [HumanMessage(content="No response generated", name=name)]}
+    return {"messages": [HumanMessage(content="No response generated", name=name, additional_kwargs={"result_count": 0})]}
 
 
 def create_agent(
@@ -255,7 +313,7 @@ def create_simple_agent_graph(agents=None):
     def check_gmail_results(state):
         """
         Check if Gmail found useful information.
-        If not, route to LocalEvents to search local database.
+        If less than 5 results, route to LocalEvents to search local database.
         """
         messages = state["messages"]
         last_message = messages[-1]
@@ -264,13 +322,15 @@ def create_simple_agent_graph(agents=None):
         logger.info(f"\n📧 CHECKING GMAIL RESULTS")
         logger.info(f"   Response length: {len(content)} chars")
         logger.info(f"   Response preview: {content[:200] if content else '(empty)'}")
-        logger.info(f"   Content type: {type(last_message.content)}")
-        logger.info(f"   Content value: {repr(last_message.content)}")
+        
+        # Get result count from metadata
+        result_count = last_message.additional_kwargs.get("result_count", 0) if hasattr(last_message, 'additional_kwargs') else 0
+        logger.info(f"   📊 Result count: {result_count}")
         
         # Check if response is empty or too short
         if not content or len(content.strip()) < 20:
             logger.info(f"   ❌ Gmail response is empty or too short ({len(content)} chars)")
-            logger.info(f"   ➡️  Checking LocalEvents database")
+            logger.info(f"   ➡️  Continuing to LocalEvents to find more results")
             return "LocalEvents"
         
         # Check for indicators that no results were found OR authentication issues
@@ -296,7 +356,6 @@ def create_simple_agent_graph(agents=None):
         ]
         
         # Check for positive indicators that results were found
-        # These are very specific to actual email content
         positive_indicators = [
             "subject:",
             "from:",
@@ -317,14 +376,16 @@ def create_simple_agent_graph(agents=None):
         # Gmail should only be considered successful if it has positive indicators AND no error indicators
         if has_no_results or not has_positive_results:
             logger.info(f"   ❌ Gmail search failed or found no useful results")
-            if has_no_results:
-                logger.info(f"   Detected error or no-results indicator")
-            if not has_positive_results:
-                logger.info(f"   No specific email content indicators found")
-            logger.info(f"   ➡️  Checking LocalEvents database")
+            logger.info(f"   ➡️  Continuing to LocalEvents")
             return "LocalEvents"
         
-        logger.info(f"   ✅ Gmail search found useful results")
+        # Check if we have at least 5 results
+        if result_count < 5:
+            logger.info(f"   ⚠️  Gmail found {result_count} results (less than 5)")
+            logger.info(f"   ➡️  Continuing to LocalEvents to find more results")
+            return "LocalEvents"
+        
+        logger.info(f"   ✅ Gmail search found {result_count} results (sufficient)")
         logger.info(f"   ➡️  Ending search (no fallback needed)")
         return END
     
@@ -332,15 +393,29 @@ def create_simple_agent_graph(agents=None):
     def check_local_results(state):
         """
         Check if LocalEvents found useful information.
-        If not, route to WebSearch as final fallback.
+        If less than 5 total results (combining Gmail + LocalEvents), route to WebSearch.
         """
         messages = state["messages"]
         last_message = messages[-1]
         content = last_message.content.lower()
         original_query = messages[0].content.lower()
         
-        logger.info(f"\n� CHECKING LOCAL RESULTS")
+        logger.info(f"\n🗄️ CHECKING LOCAL RESULTS")
         logger.info(f"   Response preview: {content[:150]}...")
+        
+        # Get result count from current agent
+        local_result_count = last_message.additional_kwargs.get("result_count", 0) if hasattr(last_message, 'additional_kwargs') else 0
+        logger.info(f"   📊 LocalEvents result count: {local_result_count}")
+        
+        # Count total results from all previous agents
+        total_result_count = local_result_count
+        for msg in messages[:-1]:  # Exclude the last message (current)
+            if hasattr(msg, 'additional_kwargs') and 'result_count' in msg.additional_kwargs:
+                agent_count = msg.additional_kwargs['result_count']
+                total_result_count += agent_count
+                logger.info(f"   📊 Adding {agent_count} results from previous agent: {getattr(msg, 'name', 'Unknown')}")
+        
+        logger.info(f"   📊 Total results so far: {total_result_count}")
         
         # Check for indicators that no results were found
         no_results_indicators = [
@@ -378,32 +453,68 @@ def create_simple_agent_graph(agents=None):
         query_years = re.findall(year_pattern, original_query)
         
         if query_years:
-            # Query has specific year(s), check if response addresses them
-            response_years = re.findall(year_pattern, content)
-            years_matched = any(year in response_years for year in query_years)
+            # Query has specific year(s)
+            # Need to check if the ACTUAL DATA (not LLM response) contains those years
+            # Look for tool call results in the messages
+            tool_results_found = False
+            tool_content = ""
             
-            if not years_matched:
-                logger.info(f"   ⚠️  Query asks about specific year(s): {query_years}")
-                logger.info(f"   ⚠️  Response doesn't mention those years")
-                logger.info(f"   ❌ Local database doesn't have data for requested year")
-                logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
-                return "WebSearch"
+            for msg in messages:
+                # Check if this is a tool message
+                if hasattr(msg, 'type') and msg.type == 'tool':
+                    tool_results_found = True
+                    tool_content += str(msg.content).lower() + " "
+                # Also check additional_kwargs for tool_calls
+                if hasattr(msg, 'additional_kwargs') and 'tool_calls' in msg.additional_kwargs:
+                    tool_results_found = True
+            
+            # If we have tool results, check if they contain the requested years
+            if tool_results_found and tool_content:
+                data_years = re.findall(year_pattern, tool_content)
+                years_in_data = any(year in data_years for year in query_years)
+                
+                if not years_in_data:
+                    logger.info(f"   ⚠️  Query asks about specific year(s): {query_years}")
+                    logger.info(f"   ⚠️  Tool results don't contain those years")
+                    logger.info(f"   ❌ Local database doesn't have data for requested year")
+                    logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
+                    return "WebSearch"
+            else:
+                # Fallback: check if response mentions years (LLM might be hallucinating)
+                response_years = re.findall(year_pattern, content)
+                
+                # If LLM mentions the query years but we didn't find tool results,
+                # it's likely hallucinating - fall back to web search
+                if any(year in content for year in query_years):
+                    logger.info(f"   ⚠️  Query asks about specific year(s): {query_years}")
+                    logger.info(f"   ⚠️  Response mentions years but no tool results verified")
+                    logger.info(f"   ⚠️  LLM may be hallucinating dates from query")
+                    logger.info(f"   ❌ Cannot verify data for requested year")
+                    logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
+                    return "WebSearch"
         
         if any(indicator in content for indicator in no_results_indicators):
             logger.info(f"   ❌ Local search found no useful results")
             logger.info(f"   ➡️  Falling back to: WebSearch (Tavily)")
             return "WebSearch"
         
-        logger.info(f"   ✅ Local search found useful results")
+        # Check if we have at least 5 total results
+        if total_result_count < 5:
+            logger.info(f"   ⚠️  Total results: {total_result_count} (less than 5)")
+            logger.info(f"   ➡️  Continuing to WebSearch to find more results")
+            return "WebSearch"
+        
+        logger.info(f"   ✅ Local search found useful results (total: {total_result_count})")
         logger.info(f"   ➡️  Ending search")
         return END
     
     # Set entry point - always start with Gmail
     logger.info("\n🔧 WORKFLOW CONFIGURATION:")
-    logger.info("   Strategy: Sequential Search with Multiple Fallbacks")
+    logger.info("   Strategy: Sequential Search with Result Count Checking")
     logger.info("   1️⃣  First: GmailAgent (search email inbox)")
-    logger.info("   2️⃣  Second: LocalEvents (search local database)")
-    logger.info("   3️⃣  Fallback: WebSearch (if both Gmail and local find nothing)")
+    logger.info("   2️⃣  Second: LocalEvents (if Gmail < 5 results, search local database)")
+    logger.info("   3️⃣  Fallback: WebSearch (if total < 5 results, search web)")
+    logger.info("   🎯 Goal: Accumulate at least 5 results across all sources")
     
     workflow.set_entry_point("GmailAgent")
     
@@ -591,19 +702,90 @@ async def query_with_agent_stream(question: str, callback, agents=None):
         await callback("system", f"📊 Total time: {duration:.2f}s | Sources: {len(agents_completed)}", False, "summary")
         await callback("system", "✅ Compiling final comprehensive answer...", False, "finalizing")
         
-        # Send final message
+        # Send final message - combine all agent responses
         if result and "messages" in result:
-            last_message = result["messages"][-1]
-            agent_name = getattr(last_message, 'name', 'Unknown')
+            combined_responses = []
+            total_results = 0
             
-            agent_map = {
-                "GmailAgent": {"name": "Gmail", "tool": "Gmail API"},
-                "LocalEvents": {"name": "Local Database", "tool": "Vector Database"},
-                "WebSearch": {"name": "Web Search", "tool": ""}
-            }
-            agent_info = agent_map.get(agent_name, {"name": "Unknown", "tool": "Unknown"})
+            logger.info(f"\n{'='*80}")
+            logger.info(f"🔍 ANALYZING FINAL RESULTS")
+            logger.info(f"{'='*80}")
+            logger.info(f"   Total messages in state: {len(result['messages'])}")
             
-            await callback(agent_info['name'], last_message.content, True, agent_info['tool'], duration)
+            # First pass: count results from each agent
+            agent_result_counts = {}
+            for msg in result["messages"][1:]:
+                if hasattr(msg, 'name') and msg.name in ["GmailAgent", "LocalEvents", "WebSearch"]:
+                    result_count = msg.additional_kwargs.get("result_count", 0) if hasattr(msg, 'additional_kwargs') else 0
+                    agent_result_counts[msg.name] = result_count
+            
+            logger.info(f"\n📊 RESULT COUNT BY AGENT:")
+            logger.info(f"   📧 GmailAgent:    {agent_result_counts.get('GmailAgent', 0)} results")
+            logger.info(f"   💾 LocalEvents:   {agent_result_counts.get('LocalEvents', 0)} results")
+            logger.info(f"   🌐 WebSearch:     {agent_result_counts.get('WebSearch', 0)} results")
+            logger.info(f"   📈 Total:         {sum(agent_result_counts.values())} results")
+            logger.info(f"")
+            
+            # Collect all agent responses (skip the original user query)
+            for i, msg in enumerate(result["messages"][1:], 1):
+                msg_name = getattr(msg, 'name', None)
+                msg_type = type(msg).__name__
+                msg_content_preview = msg.content[:100] if msg.content else '(empty)'
+                logger.info(f"   Message {i}: type={msg_type}, name={msg_name}, preview={msg_content_preview}")
+                
+                if hasattr(msg, 'name') and msg.name in ["GmailAgent", "LocalEvents", "WebSearch"]:
+                    agent_name = msg.name
+                    content = msg.content
+                    
+                    # Get result count
+                    result_count = msg.additional_kwargs.get("result_count", 0) if hasattr(msg, 'additional_kwargs') else 0
+                    
+                    # Only include responses with actual results (non-empty and result_count > 0)
+                    if content and len(content.strip()) > 50 and result_count > 0:
+                        combined_responses.append({
+                            "agent": agent_name,
+                            "content": content,
+                            "result_count": result_count
+                        })
+                        total_results += result_count
+                        logger.info(f"   ✅ Including response from {agent_name} ({result_count} results, {len(content)} chars)")
+                    else:
+                        logger.info(f"   ⏭️  Skipping response from {agent_name} (result_count={result_count}, length={len(content) if content else 0})")
+            
+            # If multiple agents contributed, combine their responses
+            if len(combined_responses) > 1:
+                logger.info(f"   🔗 Combining {len(combined_responses)} agent responses (total: {total_results} results)")
+                
+                final_content = f"📊 Combined results from {len(combined_responses)} sources ({total_results} total results):\n\n"
+                
+                for i, resp in enumerate(combined_responses, 1):
+                    agent_map = {
+                        "GmailAgent": "📧 Gmail",
+                        "LocalEvents": "💾 Local Database",
+                        "WebSearch": "🌐 Web Search"
+                    }
+                    source_name = agent_map.get(resp["agent"], resp["agent"])
+                    final_content += f"{'='*70}\n"
+                    final_content += f"Source {i}: {source_name} ({resp['result_count']} results)\n"
+                    final_content += f"{'='*70}\n"
+                    final_content += resp["content"]
+                    if i < len(combined_responses):
+                        final_content += "\n\n"
+                
+                await callback("Combined Results", final_content, True, "Multiple Sources", duration)
+            else:
+                # Single agent response
+                last_message = result["messages"][-1]
+                agent_name = getattr(last_message, 'name', 'Unknown')
+                
+                agent_map = {
+                    "GmailAgent": {"name": "Gmail", "tool": "Gmail API"},
+                    "LocalEvents": {"name": "Local Database", "tool": "Vector Database"},
+                    "WebSearch": {"name": "Web Search", "tool": ""}
+                }
+                agent_info = agent_map.get(agent_name, {"name": "Unknown", "tool": "Unknown"})
+                
+                await callback(agent_info['name'], last_message.content, True, agent_info['tool'], duration)
         
         logger.info("\n" + "🟢"*40)
         logger.info(f"✅ STREAMING QUERY COMPLETED (Total time: {duration:.2f}s)")

@@ -6,11 +6,13 @@ from typing import List, Optional
 import json
 import os
 import logging
+import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 
 # Directory paths
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")
 GENERATED_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_results")
 
 # Configure logging
@@ -118,7 +120,7 @@ async def lifespan(app: FastAPI):
     logger.info("�️  Initializing SQLite Database...")
     init_database()
     logger.info("="*80)
-    logger.info("�📋 AVAILABLE ENDPOINTS:")
+    logger.info("📋 AVAILABLE ENDPOINTS:")
     logger.info("   /api/auth/login → User login with email")
     logger.info("   /api/auth/schools → Get list of schools")
     logger.info("   /api/auth/select-school → Select user's school")
@@ -1164,7 +1166,7 @@ async def get_debug_tables():
     import sqlite3
     
     try:
-        db_path = os.path.join(DATA_DIR, "school_events.db")
+        db_path = os.path.join(DB_DIR, "school_assistant.db")
         if not os.path.exists(db_path):
             return {"error": f"Database file not found at {db_path}", "tables": {}}
         
@@ -1830,24 +1832,40 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                         
                         logger.info(f"📊 Query data prepared: question={question[:50]}..., response length={len(final_response)}, contexts={len(contexts)}")
                         
-                        # Run RAGAS evaluation in a separate thread to avoid uvloop conflicts
-                        logger.info("🔧 Running RAGAS in separate thread to avoid uvloop conflicts...")
+                        # Run RAGAS evaluation in a separate process to avoid uvloop conflicts
+                        logger.info("🔧 Running RAGAS in separate process to avoid uvloop conflicts...")
+                        import subprocess
+                        import sys
                         import concurrent.futures
-                        import asyncio
                         
-                        def run_evaluation_sync():
-                            """Synchronous function to run evaluation in separate thread"""
-                            from app.evaluation.ragas_evaluator import RAGASEvaluator
-                            evaluator = RAGASEvaluator()
-                            return evaluator.evaluate_responses(
-                                queries_and_responses=[query_data],
-                                evaluation_name=f"auto_eval_ws_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        # Prepare data for subprocess
+                        eval_input = {
+                            "query_data": query_data,
+                            "evaluation_name": f"auto_eval_ws_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        }
+                        
+                        # Run evaluation in separate process with standard asyncio (not uvloop)
+                        script_path = os.path.join(os.path.dirname(__file__), "run_ragas_standalone.py")
+                        python_path = sys.executable
+                        
+                        def run_subprocess():
+                            """Run RAGAS in subprocess (blocking call in thread)"""
+                            result = subprocess.run(
+                                [python_path, script_path, json.dumps(eval_input)],
+                                capture_output=True,
+                                text=True,
+                                timeout=120
                             )
+                            
+                            if result.returncode != 0:
+                                raise Exception(f"RAGAS subprocess failed: {result.stderr}")
+                            
+                            return json.loads(result.stdout)
                         
-                        # Run in thread pool executor
+                        # Run in thread pool executor to avoid blocking
                         loop = asyncio.get_event_loop()
                         with concurrent.futures.ThreadPoolExecutor() as executor:
-                            evaluation_result = await loop.run_in_executor(executor, run_evaluation_sync)
+                            evaluation_result = await loop.run_in_executor(executor, run_subprocess)
                         
                         # Send evaluation as a separate message
                         await websocket.send_json({
