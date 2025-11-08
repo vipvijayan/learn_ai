@@ -1,5 +1,5 @@
 """
-Multi-Agent Implementation for School Events RAG
+Multi-Agent Implementation for School Assistant
 Using LangGraph and custom agents similar to Multi_Agent_RAG_LangGraph pattern
 """
 import functools
@@ -19,6 +19,7 @@ from langgraph.prebuilt import create_react_agent
 
 from app.tools.school_events_tool import create_school_events_tool
 from app.tools.gmail_tool import create_gmail_tools
+from app.tools.tavily_tool import create_school_tavily_tool, get_tavily_client
 
 # Configure logging
 logging.basicConfig(
@@ -92,7 +93,7 @@ def create_agent(
 
 def create_school_events_agents():
     """
-    Create specialized agents for the school events application.
+    Create specialized agents for the school assistant application.
     
     Returns:
         Dictionary containing all agent nodes
@@ -107,8 +108,8 @@ def create_school_events_agents():
     
     # Create tools
     logger.info("\n🔨 Creating Tools...")
-    tavily_tool = TavilySearchResults(max_results=3)
-    logger.info(f"   ✅ Tavily Search Tool created (max_results=3)")
+    tavily_tool = create_school_tavily_tool()
+    logger.info(f"   ✅ School-Context Tavily Search Tool created (max_results=5)")
     
     school_events_tool = create_school_events_tool()
     logger.info(f"   ✅ School Events Search Tool created")
@@ -123,21 +124,22 @@ def create_school_events_agents():
     search_agent = create_agent(
         llm,
         [tavily_tool],
-        "You search for K-12 school events on the web. "
-        "Focus ONLY on: school programs, camps, competitions, performances, clubs, and student activities. "
-        "Exclude: adult events, general entertainment, non-educational activities. "
+        "You search for K-12 school-related information on the web. "
+        "Focus on: school programs, events, announcements, policies, schedules, activities, resources, and any school-related updates. "
+        "Provide relevant information from official school sources when available. "
         "\n"
         "FORMAT YOUR RESPONSE:\n"
         "Line 1: [Source: Web Search]\n"
         "Line 2: Brief intro (1 sentence)\n"
-        "Then list each event as:\n"
-        "1. Event Name (Date if available)\n"
+        "Then list relevant information clearly and concisely.\n"
+        "For events/programs:\n"
+        "1. Title (Date if available)\n"
         "   • Organizer: Name\n"
         "   • Type: Category\n"
-        "   • Details: Brief description (1-2 sentences max)\n"
+        "   • Details: Brief description\n"
         "   • Link: URL if available\n"
         "\n"
-        "Keep it concise. No preambles or explanations."
+        "Keep it concise and relevant to the query."
     )
     search_node = functools.partial(agent_node, agent=search_agent, name="WebSearch")
     logger.info("   ✅ WebSearch agent configured")
@@ -147,22 +149,20 @@ def create_school_events_agents():
     local_events_agent = create_agent(
         llm,
         [school_events_tool],
-        "You search the local database for K-12 school events. "
-        "Only return events that DIRECTLY match the query. "
-        "If no match, say: 'No matching events found in local database.'"
+        "You search the local database for K-12 school-related information. "
+        "Return any relevant content that matches the query including events, announcements, programs, policies, or updates. "
+        "If no match, say: 'No matching information found in local database.'"
         "\n"
         "FORMAT YOUR RESPONSE:\n"
         "Line 1: [Source: Local Database]\n"
         "Line 2: Brief intro (1 sentence)\n"
-        "Then list each event as:\n"
-        "1. Event Name\n"
-        "   • Organizer: Name\n"
-        "   • Type: Category\n"
-        "   • Category: Type\n"
-        "   • Registration: Requirements\n"
-        "   • Contact: Email or phone\n"
+        "Then present the relevant information clearly.\n"
+        "For structured items (events/programs):\n"
+        "1. Title\n"
+        "   • Key details in bullet points\n"
+        "   • Contact info if available\n"
         "\n"
-        "Be concise. No extra explanation."
+        "Be concise and relevant."
     )
     local_events_node = functools.partial(agent_node, agent=local_events_agent, name="LocalEvents")
     logger.info("   ✅ LocalEvents agent configured")
@@ -172,20 +172,20 @@ def create_school_events_agents():
     gmail_agent = create_agent(
         llm,
         gmail_tools,
-        "You search Gmail for school event emails. "
-        "Use keywords: 'school events', 'Round Rock schools', 'student activities', school names. "
-        "Focus on K-12 school events only."
+        "You search Gmail for school-related emails. "
+        "Look for any K-12 school communications including events, announcements, updates, policies, schedules, or other school information. "
+        "Search using relevant keywords based on the user's query and school names."
         "\n"
         "FORMAT YOUR RESPONSE:\n"
         "Line 1: [Source: Gmail]\n"
         "Line 2: Brief intro (1 sentence)\n"
-        "Then list each event as:\n"
-        "1. Event Name (Date if in subject/body)\n"
+        "Then list relevant information:\n"
+        "1. Subject/Topic (Date if available)\n"
         "   • From: Sender name\n"
-        "   • Summary: What it's about (1-2 sentences)\n"
-        "   • Key Details: Date, time, location, registration info\n"
+        "   • Summary: Key information (1-2 sentences)\n"
+        "   • Details: Important dates, times, locations, or action items\n"
         "\n"
-        "Keep it brief and structured. No preambles."
+        "Keep it brief and relevant to the query."
     )
     gmail_node = functools.partial(agent_node, agent=gmail_agent, name="GmailAgent")
     logger.info("   ✅ Gmail agent configured")
@@ -214,7 +214,7 @@ def create_school_events_agents():
 def create_simple_agent_graph():
     """
     Create a sequential agent graph with fallback strategy:
-    1. Try Gmail first (search emails for Round Rock school data)
+    1. Try Gmail first (search emails for school-related information)
     2. If no useful results, try LocalEvents (search local database)
     3. If still no useful results, fall back to WebSearch (Tavily)
     
@@ -480,7 +480,7 @@ async def query_with_agent_stream(question: str, callback):
                 agent_map = {
                     "GmailAgent": {"name": "Gmail", "tool": "Gmail API", "icon": "📧", "step": 1},
                     "LocalEvents": {"name": "Local Database", "tool": "Vector Database", "icon": "💾", "step": 2},
-                    "WebSearch": {"name": "Web Search", "tool": "Tavily Search API", "icon": "🌐", "step": 3}
+                    "WebSearch": {"name": "Web Search", "tool": "", "icon": "🌐", "step": 3}
                 }
                 
                 agent_info = agent_map.get(node_name, {"name": node_name, "tool": "Unknown", "icon": "🔧", "step": 0})
@@ -560,7 +560,7 @@ async def query_with_agent_stream(question: str, callback):
             agent_map = {
                 "GmailAgent": {"name": "Gmail", "tool": "Gmail API"},
                 "LocalEvents": {"name": "Local Database", "tool": "Vector Database"},
-                "WebSearch": {"name": "Web Search", "tool": "Tavily Search API"}
+                "WebSearch": {"name": "Web Search", "tool": ""}
             }
             agent_info = agent_map.get(agent_name, {"name": "Unknown", "tool": "Unknown"})
             

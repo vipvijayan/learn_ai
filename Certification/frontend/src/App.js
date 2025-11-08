@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { ReactComponent as SchoolIcon } from './assets/SchoolIcon.svg';
 import EventPopup from './components/EventPopup';
+import SchoolSelection from './components/SchoolSelection';
+import Login from './components/Login';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -299,13 +301,16 @@ const formatResponseText = (text) => {
 };
 
 function App() {
+  // Authentication state
+  const [user, setUser] = useState(null); // Current logged-in user
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [needsSchoolSelection, setNeedsSchoolSelection] = useState(false);
+  
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('chat'); // 'events', 'chat', 'evaluation', 'comparison', or 'settings'
-  const [evaluationResults, setEvaluationResults] = useState(null);
-  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [activeTab, setActiveTab] = useState('chat'); // 'events', 'chat', 'comparison', or 'settings'
   const [comparisonResults, setComparisonResults] = useState({
     original: null,
     naive: null
@@ -328,6 +333,185 @@ function App() {
   const [useWebSocket, setUseWebSocket] = useState(true); // Toggle for WebSocket vs HTTP
   const wsRef = useRef(null); // WebSocket connection reference
   const [streamingMessage, setStreamingMessage] = useState(null); // Current streaming message
+  const [schools, setSchools] = useState([]); // List of schools
+  const [selectedSchoolDistrict, setSelectedSchoolDistrict] = useState(null); // Selected school from localStorage
+  const [showSchoolSelection, setShowSchoolSelection] = useState(false); // Show school selection screen (LEGACY - using auth system now)
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState(null); // Track which message was copied
+  const [showCopyToast, setShowCopyToast] = useState(false); // Show copy success toast
+  const [bookmarks, setBookmarks] = useState([]); // Store bookmarked messages
+  const [showBookmarkToast, setShowBookmarkToast] = useState(false); // Show bookmark toast
+  const [bookmarkToastMessage, setBookmarkToastMessage] = useState(''); // Toast message text
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+        // Check if user needs to select schools (no schools selected yet)
+        if (!parsedUser.schools || parsedUser.schools.length === 0) {
+          setNeedsSchoolSelection(true);
+        }
+      } catch (err) {
+        console.error('Error parsing saved user:', err);
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  // Handle successful login
+  const handleLoginSuccess = (userData) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+    localStorage.setItem('user', JSON.stringify(userData));
+    
+    // Check if user needs to select schools (no schools selected yet)
+    if (!userData.schools || userData.schools.length === 0) {
+      setNeedsSchoolSelection(true);
+    }
+  };
+
+  // Handle school selection
+  const handleSchoolSelected = (userData) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setNeedsSchoolSelection(false);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    // Clear all state
+    setUser(null);
+    setIsAuthenticated(false);
+    setNeedsSchoolSelection(false);
+    setMessages([]);
+    setBookmarks([]);
+    
+    // Clear all localStorage
+    localStorage.clear();
+    
+    // Switch to chat tab
+    setActiveTab('chat');
+    
+    console.log('User logged out, localStorage cleared');
+  };
+  
+  // Copy message content to clipboard
+  const copyToClipboard = (content, index) => {
+    // Strip markdown formatting for plain text copy
+    const plainText = content.replace(/\*\*/g, '');
+    
+    navigator.clipboard.writeText(plainText).then(() => {
+      setCopiedMessageIndex(index);
+      setShowCopyToast(true);
+      
+      // Reset copied state after animation
+      setTimeout(() => setCopiedMessageIndex(null), 2000);
+      
+      // Hide toast after 3 seconds
+      setTimeout(() => setShowCopyToast(false), 3000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
+  };
+  
+  // Bookmark message
+  const bookmarkMessage = async (message, index) => {
+    // Check if already bookmarked
+    const isAlreadyBookmarked = bookmarks.some(
+      bm => bm.message_content === message.content && bm.message_type === message.type
+    );
+    
+    if (isAlreadyBookmarked) {
+      setBookmarkToastMessage('Already bookmarked!');
+      setShowBookmarkToast(true);
+      setTimeout(() => setShowBookmarkToast(false), 3000);
+      return;
+    }
+
+    try {
+      const bookmarkId = `bookmark_${Date.now()}_${index}`;
+      const response = await axios.post('http://localhost:8000/api/bookmarks/add', {
+        email: user.email,
+        bookmark_id: bookmarkId,
+        message_type: message.type,
+        message_content: message.content,
+        message_context: JSON.stringify({ timestamp: new Date().toISOString() }),
+        message_source: message.source || null,
+        message_index: index
+      });
+
+      if (response.data.success) {
+        // Reload bookmarks from server
+        await loadBookmarks();
+        setBookmarkToastMessage('Bookmarked!');
+        setShowBookmarkToast(true);
+        setTimeout(() => setShowBookmarkToast(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error adding bookmark:', error);
+      setBookmarkToastMessage('Failed to bookmark');
+      setShowBookmarkToast(true);
+      setTimeout(() => setShowBookmarkToast(false), 3000);
+    }
+  };
+  
+  // Remove bookmark
+  const removeBookmark = async (bookmarkId) => {
+    try {
+      const response = await axios.post('http://localhost:8000/api/bookmarks/remove', {
+        email: user.email,
+        bookmark_id: bookmarkId
+      });
+
+      if (response.data.success) {
+        // Reload bookmarks from server
+        await loadBookmarks();
+        setBookmarkToastMessage('Bookmark removed');
+        setShowBookmarkToast(true);
+        setTimeout(() => setShowBookmarkToast(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      setBookmarkToastMessage('Failed to remove bookmark');
+      setShowBookmarkToast(true);
+      setTimeout(() => setShowBookmarkToast(false), 3000);
+    }
+  };
+  
+  // Check if message is bookmarked
+  const isMessageBookmarked = (message) => {
+    return bookmarks.some(
+      bm => bm.message_content === message.content && bm.message_type === message.type
+    );
+  };
+
+  // Load bookmarks from backend
+  const loadBookmarks = async () => {
+    if (!user || !user.email) return;
+    
+    try {
+      const response = await axios.get(`http://localhost:8000/api/bookmarks/${user.email}`);
+      if (response.data.success) {
+        setBookmarks(response.data.bookmarks);
+      }
+    } catch (error) {
+      console.error('Error loading bookmarks:', error);
+    }
+  };
+  
+  // Load bookmarks from backend on mount and when user changes
+  useEffect(() => {
+    if (user && user.email) {
+      loadBookmarks();
+    } else {
+      setBookmarks([]);
+    }
+  }, [user]);
+  
+
   
   // Check backend health on mount
   useEffect(() => {
@@ -340,10 +524,10 @@ function App() {
         if (response.status === 200) {
           setBackendStatus('online');
           
-          // Hide splash screen after 4 seconds if backend is online
+          // Hide splash screen after 1 second if backend is online
           setTimeout(() => {
             setShowSplash(false);
-          }, 4000);
+          }, 1000);
         }
       } catch (err) {
         console.error('Backend health check failed:', err);
@@ -387,6 +571,21 @@ function App() {
     fetchEvents();
   }, []);
 
+  // Fetch schools on component mount
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/schools`);
+        setSchools(response.data.schools);
+        console.log('Schools loaded:', response.data.schools);
+      } catch (err) {
+        console.error('Error fetching schools:', err);
+      }
+    };
+
+    fetchSchools();
+  }, []);
+
   const handleShowEventDetails = (event, e) => {
     e.stopPropagation(); // Prevent event card click
     setSelectedEventDetails(event);
@@ -417,8 +616,26 @@ function App() {
       
       ws.onopen = () => {
         console.log('🔌 WebSocket connected');
-        // Send the question
-        ws.send(JSON.stringify({ question: userMessage }));
+        
+        // Extract email suffixes and district names from all selected schools
+        const email_suffixes = user?.schools?.map(s => s.email_suffix).filter(Boolean) || [];
+        const school_districts = user?.schools?.map(s => s.name).filter(Boolean) || [];
+        
+        console.log('📧 WebSocket sending query with school data:', {
+          schools_count: user?.schools?.length || 0,
+          email_suffixes,
+          school_districts
+        });
+        
+        // Send the question with email suffixes and school districts
+        ws.send(JSON.stringify({ 
+          question: userMessage,
+          email_suffixes: email_suffixes.length > 0 ? email_suffixes : null,
+          school_districts: school_districts.length > 0 ? school_districts : null,
+          // Legacy fields for backwards compatibility
+          email_suffix: selectedSchoolDistrict?.email_suffix || (email_suffixes.length > 0 ? email_suffixes[0] : null),
+          school_district: selectedSchoolDistrict?.district || (school_districts.length > 0 ? school_districts[0] : null)
+        }));
         
         // Initialize streaming message with initial status
         setStreamingMessage({
@@ -469,10 +686,28 @@ function App() {
             content: cleanedContent,
             source: data.agent,
             tool: data.tool,
-            responseTime: data.response_time
+            responseTime: data.response_time,
+            evaluation: null // Will be updated when evaluation arrives
           }]);
           setStreamingMessage(null);
           setIsLoading(false);
+        } else if (data.type === 'evaluation') {
+          // Evaluation message received - update the last assistant message
+          console.log('📊 Evaluation received from WebSocket:', data.evaluation);
+          setMessages(prev => {
+            const newMessages = [...prev];
+            // Find the last assistant message and add evaluation
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              if (newMessages[i].type === 'assistant') {
+                newMessages[i] = {
+                  ...newMessages[i],
+                  evaluation: data.evaluation
+                };
+                break;
+              }
+            }
+            return newMessages;
+          });
         } else if (data.type === 'error') {
           setError(`❌ ${data.content}`);
           setStreamingMessage(null);
@@ -526,11 +761,26 @@ function App() {
 
     // Fall back to HTTP POST (original behavior)
     try {
+      // Extract email suffixes and district names from all selected schools
+      const email_suffixes = user?.schools?.map(s => s.email_suffix).filter(Boolean) || [];
+      const school_districts = user?.schools?.map(s => s.name).filter(Boolean) || [];
+      
+      console.log('📧 Sending query with school data:', {
+        schools_count: user?.schools?.length || 0,
+        email_suffixes,
+        school_districts
+      });
+      
       const response = await axios.post(`${API_BASE_URL}/multi-agent-query`, {
-        question: userMessage
+        question: userMessage,
+        email_suffixes: email_suffixes.length > 0 ? email_suffixes : null,
+        school_districts: school_districts.length > 0 ? school_districts : null,
+        // Legacy fields for backwards compatibility
+        email_suffix: selectedSchoolDistrict?.email_suffix || (email_suffixes.length > 0 ? email_suffixes[0] : null),
+        school_district: selectedSchoolDistrict?.district || (school_districts.length > 0 ? school_districts[0] : null)
       });
 
-      const { answer, context, agent_used, source, response_time } = response.data;
+      const { answer, context, agent_used, source, response_time, evaluation } = response.data;
       
       // Optional: Log which agent was used for debugging
       if (agent_used) {
@@ -542,6 +792,9 @@ function App() {
       if (response_time) {
         console.log(`⏱️ Response time: ${response_time}s`);
       }
+      if (evaluation) {
+        console.log(`📊 Evaluation - Faithfulness: ${evaluation.faithfulness}, Relevancy: ${evaluation.response_relevancy}, Status: ${evaluation.status}`);
+      }
 
       // Add assistant response to chat
       setMessages(prev => [...prev, { 
@@ -549,7 +802,8 @@ function App() {
         content: answer,
         context: context,
         source: source || 'Unknown',
-        responseTime: response_time
+        responseTime: response_time,
+        evaluation: evaluation // Add evaluation metrics
       }]);
 
     } catch (err) {
@@ -583,38 +837,6 @@ function App() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
-    }
-  };
-
-  const runEvaluation = async () => {
-    setIsEvaluating(true);
-    setError('');
-    
-    try {
-      const response = await axios.post(`${API_BASE_URL}/evaluate-ragas`);
-      setEvaluationResults(response.data);
-    } catch (err) {
-      console.error('Error running evaluation:', err);
-      
-      let errorMessage = 'An error occurred while running evaluation.';
-      
-      if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        errorMessage = '❌ Backend server is not running. Please start the Python backend first.';
-      } else if (err.response) {
-        errorMessage = `❌ Server Error (${err.response.status}): ${err.response.data.detail || err.response.statusText}`;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setIsEvaluating(false);
-    }
-  };
-
-  const handleEvaluationTabClick = () => {
-    setActiveTab('evaluation');
-    // Auto-run evaluation when tab is clicked, but only if not already evaluating
-    if (!isEvaluating && !evaluationResults) {
-      runEvaluation();
     }
   };
 
@@ -694,7 +916,7 @@ function App() {
       <div className="splash-screen">
         <div className="splash-content">
           <SchoolIcon className="splash-icon" />
-          <h1 className="splash-title">School Events Assistant</h1>
+          <h1 className="splash-title">School Assistant</h1>
           <div className="splash-loader">
             <div className="loader-dot"></div>
             <div className="loader-dot"></div>
@@ -717,11 +939,70 @@ function App() {
     );
   }
 
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show school selection if user hasn't selected a school
+  if (needsSchoolSelection) {
+    console.log('Showing SchoolSelection component, user:', user);
+    return <SchoolSelection user={user} onSchoolSelected={handleSchoolSelected} />;
+  }
+
+  // Show old school selection if not selected yet (legacy support)
+  if (showSchoolSelection && !selectedSchoolDistrict) {
+    // Skip this - we'll use the new authentication flow
+    setShowSchoolSelection(false);
+  }
+
   return (
     <div className="app">
+      {/* Copy Toast Notification */}
+      {showCopyToast && (
+        <div className="copy-toast">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Copied to clipboard!</span>
+        </div>
+      )}
+
+      {/* Bookmark Toast Notification */}
+      {showBookmarkToast && (
+        <div className="copy-toast" style={{ backgroundColor: '#4caf50' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>{bookmarkToastMessage}</span>
+        </div>
+      )}
+
       <div className="header">
-        <SchoolIcon className="header-icon" />
-        <h1>School Events Assistant</h1>
+        <div 
+          onClick={() => {
+            console.log('School icon clicked!');
+            console.log('Current state - isAuthenticated:', isAuthenticated, 'needsSchoolSelection:', needsSchoolSelection, 'user:', user);
+            setNeedsSchoolSelection(true);
+            console.log('Set needsSchoolSelection to true');
+          }}
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          title="Change school"
+        >
+          <SchoolIcon className="header-icon" />
+        </div>
+        <h1>School Assistant</h1>
+        {selectedSchoolDistrict && (
+          <div 
+            className="selected-school-badge"
+            onClick={() => {
+              setNeedsSchoolSelection(true);
+            }}
+            title="Click to change school"
+          >
+            📍 {selectedSchoolDistrict.district}
+          </div>
+        )}
       </div>
 
       {/* Main content area with sidebar and content */}
@@ -732,7 +1013,7 @@ function App() {
             className={`tab ${activeTab === 'events' ? 'active' : ''}`}
             onClick={() => setActiveTab('events')}
           >
-            🎪&nbsp;&nbsp;Browse Events
+            🎪&nbsp;&nbsp;Events
           </button>
           <button 
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
@@ -741,17 +1022,24 @@ function App() {
             💬&nbsp;&nbsp;Chat
           </button>
           <button 
+            className={`tab ${activeTab === 'bookmarks' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bookmarks')}
+          >
+            🔖&nbsp;&nbsp;Bookmarks
+          </button>
+          {/* RAGAS Evaluation now happens automatically for each response */}
+          {/* <button 
             className={`tab ${activeTab === 'evaluation' ? 'active' : ''}`}
             onClick={handleEvaluationTabClick}
           >
             📊&nbsp;&nbsp;RAGAS Evaluation
-          </button>
-          <button 
+          </button> */}
+          {/* <button 
             className={`tab ${activeTab === 'comparison' ? 'active' : ''}`}
             onClick={handleComparisonTabClick}
           >
             📈&nbsp;&nbsp;Method Comparison
-          </button>
+          </button> */}
           <button 
             className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('settings')}
@@ -845,7 +1133,7 @@ function App() {
 
           {messages.length === 0 && (
             <div className="welcome-message">
-              <strong>Welcome to School Events Assistant! 🏫</strong>
+              <strong>Welcome to School Assistant! 🏫</strong>
               <br /><br />
               Ask me about school events, programs, and activities. Here are some examples:
               <br /><br />
@@ -863,50 +1151,182 @@ function App() {
                 {message.type === 'user' ? '👤' : '🤖'}
               </div>
               <div className="message-content">
-                {message.type === 'assistant' 
-                  ? formatResponseText(message.content)
-                  : message.content
-                }
+                <div className="message-text">
+                  {message.type === 'assistant' 
+                    ? formatResponseText(message.content)
+                    : message.content
+                  }
+                </div>
                 {message.type === 'assistant' && message.source && (
                   <div style={{ 
                     marginTop: '12px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-end',
+                    justifyContent: 'space-between',
                     gap: '12px',
                     flexWrap: 'wrap'
                   }}>
-                    <div className="source-badge" style={{
-                      fontSize: '0.85em',
-                      fontWeight: '500',
-                      color: message.source === 'Local Database' ? '#1976d2' : 
-                            message.source === 'Gmail' ? '#f57c00' : 
-                            message.source === 'Web Search' ? '#7b1fa2' : '#616161'
-                    }}>
-                      📚 Source: {message.source}
+                    {/* Left side: Evaluation status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {message.evaluation && message.evaluation.status === 'completed' && (
+                        <div style={{ 
+                          fontSize: '0.85em', 
+                          color: '#4caf50',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <span>✓</span>
+                          <span>Evaluated</span>
+                        </div>
+                      )}
                     </div>
-                    {message.tool && (
-                      <div style={{
-                        fontSize: '0.75em',
-                        color: '#757575',
-                        fontStyle: 'italic',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        <span>🔧</span>
-                        <span>{message.tool}</span>
-                      </div>
-                    )}
-                    {message.responseTime && (
-                      <div className="response-time-badge" style={{
+                    
+                    {/* Right side: Source, Tool, Response Time, Copy, Bookmark */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <div className="source-badge" style={{
                         fontSize: '0.85em',
                         fontWeight: '500',
-                        color: '#666'
+                        color: message.source === 'Local Database' ? '#1976d2' : 
+                              message.source === 'Gmail' ? '#f57c00' : 
+                              message.source === 'Web Search' ? '#7b1fa2' : '#616161'
                       }}>
-                        ⏱️ {formatResponseTime(message.responseTime)}
+                        📚 Source: {message.source}
                       </div>
-                    )}
+                      {message.tool && (
+                        <div style={{
+                          fontSize: '0.75em',
+                          color: '#757575',
+                          fontStyle: 'italic',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <span>🔧</span>
+                          <span>{message.tool}</span>
+                        </div>
+                      )}
+                      {message.responseTime && (
+                        <div className="response-time-badge" style={{
+                          fontSize: '0.85em',
+                          fontWeight: '500',
+                          color: '#666'
+                        }}>
+                          ⏱️ {formatResponseTime(message.responseTime)}
+                        </div>
+                      )}
+                      <button 
+                        className="copy-button"
+                        onClick={() => copyToClipboard(message.content, index)}
+                        title="Copy message"
+                        style={{
+                          position: 'relative',
+                          right: 'auto',
+                          top: 'auto',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          opacity: 0.6,
+                          transition: 'opacity 0.2s'
+                        }}
+                      >
+                        {copiedMessageIndex === index ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          </svg>
+                        )}
+                      </button>
+                      <button 
+                        className="bookmark-button"
+                        onClick={() => bookmarkMessage(message, index)}
+                        title={isMessageBookmarked(message) ? "Already bookmarked" : "Bookmark message"}
+                        style={{
+                          position: 'relative',
+                          right: 'auto',
+                          top: 'auto',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          opacity: isMessageBookmarked(message) ? 1 : 0.6,
+                          transition: 'opacity 0.2s'
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill={isMessageBookmarked(message) ? "#f57c00" : "none"} stroke="currentColor" strokeWidth="2">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {/* User message bottom row with copy button */}
+                {message.type === 'user' && (
+                  <div style={{ 
+                    marginTop: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '12px'
+                  }}>
+                    <button 
+                      className="copy-button"
+                      onClick={() => copyToClipboard(message.content, index)}
+                      title="Copy message"
+                      style={{
+                        position: 'relative',
+                        right: 'auto',
+                        top: 'auto',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        opacity: 0.6,
+                        transition: 'opacity 0.2s'
+                      }}
+                    >
+                      {copiedMessageIndex === index ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                )}
+                {/* Hidden detailed metrics for future use */}
+                {message.type === 'assistant' && message.evaluation && message.evaluation.status === 'completed' && (
+                  <div style={{ display: 'none' }}>
+                    <div style={{ fontWeight: '600', color: '#555' }}>
+                      📊 RAGAS Evaluation:
+                    </div>
+                    <div>Faithfulness: {(message.evaluation.faithfulness * 100).toFixed(1)}%</div>
+                    <div>Relevancy: {(message.evaluation.response_relevancy * 100).toFixed(1)}%</div>
+                  </div>
+                )}
+                {message.type === 'assistant' && message.evaluation && message.evaluation.status === 'failed' && (
+                  <div style={{ 
+                    marginTop: '12px',
+                    padding: '8px',
+                    background: '#fff3e0',
+                    borderRadius: '6px',
+                    fontSize: '0.8em',
+                    color: '#e65100',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span>⚠️</span>
+                    <span>Evaluation failed</span>
                   </div>
                 )}
               </div>
@@ -1026,112 +1446,6 @@ function App() {
                   {isLoading ? 'Sending...' : 'Send'}
                 </button>
               </div>
-            </div>
-          )}
-
-          {activeTab === 'evaluation' && (
-            <div className="evaluation-container">
-              <div className="evaluation-header">
-                <h2>📊 RAGAS Evaluation Results</h2>
-                <p>Evaluate the RAG pipeline using RAGAS metrics: Faithfulness, Response Relevancy, Context Precision, and Context Recall</p>
-                {!isEvaluating && !evaluationResults && (
-                  <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
-                    Evaluation will start automatically...
-                  </p>
-                )}
-                {evaluationResults && (
-                  <button 
-                    onClick={runEvaluation} 
-                    disabled={isEvaluating}
-                    className="run-evaluation-button"
-                  >
-                    {isEvaluating ? '⏳ Re-running Evaluation...' : '🔄 Re-run Evaluation'}
-                  </button>
-                )}
-              </div>
-
-              {error && (
-                <div className="error-message">
-                  {error}
-                </div>
-              )}
-
-              {isEvaluating && (
-                <div className="evaluation-loading">
-                  <div className="spinner"></div>
-                  <p>Running RAGAS evaluation... This may take 1-2 minutes.</p>
-                </div>
-              )}
-
-              {evaluationResults && !isEvaluating && (
-                <div className="evaluation-results">
-                  <div className="results-summary">
-                    <h3>✅ Evaluation Complete!</h3>
-                    <p className="success-message">{evaluationResults.message}</p>
-                    <p className="test-info">Evaluated with {evaluationResults.test_questions_count} test questions</p>
-                  </div>
-
-                  <div className="metrics-grid">
-                    <div className="metric-card">
-                      <div className="metric-icon">🎯</div>
-                      <div className="metric-name">Faithfulness</div>
-                      <div className="metric-value">{(evaluationResults.metrics.faithfulness * 100).toFixed(1)}%</div>
-                      <div className="metric-description">Factual consistency with context</div>
-                      <div className="metric-bar">
-                        <div 
-                          className="metric-bar-fill" 
-                          style={{width: `${evaluationResults.metrics.faithfulness * 100}%`}}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="metric-card">
-                      <div className="metric-icon">📝</div>
-                      <div className="metric-name">Answer Relevancy</div>
-                      <div className="metric-value">{(evaluationResults.metrics.answer_relevancy * 100).toFixed(1)}%</div>
-                      <div className="metric-description">Relevance to the question</div>
-                      <div className="metric-bar">
-                        <div 
-                          className="metric-bar-fill" 
-                          style={{width: `${evaluationResults.metrics.answer_relevancy * 100}%`}}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="metric-card">
-                      <div className="metric-icon">🎲</div>
-                      <div className="metric-name">Context Precision</div>
-                      <div className="metric-value">{(evaluationResults.metrics.context_precision * 100).toFixed(1)}%</div>
-                      <div className="metric-description">Precision of retrieved contexts</div>
-                      <div className="metric-bar">
-                        <div 
-                          className="metric-bar-fill" 
-                          style={{width: `${evaluationResults.metrics.context_precision * 100}%`}}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="metric-card">
-                      <div className="metric-icon">📚</div>
-                      <div className="metric-name">Context Recall</div>
-                      <div className="metric-value">{(evaluationResults.metrics.context_recall * 100).toFixed(1)}%</div>
-                      <div className="metric-description">Coverage of required context</div>
-                      <div className="metric-bar">
-                        <div 
-                          className="metric-bar-fill" 
-                          style={{width: `${evaluationResults.metrics.context_recall * 100}%`}}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="files-generated">
-                    <p style={{color: '#666', fontStyle: 'italic', marginTop: '20px'}}>
-                      💾 Evaluation results have been saved to the server for further analysis.
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1294,8 +1608,210 @@ function App() {
             </div>
           )}
 
+          {activeTab === 'bookmarks' && (
+            <div className="chat-container">
+              <div className="bookmarks-container">
+              {bookmarks.length === 0 ? (
+                <div className="welcome-message" style={{ textAlign: 'center', padding: '40px' }}>
+                  <strong>No bookmarks yet</strong>
+                  <br /><br />
+                  Bookmark assistant messages from the Chat tab to save them here for later reference.
+                  <br /><br />
+                  Look for the 🔖 icon on assistant messages!
+                </div>
+              ) : (
+                <div className="bookmarks-list" style={{ paddingBottom: '60px' }}>
+                  {bookmarks.map((bookmark, index) => (
+                    <div key={bookmark.bookmark_id} className="bookmark-item" style={{
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      marginBottom: '16px',
+                      backgroundColor: '#fafafa',
+                      position: 'relative'
+                    }}>
+                      <button
+                        onClick={() => removeBookmark(bookmark.bookmark_id)}
+                        style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          background: '#ff5252',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          fontSize: '0.85em',
+                          fontWeight: '500',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseOver={(e) => e.target.style.background = '#ff1744'}
+                        onMouseOut={(e) => e.target.style.background = '#ff5252'}
+                        title="Remove bookmark"
+                      >
+                        Remove
+                      </button>
+                      <div style={{ 
+                        fontSize: '0.85em', 
+                        color: '#666', 
+                        marginBottom: '8px',
+                        paddingRight: '80px'
+                      }}>
+                        Saved on {new Date(bookmark.created_at).toLocaleString()}
+                      </div>
+                      <div className="message-content" style={{ marginTop: '12px' }}>
+                        <div className="message-text">
+                          {formatResponseText(bookmark.message_content)}
+                        </div>
+                        {bookmark.message_source && (
+                          <div style={{ 
+                            marginTop: '12px',
+                            fontSize: '0.85em',
+                            color: '#666'
+                          }}>
+                            📚 Source: {bookmark.message_source}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'settings' && (
             <div className="settings-container">
+              <div className="settings-section">
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <h3 style={{ margin: 0 }}>👤 User Information</h3>
+                  <button 
+                    className="logout-button"
+                    onClick={handleLogout}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.9em',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#d32f2f';
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 4px 8px rgba(244, 67, 54, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#f44336';
+                      e.target.style.transform = 'translateY(0)';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span>🚪</span>
+                    <span>Logout</span>
+                  </button>
+                </div>
+                <div className="setting-item">
+                  <div className="setting-content">
+                    <div className="setting-label-group">
+                      <label className="setting-label">
+                        Email Address
+                      </label>
+                      <p className="setting-description">
+                        <strong>{user?.email || 'Not logged in'}</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <h3 style={{ margin: 0 }}>🏫 School Settings</h3>
+                  <button 
+                    className="change-school-button"
+                    onClick={() => {
+                      setNeedsSchoolSelection(true);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '0.9em'
+                    }}
+                  >
+                    Manage Schools
+                  </button>
+                </div>
+                <div className="setting-item">
+                  <div className="setting-content">
+                    <div className="setting-label-group">
+                      <label className="setting-label">
+                        Selected Schools ({user?.schools?.length || 0})
+                      </label>
+                      {user?.schools && user.schools.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                          {user.schools.map((school) => (
+                            <div 
+                              key={school.id}
+                              style={{
+                                padding: '12px',
+                                background: '#f5f5f5',
+                                borderRadius: '8px',
+                                border: '1px solid #e0e0e0'
+                              }}
+                            >
+                              <p className="setting-description" style={{ marginBottom: '4px' }}>
+                                <strong>{school.name}</strong>
+                              </p>
+                              {school.email_suffix && (
+                                <p className="setting-description" style={{ 
+                                  color: '#667eea',
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.85em',
+                                  marginTop: '4px'
+                                }}>
+                                  📧 @{school.email_suffix}
+                                </p>
+                              )}
+                              {school.location && (
+                                <p className="setting-description" style={{ 
+                                  color: '#666',
+                                  fontSize: '0.85em',
+                                  marginTop: '2px'
+                                }}>
+                                  📍 {school.location}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="setting-description">
+                          <strong>None</strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="settings-section">
                 <h3>🔌 Connection Settings</h3>
                 <div className="setting-item">
@@ -1340,7 +1856,7 @@ function App() {
               <div className="settings-section">
                 <h3>ℹ️ About</h3>
                 <div className="about-info">
-                  <p><strong>Your School Events Assistant</strong></p>
+                  <p><strong>Your School Assistant</strong></p>
                   <p>I help you find school events by searching multiple places at once:</p>
                   <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
                     <li>📧 Your Gmail inbox for school emails</li>

@@ -102,8 +102,8 @@ class SchoolEventsSearchTool(BaseTool):
                 return "Error: School events database is not initialized."
             
             # Perform similarity search
-            logger.info(f"   🔎 Performing similarity search (k=3)...")
-            results = self.vector_store.similarity_search(query, k=3)
+            logger.info(f"   🔎 Performing similarity search (k=5)...")
+            results = self.vector_store.similarity_search(query, k=5)
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()

@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from typing import List, Optional
 import json
 import os
 import logging
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Directory paths
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables from .env file
 load_dotenv()
 logger.info("="*80)
-logger.info("🚀 Starting School Events RAG API")
+logger.info("🚀 Starting School Assistant API")
 logger.info("="*80)
 
 # LangChain imports
@@ -41,6 +43,27 @@ from app.tools.school_events_tool import create_school_events_tool
 
 # Import multi-agent system
 from app.agents.multi_agent_system import create_school_events_agents, query_with_agent, query_with_agent_stream
+
+# Import database functions
+from app.database import (
+    init_database,
+    get_or_create_user,
+    get_all_schools,
+    update_user_school,
+    get_user_with_school,
+    set_user_schools,
+    get_user_schools,
+    get_user_with_schools,
+    reset_database,
+    # Preferences functions
+    set_user_preference,
+    get_user_preference,
+    get_all_user_preferences,
+    # Bookmarks functions
+    add_bookmark,
+    remove_bookmark,
+    get_user_bookmarks
+)
 
 # ============================================================
 # CONSTANTS AND CONFIGURATION
@@ -73,6 +96,9 @@ naive_retriever = None
 original_chain = None
 naive_chain = None
 
+# Store queries and responses for evaluation
+evaluation_buffer = []
+
 # ============================================================
 # FASTAPI APP SETUP
 # ============================================================
@@ -83,7 +109,14 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
     # Startup
-    logger.info("📋 AVAILABLE ENDPOINTS:")
+    logger.info("="*80)
+    logger.info("�️  Initializing SQLite Database...")
+    init_database()
+    logger.info("="*80)
+    logger.info("�📋 AVAILABLE ENDPOINTS:")
+    logger.info("   /api/auth/login → User login with email")
+    logger.info("   /api/auth/schools → Get list of schools")
+    logger.info("   /api/auth/select-school → Select user's school")
     logger.info("   /query → RAG Query (switchable between Original and Naive)")
     logger.info("   /agent-query → Direct Tool Use (school_events_search)")
     logger.info("   /multi-agent-query → Multi-Agent System (WebSearch + LocalEvents)")
@@ -99,9 +132,9 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown (cleanup if needed)
-    logger.info("👋 Shutting down School Events RAG API")
+    logger.info("👋 Shutting down School Assistant API")
 
-app = FastAPI(title="School Events RAG API", lifespan=lifespan)
+app = FastAPI(title="School Assistant API", lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -116,12 +149,57 @@ app.add_middleware(
 # PYDANTIC MODELS
 # ============================================================
 
+class LoginRequest(BaseModel):
+    email: str
+
+class SchoolSelectionRequest(BaseModel):
+    email: str
+    school_ids: List[int]  # List of selected school IDs
+    
+    @field_validator('school_ids', mode='before')
+    @classmethod
+    def validate_school_ids(cls, v):
+        logger.info(f"🔍 Validating school_ids: {v} (type: {type(v)})")
+        if v is None:
+            raise ValueError("school_ids cannot be None")
+        if not isinstance(v, list):
+            raise ValueError(f"school_ids must be a list, got {type(v)}")
+        if len(v) == 0:
+            raise ValueError("school_ids cannot be empty")
+        # Ensure all elements are integers or can be converted to integers
+        try:
+            return [int(x) for x in v]
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"All school_ids must be integers: {e}")
+
 class QueryRequest(BaseModel):
     question: str
+    email_suffix: str = None  # Optional single email suffix for Gmail filtering (legacy)
+    email_suffixes: List[str] = None  # Optional list of email suffixes for multi-school filtering
+    school_district: str = None  # Optional school district name for better search context
+    school_districts: List[str] = None  # Optional list of school district names
 
 class QueryResponse(BaseModel):
     answer: str
     context: list[str]
+
+class BookmarkRequest(BaseModel):
+    email: str
+    bookmark_id: str
+    message_type: str
+    message_content: str
+    message_context: str = None
+    message_source: str = None
+    message_index: int = None
+
+class RemoveBookmarkRequest(BaseModel):
+    email: str
+    bookmark_id: str
+
+class PreferenceRequest(BaseModel):
+    email: str
+    preference_key: str
+    preference_value: str
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -142,7 +220,7 @@ def setup_agent_tools():
         
         # Add Tavily search if API key is available
         if os.getenv("TAVILY_API_KEY"):
-            tavily_tool = TavilySearchResults(max_results=3)
+            tavily_tool = TavilySearchResults(max_results=5)
             agent_tools.append(tavily_tool)
             logger.info(f"  ✅ Created tool: {tavily_tool.name}")
             print("✅ Tavily search tool added")
@@ -316,6 +394,415 @@ Context:
 @app.get("/")
 async def root():
     return {"message": "School Events RAG API is running!", "status": "healthy"}
+
+
+# ============================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    """
+    Login with email - creates or retrieves user
+    """
+    try:
+        # Validate email format
+        email = request.email.strip().lower()
+        if not email or '@' not in email:
+            raise HTTPException(status_code=400, detail="Invalid email address")
+        
+        # Get or create user
+        user = get_or_create_user(email)
+        
+        # Get user with all schools
+        user_with_schools = get_user_with_schools(email)
+        
+        # If user has no schools selected, check if there's a saved preference
+        if not user_with_schools.get('schools') or len(user_with_schools['schools']) == 0:
+            import json
+            saved_schools = get_user_preference(email, "selected_schools")
+            if saved_schools:
+                try:
+                    school_ids = json.loads(saved_schools)
+                    if school_ids and len(school_ids) > 0:
+                        # Restore the saved school selections
+                        set_user_schools(email, school_ids)
+                        user_with_schools = get_user_with_schools(email)
+                        logger.info(f"🔄 Restored {len(school_ids)} saved school(s) for {email}")
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.warning(f"Failed to restore saved schools: {e}")
+        
+        return {
+            "success": True,
+            "user": user_with_schools,
+            "message": "Login successful"
+        }
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/schools")
+async def get_schools_list():
+    """
+    Get list of all available schools for selection
+    """
+    try:
+        schools = get_all_schools()
+        return {
+            "success": True,
+            "schools": schools
+        }
+    except Exception as e:
+        logger.error(f"Error fetching schools: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/select-school")
+async def select_school(request: SchoolSelectionRequest):
+    """
+    Update user's selected schools (supports multiple school selection)
+    """
+    try:
+        logger.info(f"📥 School selection request received:")
+        logger.info(f"   Email: {request.email}")
+        logger.info(f"   School IDs: {request.school_ids}")
+        logger.info(f"   School IDs type: {type(request.school_ids)}")
+        
+        email = request.email.strip().lower()
+        
+        # Validate school_ids
+        if not request.school_ids or len(request.school_ids) == 0:
+            raise HTTPException(status_code=400, detail="Please select at least one school")
+        
+        # Ensure all IDs are integers
+        try:
+            school_ids = [int(sid) for sid in request.school_ids]
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid school ID format: {e}")
+            raise HTTPException(status_code=400, detail="Invalid school ID format")
+        
+        # Set multiple schools
+        set_user_schools(email, school_ids)
+        user_with_schools = get_user_with_schools(email)
+        
+        # Save selected school IDs as a preference
+        import json
+        set_user_preference(email, "selected_schools", json.dumps(school_ids))
+        logger.info(f"💾 Saved selected schools to preferences: {school_ids}")
+        
+        logger.info(f"✅ Successfully set {len(school_ids)} school(s) for {email}")
+        
+        return {
+            "success": True,
+            "user": user_with_schools,
+            "message": f"Selected {len(school_ids)} school(s)"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error selecting schools: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/user-schools/{email}")
+async def get_user_selected_schools(email: str):
+    """
+    Get all schools selected by a user
+    """
+    try:
+        email = email.strip().lower()
+        schools = get_user_schools(email)
+        
+        return {
+            "success": True,
+            "schools": schools,
+            "count": len(schools)
+        }
+    except Exception as e:
+        logger.error(f"Error getting user schools: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/reset-database")
+async def reset_database_endpoint():
+    """
+    Reset the entire database - drops all tables and recreates them.
+    WARNING: This will delete ALL data including users and school selections!
+    Use only for development/testing purposes.
+    """
+    try:
+        logger.warning("="*80)
+        logger.warning("🚨 DATABASE RESET REQUESTED")
+        logger.warning("="*80)
+        
+        reset_database()
+        
+        logger.info("="*80)
+        logger.info("✅ DATABASE RESET SUCCESSFUL")
+        logger.info("="*80)
+        
+        return {
+            "success": True,
+            "message": "Database reset successfully. All data has been cleared and tables recreated.",
+            "warning": "All users and school selections have been deleted."
+        }
+    except Exception as e:
+        logger.error(f"❌ Error resetting database: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to reset database: {str(e)}")
+
+
+# ============================================================
+# BOOKMARKS ENDPOINTS
+# ============================================================
+
+@app.post("/api/bookmarks/add")
+async def add_user_bookmark(request: BookmarkRequest):
+    """
+    Add a bookmark for a user
+    """
+    try:
+        email = request.email.strip().lower()
+        
+        add_bookmark(
+            email=email,
+            bookmark_id=request.bookmark_id,
+            message_type=request.message_type,
+            message_content=request.message_content,
+            message_context=request.message_context,
+            message_source=request.message_source,
+            message_index=request.message_index
+        )
+        
+        return {
+            "success": True,
+            "message": "Bookmark added successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error adding bookmark: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/bookmarks/remove")
+async def remove_user_bookmark(request: RemoveBookmarkRequest):
+    """
+    Remove a bookmark for a user
+    """
+    try:
+        email = request.email.strip().lower()
+        remove_bookmark(email, request.bookmark_id)
+        
+        return {
+            "success": True,
+            "message": "Bookmark removed successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error removing bookmark: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/bookmarks/{email}")
+async def get_bookmarks(email: str):
+    """
+    Get all bookmarks for a user
+    """
+    try:
+        email = email.strip().lower()
+        bookmarks = get_user_bookmarks(email)
+        
+        return {
+            "success": True,
+            "bookmarks": bookmarks,
+            "count": len(bookmarks)
+        }
+    except Exception as e:
+        logger.error(f"Error getting bookmarks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# USER PREFERENCES ENDPOINTS
+# ============================================================
+
+@app.post("/api/preferences/set")
+async def set_preference(request: PreferenceRequest):
+    """
+    Set or update a user preference
+    """
+    try:
+        email = request.email.strip().lower()
+        set_user_preference(email, request.preference_key, request.preference_value)
+        
+        return {
+            "success": True,
+            "message": "Preference set successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error setting preference: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/preferences/{email}")
+async def get_preferences(email: str):
+    """
+    Get all preferences for a user
+    """
+    try:
+        email = email.strip().lower()
+        preferences = get_all_user_preferences(email)
+        
+        return {
+            "success": True,
+            "preferences": preferences
+        }
+    except Exception as e:
+        logger.error(f"Error getting preferences: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/preferences/{email}/{preference_key}")
+async def get_preference(email: str, preference_key: str):
+    """
+    Get a specific preference for a user
+    """
+    try:
+        email = email.strip().lower()
+        value = get_user_preference(email, preference_key)
+        
+        return {
+            "success": True,
+            "preference_key": preference_key,
+            "preference_value": value
+        }
+    except Exception as e:
+        logger.error(f"Error getting preference: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/schools")
+async def get_schools():
+    """Get list of available schools"""
+    schools = [
+        {"id": 1, "district": "Round Rock", "email_suffix": "roundrockisd.org"},
+        {"id": 2, "district": "Austin", "email_suffix": "austinisd.org"},
+        {"id": 3, "district": "Leander", "email_suffix": "leanderisd.org"},
+        {"id": 4, "district": "Pflugerville", "email_suffix": "pfisd.net"},
+        {"id": 5, "district": "Georgetown", "email_suffix": "georgetownisd.org"},
+        {"id": 6, "district": "Hutto", "email_suffix": "hutto.txed.net"},
+        {"id": 7, "district": "Manor", "email_suffix": "manorisd.net"},
+        {"id": 8, "district": "Lake Travis", "email_suffix": "ltisdschools.org"}
+    ]
+    return {"schools": schools}
+
+
+# ============================================================
+# RAGAS EVALUATION ENDPOINTS
+# ============================================================
+
+class EvaluationRequest(BaseModel):
+    """Request model for RAGAS evaluation"""
+    clear_buffer: bool = True  # Whether to clear the buffer after evaluation
+    evaluation_name: str = "multi_agent_evaluation"
+
+@app.post("/evaluation/run")
+async def run_evaluation(request: EvaluationRequest):
+    """
+    Run RAGAS evaluation on collected multi-agent responses.
+    
+    Evaluates the actual queries and responses from /multi-agent-query endpoint
+    that have been stored in the evaluation buffer.
+    """
+    try:
+        from app.evaluation.ragas_evaluator import RAGASEvaluator
+        
+        global evaluation_buffer
+        
+        logger.info("="*80)
+        logger.info(f"🔬 RAGAS Evaluation: {request.evaluation_name}")
+        logger.info("="*80)
+        
+        # Check if we have any queries to evaluate
+        if not evaluation_buffer or len(evaluation_buffer) == 0:
+            logger.warning("⚠️ No queries in evaluation buffer")
+            return {
+                "status": "error",
+                "message": "No queries to evaluate. Please run some queries through /multi-agent-query first.",
+                "queries_needed": 10,
+                "queries_collected": 0
+            }
+        
+        logger.info(f"� Evaluating {len(evaluation_buffer)} queries from buffer")
+        
+        # Prepare queries and responses for evaluation
+        queries_and_responses = []
+        for item in evaluation_buffer:
+            queries_and_responses.append({
+                "user_input": item["user_input"],
+                "response": item["response"],
+                "retrieved_contexts": item.get("retrieved_contexts", [])
+            })
+        
+        # Evaluate responses
+        evaluator = RAGASEvaluator()
+        logger.info("📈 Running RAGAS evaluation...")
+        results = evaluator.evaluate_responses(
+            queries_and_responses=queries_and_responses,
+            evaluation_name=request.evaluation_name
+        )
+        
+        # Add buffer info to results
+        results["queries_evaluated"] = len(evaluation_buffer)
+        results["buffer_cleared"] = request.clear_buffer
+        
+        # Clear buffer if requested
+        if request.clear_buffer:
+            logger.info("🧹 Clearing evaluation buffer")
+            evaluation_buffer.clear()
+        
+        logger.info("="*80)
+        logger.info("✅ Evaluation Complete")
+        logger.info("="*80)
+        
+        return {
+            "status": "success",
+            "evaluation_name": request.evaluation_name,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Evaluation failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/evaluation/buffer")
+async def get_evaluation_buffer_status():
+    """Get the current status of the evaluation buffer."""
+    global evaluation_buffer
+    
+    return {
+        "queries_collected": len(evaluation_buffer),
+        "buffer_sample": evaluation_buffer[-5:] if len(evaluation_buffer) > 0 else [],
+        "message": f"Collected {len(evaluation_buffer)} queries. Need at least 1 query to run evaluation."
+    }
+
+
+@app.post("/evaluation/buffer/clear")
+async def clear_evaluation_buffer():
+    """Clear the evaluation buffer."""
+    global evaluation_buffer
+    count = len(evaluation_buffer)
+    evaluation_buffer.clear()
+    
+    logger.info(f"🧹 Cleared evaluation buffer ({count} queries removed)")
+    
+    return {
+        "status": "success",
+        "message": f"Cleared {count} queries from evaluation buffer"
+    }
 
 
 @app.get("/retrieval-methods")
@@ -499,10 +986,47 @@ async def multi_agent_query_events(request: QueryRequest):
     logger.info("="*80)
     logger.info(f"📥 /multi-agent-query ENDPOINT")
     logger.info(f"Query: {request.question}")
+    logger.info(f"Email Suffix (single): {request.email_suffix}")
+    logger.info(f"Email Suffixes (multiple): {request.email_suffixes}")
     
     try:
+        # Set email suffixes for Gmail tool - support both single and multiple schools
+        from app.tools.gmail_tool import get_gmail_client
+        gmail_client = get_gmail_client()
+        
+        if request.email_suffixes and len(request.email_suffixes) > 0:
+            # Multi-school mode
+            gmail_client.set_email_suffixes(request.email_suffixes)
+            logger.info(f"✉️ Gmail search will filter by {len(request.email_suffixes)} school(s): {', '.join(['@' + s for s in request.email_suffixes])}")
+        elif request.email_suffix:
+            # Legacy single school mode
+            gmail_client.set_email_suffix(request.email_suffix)
+            logger.info(f"✉️ Gmail search will filter by: @{request.email_suffix}")
+        
+        # Set school context for Tavily tool if school info is provided
+        if request.school_districts and len(request.school_districts) > 0:
+            # Multi-school mode
+            from app.tools.tavily_tool import get_tavily_client
+            tavily_client = get_tavily_client()
+            # Use the first district as primary context (Tavily doesn't support multi-context yet)
+            district_name = request.school_districts[0]
+            tavily_client.set_school_context(district=district_name, email_suffix=request.email_suffixes[0] if request.email_suffixes else None)
+            logger.info(f"🏫 Tavily search context set to: {district_name} (+ {len(request.school_districts)-1} more)")
+        elif request.school_district or request.email_suffix:
+            # Legacy single school mode
+            from app.tools.tavily_tool import get_tavily_client
+            tavily_client = get_tavily_client()
+            
+            # Use provided district name, or create one from email suffix
+            district_name = request.school_district
+            if not district_name and request.email_suffix:
+                district_name = request.email_suffix.split('.')[0].replace('isd', ' ISD').replace('txed', '').title()
+            
+            tavily_client.set_school_context(district=district_name, email_suffix=request.email_suffix)
+            logger.info(f"🏫 Tavily search context set to: {district_name}")
+        
         # Initialize multi-agents if not already done
-        global multi_agents
+        global multi_agents, evaluation_buffer
         if not multi_agents:
             logger.info("⚙️ Multi-Agent system not initialized, setting up...")
             print("\n🤖 Initializing Multi-Agent System...")
@@ -536,6 +1060,42 @@ async def multi_agent_query_events(request: QueryRequest):
                     clean_response = clean_response.replace(tag, "").strip()
                     break
             
+            # Store query and response for evaluation
+            contexts = [msg.content for msg in result.get("messages", []) if hasattr(msg, 'content') and msg.content]
+            query_data = {
+                "user_input": request.question,
+                "response": clean_response,
+                "retrieved_contexts": contexts,
+                "agent_used": agent_name,
+                "source": source,
+                "timestamp": datetime.now().isoformat()
+            }
+            evaluation_buffer.append(query_data)
+            logger.info(f"📊 Stored query in evaluation buffer (total: {len(evaluation_buffer)})")
+            
+            # Trigger automatic evaluation in background
+            evaluation_result = None
+            try:
+                logger.info("🔬 Starting automatic RAGAS evaluation...")
+                from app.evaluation.ragas_evaluator import RAGASEvaluator
+                evaluator = RAGASEvaluator()
+                
+                # Evaluate just this single query
+                evaluation_result = evaluator.evaluate_responses(
+                    queries_and_responses=[query_data],
+                    evaluation_name=f"auto_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                )
+                logger.info(f"✅ Evaluation complete: Faithfulness={evaluation_result['metrics']['faithfulness']:.3f}, Relevancy={evaluation_result['metrics']['response_relevancy']:.3f}")
+            except Exception as eval_error:
+                logger.error(f"⚠️ Evaluation failed (non-blocking): {str(eval_error)}")
+                evaluation_result = {
+                    "error": str(eval_error),
+                    "metrics": {
+                        "faithfulness": 0,
+                        "response_relevancy": 0
+                    }
+                }
+            
             duration = (datetime.now() - start_time).total_seconds()
             logger.info(f"✅ Multi-agent query completed in {duration:.2f}s")
             logger.info(f"Agent used: {agent_name}")
@@ -550,7 +1110,12 @@ async def multi_agent_query_events(request: QueryRequest):
                 "source": source,
                 "response_time": round(duration, 2),
                 "message_count": len(result["messages"]),
-                "context": [clean_response[:200] + "..."] if len(clean_response) > 200 else [clean_response]
+                "context": [clean_response[:200] + "..."] if len(clean_response) > 200 else [clean_response],
+                "evaluation": {
+                    "faithfulness": evaluation_result["metrics"]["faithfulness"] if evaluation_result else 0,
+                    "response_relevancy": evaluation_result["metrics"]["response_relevancy"] if evaluation_result else 0,
+                    "status": "completed" if evaluation_result and "error" not in evaluation_result else "failed"
+                }
             }
         else:
             duration = (datetime.now() - start_time).total_seconds()
@@ -560,7 +1125,12 @@ async def multi_agent_query_events(request: QueryRequest):
                 "answer": "No response generated from agents",
                 "agent_used": "None",
                 "message_count": 0,
-                "context": []
+                "context": [],
+                "evaluation": {
+                    "faithfulness": 0,
+                    "response_relevancy": 0,
+                    "status": "no_response"
+                }
             }
         
     except Exception as e:
@@ -584,6 +1154,10 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
             # Receive the query from client
             data = await websocket.receive_json()
             question = data.get("question", "")
+            email_suffix = data.get("email_suffix")  # Legacy single school
+            email_suffixes = data.get("email_suffixes")  # Multi-school support
+            school_district = data.get("school_district")  # Legacy single school
+            school_districts = data.get("school_districts")  # Multi-school support
             
             if not question:
                 await websocket.send_json({
@@ -593,6 +1167,43 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                 continue
             
             logger.info(f"📥 WebSocket query received: {question}")
+            logger.info(f"Email Suffix (single): {email_suffix}")
+            logger.info(f"Email Suffixes (multiple): {email_suffixes}")
+            
+            # Set email suffixes for Gmail tool - support both single and multiple schools
+            from app.tools.gmail_tool import get_gmail_client
+            gmail_client = get_gmail_client()
+            
+            if email_suffixes and len(email_suffixes) > 0:
+                # Multi-school mode
+                gmail_client.set_email_suffixes(email_suffixes)
+                logger.info(f"✉️ Gmail search will filter by {len(email_suffixes)} school(s): {', '.join(['@' + s for s in email_suffixes])}")
+            elif email_suffix:
+                # Legacy single school mode
+                gmail_client.set_email_suffix(email_suffix)
+                logger.info(f"✉️ Gmail search will filter by: @{email_suffix}")
+            
+            # Set school context for Tavily tool if school info is provided
+            if school_districts and len(school_districts) > 0:
+                # Multi-school mode
+                from app.tools.tavily_tool import get_tavily_client
+                tavily_client = get_tavily_client()
+                # Use the first district as primary context
+                district_name = school_districts[0]
+                tavily_client.set_school_context(district=district_name, email_suffix=email_suffixes[0] if email_suffixes else None)
+                logger.info(f"🏫 Tavily search context set to: {district_name} (+ {len(school_districts)-1} more)")
+            elif school_district or email_suffix:
+                # Legacy single school mode
+                from app.tools.tavily_tool import get_tavily_client
+                tavily_client = get_tavily_client()
+                
+                # Use provided district name, or create one from email suffix
+                district_name = school_district
+                if not district_name and email_suffix:
+                    district_name = email_suffix.split('.')[0].replace('isd', ' ISD').replace('txed', '').title()
+                
+                tavily_client.set_school_context(district=district_name, email_suffix=email_suffix)
+                logger.info(f"🏫 Tavily search context set to: {district_name}")
             
             # Initialize multi-agents if not already done
             global multi_agents
@@ -605,8 +1216,13 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                 multi_agents = create_school_events_agents()
                 logger.info("✅ Multi-Agent system ready")
             
+            # Store final response for evaluation
+            final_response = None
+            final_agent_name = None
+            
             # Define callback to send updates via WebSocket
             async def send_update(agent_name: str, content: str, is_final: bool, tool_name: str = None, duration: float = None):
+                nonlocal final_response, final_agent_name
                 try:
                     message = {
                         "type": "final" if is_final else "update",
@@ -619,6 +1235,8 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                     
                     if is_final and duration:
                         message["response_time"] = round(duration, 2)
+                        final_response = content
+                        final_agent_name = agent_name
                     
                     await websocket.send_json(message)
                     logger.info(f"📤 Sent {'final' if is_final else 'update'} from {agent_name}")
@@ -627,7 +1245,83 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
             
             # Process query with streaming
             try:
-                await query_with_agent_stream(question, send_update)
+                result = await query_with_agent_stream(question, send_update)
+                
+                # Run evaluation after streaming completes
+                if final_response and result:
+                    try:
+                        logger.info("🔬 Starting automatic RAGAS evaluation for WebSocket...")
+                        
+                        # Prepare query data for evaluation
+                        # For evaluation, we need retrieved_contexts
+                        # Use the final response as the context (simplified approach)
+                        contexts = [final_response]
+                        
+                        # Try to extract more contexts from messages if available
+                        try:
+                            if isinstance(result, dict) and "messages" in result:
+                                messages = result["messages"]
+                                logger.info(f"📝 Found {len(messages)} messages in result")
+                                for msg in messages:
+                                    if hasattr(msg, 'content') and msg.content and msg.content != final_response:
+                                        contexts.append(str(msg.content)[:1000])  # Limit context size
+                        except Exception as ctx_error:
+                            logger.warning(f"⚠️ Could not extract additional contexts: {ctx_error}")
+                        
+                        logger.info(f"📚 Using {len(contexts)} context(s) for evaluation")
+                        
+                        query_data = {
+                            "user_input": question,
+                            "response": final_response,
+                            "retrieved_contexts": contexts,
+                            "agent_used": final_agent_name,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        
+                        logger.info(f"📊 Query data prepared: question={question[:50]}..., response length={len(final_response)}, contexts={len(contexts)}")
+                        
+                        # Run RAGAS evaluation in a separate thread to avoid uvloop conflicts
+                        logger.info("🔧 Running RAGAS in separate thread to avoid uvloop conflicts...")
+                        import concurrent.futures
+                        import asyncio
+                        
+                        def run_evaluation_sync():
+                            """Synchronous function to run evaluation in separate thread"""
+                            from app.evaluation.ragas_evaluator import RAGASEvaluator
+                            evaluator = RAGASEvaluator()
+                            return evaluator.evaluate_responses(
+                                queries_and_responses=[query_data],
+                                evaluation_name=f"auto_eval_ws_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            )
+                        
+                        # Run in thread pool executor
+                        loop = asyncio.get_event_loop()
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            evaluation_result = await loop.run_in_executor(executor, run_evaluation_sync)
+                        
+                        # Send evaluation as a separate message
+                        await websocket.send_json({
+                            "type": "evaluation",
+                            "evaluation": {
+                                "faithfulness": evaluation_result["metrics"]["faithfulness"],
+                                "response_relevancy": evaluation_result["metrics"]["response_relevancy"],
+                                "status": "completed"
+                            }
+                        })
+                        logger.info(f"✅ Evaluation sent: Faithfulness={evaluation_result['metrics']['faithfulness']:.3f}, Relevancy={evaluation_result['metrics']['response_relevancy']:.3f}")
+                    except Exception as eval_error:
+                        logger.error(f"⚠️ Evaluation failed (non-blocking): {str(eval_error)}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        await websocket.send_json({
+                            "type": "evaluation",
+                            "evaluation": {
+                                "faithfulness": 0,
+                                "response_relevancy": 0,
+                                "status": "failed",
+                                "error": str(eval_error)
+                            }
+                        })
             except Exception as e:
                 logger.error(f"❌ Error in streaming query: {e}")
                 await websocket.send_json({

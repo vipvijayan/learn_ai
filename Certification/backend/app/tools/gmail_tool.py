@@ -17,15 +17,26 @@ class GmailToolClient:
     """Client for interacting with Gmail API directly"""
     
     def __init__(self):
-        # Path to credentials
+        # Get credentials directory (one level up from this file)
         self.credentials_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..",  # up to app/
-            "..",  # up to backend/
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
             "credentials"
         )
+        
+        # Paths for credentials
+        self.credentials_path = os.path.join(self.credentials_dir, "gmail_credentials.json")
         self.token_path = os.path.join(self.credentials_dir, "gmail_token.json")
         self._service = None
+        self.email_suffixes = []  # List of email suffixes for multi-school support
+    
+    def set_email_suffix(self, email_suffix: str):
+        """Set a single email suffix for filtering Gmail searches (legacy support)"""
+        if email_suffix:
+            self.email_suffixes = [email_suffix]
+    
+    def set_email_suffixes(self, email_suffixes: List[str]):
+        """Set multiple email suffixes for filtering Gmail searches across multiple schools"""
+        self.email_suffixes = email_suffixes if email_suffixes else []
     
     def get_gmail_service(self):
         """Get authenticated Gmail service"""
@@ -60,7 +71,7 @@ class GmailToolClient:
             return None
     
     def search_emails(self, query: str, max_results: int = 10) -> str:
-        """Search Gmail for emails matching query"""
+        """Search Gmail for emails matching query across all selected schools"""
         try:
             service = self.get_gmail_service()
             if not service:
@@ -72,17 +83,31 @@ class GmailToolClient:
                     "See GMAIL_AUTHENTICATION.md for detailed instructions."
                 )
             
+            # Build search query with multiple email suffix filters if available
+            search_query = query
+            if self.email_suffixes and len(self.email_suffixes) > 0:
+                # Build OR query for multiple school domains
+                # Gmail syntax: from:*@domain1.com OR from:*@domain2.com
+                from_filters = [f"from:*@{suffix}" for suffix in self.email_suffixes]
+                from_clause = f"({' OR '.join(from_filters)})"
+                search_query = f"{query} {from_clause}"
+                logger.info(f"Gmail search with multi-school filter: {search_query}")
+                logger.info(f"Searching across {len(self.email_suffixes)} school domain(s): {', '.join(self.email_suffixes)}")
+            
             # Search for messages
             results = service.users().messages().list(
                 userId='me',
-                q=query,
+                q=search_query,
                 maxResults=max_results
             ).execute()
             
             messages = results.get('messages', [])
             
             if not messages:
-                return f"No emails found matching: {query}"
+                suffix_msg = ""
+                if self.email_suffixes and len(self.email_suffixes) > 0:
+                    suffix_msg = f" from schools: {', '.join(['@' + s for s in self.email_suffixes])}"
+                return f"No emails found matching: {query}{suffix_msg}"
             
             # Format results with body previews
             email_list = []
