@@ -1868,11 +1868,16 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                         
                         def run_subprocess():
                             """Run RAGAS in subprocess (blocking call in thread)"""
+                            # Set environment variable to suppress Git Python refresh warning
+                            env = os.environ.copy()
+                            env['GIT_PYTHON_REFRESH'] = 'quiet'
+                            
                             result = subprocess.run(
                                 [python_path, script_path, json.dumps(eval_input)],
                                 capture_output=True,
                                 text=True,
-                                timeout=120
+                                timeout=120,
+                                env=env
                             )
                             
                             if result.returncode != 0:
