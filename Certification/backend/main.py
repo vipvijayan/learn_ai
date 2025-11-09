@@ -1535,9 +1535,13 @@ def get_gmail_oauth_flow():
     client_id = os.getenv('GOOGLE_CLIENT_ID')
     client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
     
+    logger.info(f"Checking Gmail OAuth env vars - Client ID present: {bool(client_id)}, Client Secret present: {bool(client_secret)}")
+    
     if not client_id or not client_secret:
         logger.warning("Gmail OAuth not configured - Gmail login will be disabled")
         return None
+    
+    logger.info("Gmail OAuth configured via environment variables")
     
     client_config = {
         "web": {
