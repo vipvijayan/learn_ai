@@ -17,18 +17,22 @@ ENV/
 .env
 
 # Gmail/MCP Credentials (NEVER commit these!)
-credentials/
+credentials/*
+!credentials/.gitkeep
 gmail_credentials.json
 gmail_token.json
-*.json
 
 # Logs
-logs/*.log
+logs/*
+!logs/.gitkeep
 *.log
 
 # Vector Store Databases
-chroma_db/
-*.db
+chroma_db/*
+!chroma_db/.gitkeep
+# Allow db directory structure but ignore db files
+db/*.db
+!db/.gitkeep
 
 # Generated Results
 generated_results/

@@ -23,9 +23,10 @@ pandas>=2.0.0
 # Utils
 python-dotenv>=1.0.0
 pydantic>=2.0.0,<3.0.0
+tavily-python>=0.3.0
 
-# MCP (Model Context Protocol)
-mcp==1.0.0
+# MCP (Model Context Protocol) - using mcp package from official source
+# mcp package is installed separately, not from PyPI
 google-auth>=2.0.0
 google-auth-oauthlib>=1.0.0
 google-auth-httplib2>=0.1.0
