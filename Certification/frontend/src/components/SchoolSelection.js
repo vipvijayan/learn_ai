@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app';
+
 const SchoolSelection = ({ user, onSchoolSelected }) => {
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ const SchoolSelection = ({ user, onSchoolSelected }) => {
 
   const fetchSchools = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/auth/schools');
+      const response = await axios.get(`${API_BASE_URL}/api/auth/schools`);
       if (response.data.success) {
         setSchools(response.data.schools);
       }
@@ -65,7 +67,7 @@ const SchoolSelection = ({ user, onSchoolSelected }) => {
       };
       console.log('  Payload:', JSON.stringify(payload));
       
-      const response = await axios.post('http://localhost:8000/api/auth/select-school', payload);
+      const response = await axios.post(`${API_BASE_URL}/api/auth/select-school`, payload);
 
       if (response.data.success) {
         console.log('✅ School selection successful');
