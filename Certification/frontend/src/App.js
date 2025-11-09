@@ -5,7 +5,7 @@ import EventPopup from './components/EventPopup';
 import SchoolSelection from './components/SchoolSelection';
 import Login from './components/Login';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app';
 
 // Function to parse markdown bold syntax
 const parseMarkdown = (text) => {
@@ -512,7 +512,7 @@ function App() {
 
     try {
       const bookmarkId = `bookmark_${Date.now()}_${index}`;
-      const response = await axios.post('http://localhost:8000/api/bookmarks/add', {
+      const response = await axios.post(`${API_BASE_URL}/api/bookmarks/add`, {
         email: user.email,
         bookmark_id: bookmarkId,
         message_type: message.type,
@@ -540,7 +540,7 @@ function App() {
   // Remove bookmark
   const removeBookmark = async (bookmarkId) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/bookmarks/remove', {
+      const response = await axios.post(`${API_BASE_URL}/api/bookmarks/remove`, {
         email: user.email,
         bookmark_id: bookmarkId
       });
@@ -572,7 +572,7 @@ function App() {
     if (!user || !user.email) return;
     
     try {
-      const response = await axios.get(`http://localhost:8000/api/bookmarks/${user.email}`);
+      const response = await axios.get(`${API_BASE_URL}/api/bookmarks/${user.email}`);
       if (response.data.success) {
         setBookmarks(response.data.bookmarks);
       }
@@ -615,7 +615,7 @@ function App() {
         if (err.code === 'ECONNABORTED') {
           setBackendError('Connection timeout - Backend server is not responding');
         } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-          setBackendError('Backend server is not running on http://localhost:8000');
+          setBackendError(`Backend server is not running on ${API_BASE_URL}`);
         } else {
           setBackendError(`Backend error: ${err.message}`);
         }
@@ -694,7 +694,8 @@ function App() {
   const sendMessageWithWebSocket = (userMessage) => {
     // Create WebSocket connection if not exists
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      const ws = new WebSocket('ws://localhost:8000/ws/multi-agent-stream');
+      const wsUrl = API_BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+      const ws = new WebSocket(`${wsUrl}/ws/multi-agent-stream`);
       
       ws.onopen = () => {
         console.log('🔌 WebSocket connected');
@@ -970,7 +971,7 @@ function App() {
       let errorMessage = 'An error occurred while processing your request.';
       
       if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        errorMessage = '❌ Backend server is not running. Please start the Python backend first on http://localhost:8000';
+        errorMessage = `❌ Backend server is not running. Please check the connection to ${API_BASE_URL}`;
       } else if (err.response) {
         // Server responded with an error
         errorMessage = `❌ Server Error (${err.response.status}): ${err.response.data.detail || err.response.statusText}`;
