@@ -14,13 +14,17 @@ from dotenv import load_dotenv
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")
 GENERATED_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_results")
+LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+
+# Ensure logs directory exists
+os.makedirs(LOGS_DIR, exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/backend.log'),
+        logging.FileHandler(os.path.join(LOGS_DIR, 'backend.log')),
         logging.StreamHandler()
     ]
 )
