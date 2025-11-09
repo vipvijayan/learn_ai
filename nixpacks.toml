@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python39"]
+
+[phases.install]
+cmds = ["cd Certification/backend && pip install -r requirements.txt"]
+
+[phases.build]
+cmds = ["cd Certification/backend"]
+
+[start]
+cmd = "cd Certification/backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
