@@ -1516,13 +1516,15 @@ import google.auth.exceptions
 
 # Gmail OAuth configuration
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
-REDIRECT_URI = 'http://localhost:8000/api/auth/gmail/callback'
+# Use Railway URL in production, localhost in development
+REDIRECT_URI = os.getenv('GMAIL_REDIRECT_URI', 'https://school-assistant-production.up.railway.app/api/auth/gmail/callback')
 CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), 'credentials', 'gmail_credentials.json')
 
 def get_gmail_oauth_flow():
     """Get OAuth flow from file or environment variables"""
     # Try to use credentials file first
     if os.path.exists(CREDENTIALS_PATH):
+        logger.info("Using Gmail credentials from file")
         return Flow.from_client_secrets_file(
             CREDENTIALS_PATH,
             scopes=SCOPES,
@@ -1534,11 +1536,8 @@ def get_gmail_oauth_flow():
     client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
     
     if not client_id or not client_secret:
-        raise ValueError(
-            "Gmail OAuth not configured. Please either:\n"
-            "1. Create credentials/gmail_credentials.json file, OR\n"
-            "2. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables"
-        )
+        logger.warning("Gmail OAuth not configured - Gmail login will be disabled")
+        return None
     
     client_config = {
         "web": {
@@ -1563,6 +1562,12 @@ async def gmail_authorize(email: str):
         # Create OAuth flow
         flow = get_gmail_oauth_flow()
         
+        if flow is None:
+            raise HTTPException(
+                status_code=503, 
+                detail="Gmail OAuth is not configured on this server. Please use email login instead."
+            )
+        
         # Generate authorization URL with user email as state
         authorization_url, state = flow.authorization_url(
             access_type='offline',
@@ -1576,6 +1581,8 @@ async def gmail_authorize(email: str):
             "state": state
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error generating OAuth URL: {e}")
         raise HTTPException(status_code=500, detail=str(e))
