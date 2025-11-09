@@ -1477,22 +1477,7 @@ function App() {
                     <div>Relevancy: {(message.evaluation.response_relevancy * 100).toFixed(1)}%</div>
                   </div>
                 )}
-                {message.type === 'assistant' && message.evaluation && message.evaluation.status === 'failed' && (
-                  <div style={{ 
-                    marginTop: '12px',
-                    padding: '8px',
-                    background: '#fff3e0',
-                    borderRadius: '6px',
-                    fontSize: '0.8em',
-                    color: '#e65100',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    <span>⚠️</span>
-                    <span>Evaluation failed</span>
-                  </div>
-                )}
+                {/* Evaluation failed messages are hidden */}
               </div>
               {/* {message.context && (
                 <div className="context-info">
