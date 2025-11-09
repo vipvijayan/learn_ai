@@ -1576,6 +1576,7 @@ async def gmail_authorize(email: str):
         authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
+            prompt='consent',  # Force re-consent to get refresh token
             state=email  # Pass user email as state to retrieve in callback
         )
         
