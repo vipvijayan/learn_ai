@@ -82,6 +82,7 @@ from app.database import (
 
 # CORS configuration
 FRONTEND_URL = "http://localhost:3000"
+VERCEL_FRONTEND_URL = "https://frontend-j4vkwnj7q-vipin-vijayan-nairs-projects.vercel.app"
 
 # Retrieval method configuration
 RETRIEVAL_METHODS = {
@@ -150,7 +151,7 @@ app = FastAPI(title="School Assistant API", lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],  # React dev server
+    allow_origins=[FRONTEND_URL, VERCEL_FRONTEND_URL],  # React dev server and Vercel production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
