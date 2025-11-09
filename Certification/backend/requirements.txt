@@ -20,6 +20,7 @@ openai>=1.0.0
 # Evaluation
 ragas>=0.1.0
 pandas>=2.0.0
+eval-type-backport>=0.1.0
 
 # Utils
 python-dotenv>=1.0.0
