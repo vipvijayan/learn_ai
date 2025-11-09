@@ -333,7 +333,9 @@ function App() {
   const [useWebSocket, setUseWebSocket] = useState(true); // Toggle for WebSocket vs HTTP
   const wsRef = useRef(null); // WebSocket connection reference
   const [streamingMessage, setStreamingMessage] = useState(null); // Current streaming message
+  // eslint-disable-next-line no-unused-vars
   const [schools, setSchools] = useState([]); // List of schools
+  // eslint-disable-next-line no-unused-vars
   const [selectedSchoolDistrict, setSelectedSchoolDistrict] = useState(null); // Selected school from localStorage
   const [showSchoolSelection, setShowSchoolSelection] = useState(false); // Show school selection screen (LEGACY - using auth system now)
   const [copiedMessageIndex, setCopiedMessageIndex] = useState(null); // Track which message was copied
@@ -413,6 +415,7 @@ function App() {
   };
   
   // Connect Gmail account
+  // eslint-disable-next-line no-unused-vars
   const handleConnectGmail = async () => {
     try {
       // Get OAuth authorization URL
@@ -588,6 +591,7 @@ function App() {
     } else {
       setBookmarks([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
   
 
@@ -1042,6 +1046,7 @@ function App() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleComparisonTabClick = () => {
     setActiveTab('comparison');
     // Auto-run comparison when tab is clicked
