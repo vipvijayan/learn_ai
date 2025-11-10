@@ -1,0 +1,63 @@
+Physics Homework - Newton's Laws of Motion
+
+Student: Aadi Vipin
+Class: Physics I - Period 2
+Teacher: Mr. Roberts
+Date: October 30, 2024
+Due Date: November 6, 2024
+Time: 9:45 AM
+
+Chapter 4: Applications of Newton's Laws
+
+Reading Assignment:
+Read sections 4.1-4.4 in your textbook, focusing on:
+- Free body diagrams
+- Normal force and friction
+- Applications of Newton's second law
+- Connected objects and pulleys
+
+Problems to Solve:
+
+Newton's First Law:
+1. A book sits on a table. Draw a free body diagram and explain why the book remains at rest.
+2. A hockey puck slides across ice with constant velocity. What can you conclude about the net force?
+
+Newton's Second Law:
+3. A 5.0 kg box is pushed across a floor with a force of 20 N. If the coefficient of friction is 0.15, what is the acceleration?
+4. Calculate the tension in a rope used to pull a 15 kg sled up a 30° incline at constant speed. (μ = 0.20)
+5. Two objects (m₁ = 3.0 kg, m₂ = 7.0 kg) are connected by a rope over a pulley. Find the acceleration of the system.
+
+Newton's Third Law:
+6. A person walks across a floor. Identify the action-reaction pairs involved.
+7. Explain why a rocket can accelerate in space where there is no air to "push against."
+
+Problem-Solving Steps:
+1. Draw a clear diagram
+2. Identify all forces acting on each object
+3. Draw free body diagrams
+4. Apply Newton's laws
+5. Solve algebraically before substituting numbers
+6. Check your answer for reasonableness
+
+Word Problems:
+8. A 1200 kg car accelerates from rest to 25 m/s in 8.0 seconds. Calculate the net force required.
+9. A 65 kg skier slides down a 25° slope. If the coefficient of kinetic friction is 0.10, find the acceleration.
+10. An elevator with a mass of 800 kg carries passengers with a total mass of 300 kg. What force must the motor provide to accelerate upward at 2.0 m/s²?
+
+Laboratory Connection:
+Review your data from last week's friction lab. Use your measured coefficient of friction to solve problem #3 with your actual experimental values.
+
+Study Tips:
+- Practice drawing free body diagrams for each problem
+- Remember that friction always opposes motion
+- Weight and normal force are not always equal
+- Break forces into components for inclined planes
+
+Teacher Notes:
+Aadi, your work on kinematics problems was very good. These Newton's law problems require careful attention to force directions and free body diagrams. Take your time with the diagrams - they're the key to solving these problems correctly. Your lab work shows you understand the concepts, now apply that understanding to these calculations.
+
+Office hours: Tuesday and Thursday 3:30-4:30 PM if you need help.
+
+Show all work for full credit!
+
+Points Possible: 50

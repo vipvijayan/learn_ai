@@ -1,0 +1,72 @@
+Biology Assignment - Cellular Respiration Lab
+
+Student: Aadi Vipin
+Class: Biology I - Period 6
+Teacher: Ms. Patterson
+Date: September 20, 2024
+Due Date: September 27, 2024
+Time: 2:00 PM
+
+Lab Investigation: Measuring Cellular Respiration in Germinating Seeds
+
+Background:
+Cellular respiration is the process by which organisms break down glucose to produce ATP. In this lab, you will measure oxygen consumption in germinating pea seeds to observe cellular respiration in action.
+
+Materials:
+- Germinating pea seeds
+- Non-germinating pea seeds (boiled)
+- Glass beads
+- Respirometer tubes
+- Colored water
+- Water bath
+- Graduated pipettes
+
+Hypothesis:
+Write a hypothesis predicting which seeds will consume more oxygen and explain your reasoning based on cellular respiration concepts.
+
+Experimental Setup:
+1. Set up three respirometer tubes:
+   - Tube A: Germinating pea seeds
+   - Tube B: Non-germinating pea seeds
+   - Tube C: Glass beads (control)
+2. Measure initial oxygen levels
+3. Place in water bath at 25°C
+4. Record oxygen consumption every 5 minutes for 30 minutes
+
+Data Collection:
+Create a data table to record:
+- Time intervals
+- Oxygen consumption for each tube
+- Temperature readings
+- Observations
+
+Analysis Questions:
+1. Which tube showed the greatest oxygen consumption? Explain why.
+2. What is the purpose of the control tube with glass beads?
+3. How does temperature affect cellular respiration rates?
+4. What would happen if we used different types of seeds?
+5. Connect your results to the cellular respiration equation.
+
+Lab Report Requirements:
+1. Title and objective
+2. Hypothesis
+3. Materials and methods
+4. Data tables and graphs
+5. Analysis of results
+6. Conclusion
+7. Error analysis
+
+Teacher Notes:
+Aadi, your previous lab on photosynthesis showed excellent data collection skills. For this lab, pay careful attention to the setup - any air leaks will affect your results. Make sure to keep the temperature constant throughout the experiment. Your understanding of cellular processes is developing well.
+
+Remember: Handle materials carefully and work with your lab partner to ensure accurate measurements.
+
+Safety Notes:
+- Wear safety goggles
+- Handle glass materials carefully
+- Report any equipment issues immediately
+
+Points Possible: 80
+Lab Performance: 30 points
+Data Collection: 25 points
+Written Report: 25 points

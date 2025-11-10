@@ -1,0 +1,38 @@
+Math Assignment - Quadratic Equations
+
+Student: Aadi Vipin
+Class: Algebra II - Period 3
+Teacher: Mrs. Rodriguez
+Date: October 15, 2024
+Due Date: October 22, 2024
+Time: 11:30 AM
+
+Assignment Instructions:
+Solve the following quadratic equations using three different methods:
+1. Factoring
+2. Quadratic Formula
+3. Completing the Square
+
+Problems:
+1. x² - 5x + 6 = 0
+2. 2x² + 7x - 4 = 0
+3. x² - 8x + 16 = 0
+4. 3x² - 12x + 9 = 0
+5. x² + 6x - 7 = 0
+
+Additional Requirements:
+- Show all work clearly
+- Graph each equation
+- Identify the vertex and axis of symmetry
+- Write a brief explanation of which method you found most efficient for each problem
+
+Grading Criteria:
+- Accuracy of solutions (40%)
+- Clear work shown (30%)
+- Proper graphing (20%)
+- Written explanation (10%)
+
+Teacher Notes:
+Aadi, remember to check your answers by substituting back into the original equation. Your factoring skills have improved significantly since the last assignment. Focus on being more careful with arithmetic when using the quadratic formula.
+
+Points Possible: 100
