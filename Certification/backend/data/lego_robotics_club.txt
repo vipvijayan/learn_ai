@@ -1,13 +1,73 @@
 Lego Robotics Club
 The Lego Robotics Club is organized by STEM Education Center. This program falls under the Community category. It is designed for participants in the Ages 7-14 age range.
 
+Program Year: 2024-2025
+- Fall Session: September 9, 2024 - December 13, 2024
+- Spring Session: January 13, 2025 - May 9, 2025
+- Summer Camp: June 2, 2025 - August 15, 2025
+
 Meeting Schedule:
-- Explorers: Mondays, 4:00-5:30 PM
-- Builders: Wednesdays, 4:00-5:30 PM
-- Competitors: Fridays, 4:00-6:00 PM
+
+Explorers (Ages 7-9):
+- Mondays, 4:00-5:30 PM
+- Focus: Basic building and simple programming
+- Platform: LEGO WeDo 2.0
+
+Builders (Ages 10-12):
+- Wednesdays, 4:00-5:30 PM
+- Focus: Intermediate robotics and coding
+- Platform: LEGO MINDSTORMS EV3
+
+Competitors (Ages 11-14):
+- Fridays, 4:00-6:00 PM
+- Focus: Competition prep and advanced projects
+- Platform: LEGO MINDSTORMS EV3 and Spike Prime
+- Competes in FIRST LEGO League
+
+Location:
+STEM Education Center
+2800 Technology Parkway, Round Rock, TX 78681
+
+What Students Learn:
+- Mechanical engineering principles
+- Basic to advanced programming
+- Problem-solving skills
+- Teamwork and collaboration
+- Design thinking process
+- Competition strategy
+
+Competition Team:
+- FIRST LEGO League participation
+- Local competitions: October 2024, February 2025
+- Regional Championship: March 15, 2025
+- State Tournament: April 12, 2025 (if qualified)
+
+Projects Include:
+- Obstacle course robots
+- Line-following robots
+- Battle bots
+- Maze solvers
+- Custom designed challenges
+
+Special Events:
+- Robot Showcase: December 6, 2024
+- Parent Demo Day: March 14, 2025
+- Summer Robot Olympics: July 25, 2025
+
+Pricing:
+- 12-week session (Explorers/Builders): $360
+- 12-week session (Competitors): $420
+- Summer Camp (per week): $350
+- Competition team fee: Additional $100 per season
+
+What's Included:
+- All LEGO materials provided
+- Competition kits for team members
+- T-shirt
+- Certificate of completion
 
 Registration Information:
-Registration is currently enrolling for fall session. Build and Code
+Registration is currently enrolling for fall session starting September 9, 2024. Build and Code. Early bird discount: Register by August 25 and save $40.
 
 Contact Information:
 Website: stemeducationcenter.org

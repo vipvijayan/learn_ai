@@ -1,94 +1,68 @@
-Information from cordovan_art_school.json
+Cordovan Art School
 
-{
-  "organization": "Cordovan Art School",
-  "programs": {
-    "art_classes": {
-      "name": "Art Classes",
-      "age_range": "Ages 4-Adult",
-      "mediums": [
-        "Painting",
-        "Drawing",
-        "Anime",
-        "Clay + More"
-      ]
-    },
-    "art_camps": {
-      "name": "Art Camps",
-      "schedule": {
-        "october_2025": [
-          "October 13",
-          "October 16",
-          "October 17",
-          "October 20"
-        ],
-        "november_2025": [
-          "November 3",
-          "November 4",
-          "November 24",
-          "November 26"
-        ],
-        "december_2025": [
-          "December 19",
-          "December 22",
-          "December 23",
-          "December 29",
-          "December 30"
-        ],
-        "january_2026": [
-          "January 2",
-          "January 5"
-        ]
-      }
-    }
-  },
-  "locations": [
-    {
-      "name": "Cedar Park",
-      "phone": "(512) 329-9974"
-    },
-    {
-      "name": "Georgetown",
-      "phone": "(737) 301-3959"
-    },
-    {
-      "name": "NW Austin",
-      "phone": "(737) 300-1200"
-    },
-    {
-      "name": "Round Rock",
-      "phone": "(512) 279-4040"
-    },
-    {
-      "name": "SW Austin",
-      "phone": "(512) 531-9352"
-    }
-  ],
-  "website": "www.CordovanArtSchool.com",
-  "target_audience": {
-    "age_range": "4 years old to Adult",
-    "inclusive": "All ages welcome"
-  },
-  "art_mediums_offered": [
-    "Painting",
-    "Drawing",
-    "Anime/Manga art",
-    "Clay work",
-    "Additional art forms"
-  ],
-  "camp_months_available": [
-    "October 2025",
-    "November 2025",
-    "December 2025",
-    "January 2026"
-  ],
-  "total_camp_dates": 15,
-  "service_areas": [
-    "Cedar Park",
-    "Georgetown",
-    "Northwest Austin",
-    "Round Rock",
-    "Southwest Austin"
-  ],
-  "disclaimer": "Approval of distribution of these materials is in no way an endorsement of such services, activities, and/or products by the Round Rock Independent School District"
-}
+The Cordovan Art School offers comprehensive art programs for all ages from 4 years old to adults. This program falls under the Community category.
+
+Art Classes:
+- Age Range: Ages 4-Adult
+- Art Mediums: Painting, Drawing, Anime/Manga art, Clay work, and more
+- Year-round enrollment available
+
+Regular Class Schedule:
+- After School Classes: Monday-Friday, 3:30 PM - 5:00 PM
+- Evening Classes: Monday-Thursday, 6:00 PM - 7:30 PM
+- Weekend Classes: Saturday, 9:00 AM - 12:00 PM and 1:00 PM - 4:00 PM
+
+Art Camps Schedule 2024-2025:
+
+Fall 2024:
+- October 13, 16, 17, 20, 2024
+- November 3, 4, 24, 26, 2024
+
+Winter 2024-2025:
+- December 19, 22, 23, 29, 30, 2024
+- January 2, 5, 2025
+
+Camp Details:
+- Daily Hours: 9:00 AM - 3:00 PM
+- Extended care available 7:30 AM - 5:30 PM
+- All materials included
+- Lunch and snacks provided
+- Projects to take home each day
+
+Locations:
+
+Cedar Park:
+Phone: (512) 329-9974
+Address: 1890 Ranch Shopping Center
+
+Georgetown:
+Phone: (737) 301-3959
+Address: Wolf Ranch Town Center
+
+NW Austin:
+Phone: (737) 300-1200
+Address: Lakeline Mall area
+
+Round Rock:
+Phone: (512) 279-4040
+Address: La Frontera Shopping Center
+
+SW Austin:
+Phone: (512) 531-9352
+Address: Sunset Valley
+
+Class Pricing:
+- Single Class: $35
+- 4-Class Package: $120
+- 8-Class Package: $220
+- Monthly Unlimited: $180
+
+Camp Pricing:
+- Full Day Camp: $65 per day
+- 5-Day Camp Week: $300
+
+Registration:
+Website: www.CordovanArtSchool.com
+Call any location to register
+
+Disclaimer: Approval of distribution of these materials is in no way an endorsement of such services, activities, and/or products by the Round Rock Independent School District

@@ -1,0 +1,95 @@
+Geometry Test Review Sheet
+
+Student: Aami Vipin
+Class: Geometry Honors - Period 3
+Teacher: Mr. Park
+Date: November 18, 2024
+Test Date: November 25, 2024
+Time: 10:15 AM
+
+Test Coverage: Chapter 7 - Quadrilaterals and Parallelograms
+
+Topics to Review:
+
+Properties of Parallelograms:
+- Opposite sides are parallel and congruent
+- Opposite angles are congruent
+- Consecutive angles are supplementary
+- Diagonals bisect each other
+
+Special Parallelograms:
+- Rectangle: All angles are right angles, diagonals are congruent
+- Rhombus: All sides are congruent, diagonals are perpendicular
+- Square: Combines properties of rectangle and rhombus
+
+Trapezoids:
+- Definition and properties
+- Isosceles trapezoids
+- Midsegment of trapezoids
+- Area formulas
+
+Coordinate Geometry:
+- Using coordinates to prove quadrilateral properties
+- Midpoint and distance formulas
+- Slope relationships for parallel and perpendicular lines
+
+Key Formulas to Memorize:
+- Area of parallelogram: A = bh
+- Area of rectangle: A = lw
+- Area of rhombus: A = ½d₁d₂
+- Area of trapezoid: A = ½h(b₁ + b₂)
+- Distance formula: d = √[(x₂-x₁)² + (y₂-y₁)²]
+- Midpoint formula: M = ((x₁+x₂)/2, (y₁+y₂)/2)
+
+Practice Problems:
+1. Given parallelogram ABCD with vertices A(1,2), B(5,4), C(7,1), D(3,-1), prove it's a parallelogram using coordinate geometry.
+
+2. In rhombus PQRS, if diagonal PR = 16 and diagonal QS = 12, find the area.
+
+3. Prove: If one pair of opposite sides of a quadrilateral are both parallel and congruent, then the quadrilateral is a parallelogram.
+
+4. Find the length of the midsegment of trapezoid EFGH if the parallel sides are 8 cm and 14 cm.
+
+5. In rectangle JKLM, if diagonal JL = 3x + 7 and diagonal KM = 5x - 1, find x.
+
+Proof Strategies:
+- Two-column proofs
+- Paragraph proofs
+- Coordinate proofs
+- Review proof format and logical reasoning
+
+Study Recommendations:
+1. Complete all odd-numbered problems from sections 7.1-7.5
+2. Review class notes and example proofs
+3. Practice coordinate geometry problems
+4. Memorize properties of special quadrilaterals
+5. Work through proof strategies step-by-step
+
+Common Mistakes to Avoid:
+- Confusing properties of different quadrilaterals
+- Forgetting to justify each step in proofs
+- Arithmetic errors in coordinate calculations
+- Not using proper mathematical notation
+
+Additional Practice:
+- Online practice problems on class website
+- Textbook review exercises (pages 298-302)
+- Study group session: November 22, 3:30 PM in Room 215
+
+Teacher Notes:
+Aami, your understanding of geometric relationships is excellent. You've shown great improvement in proof writing since the beginning of the semester. For this test, focus on being systematic in your approach to coordinate geometry problems. Double-check your algebra when working with coordinates.
+
+Your work on parallel line proofs was particularly strong. Apply those same logical reasoning skills to quadrilateral proofs.
+
+Test Format:
+- Multiple choice: 15 questions (45 points)
+- Short answer: 5 problems (30 points)
+- Proof section: 2 proofs (25 points)
+- Total: 100 points
+- Time limit: 90 minutes
+
+Office Hours:
+November 21-22: 3:30-4:30 PM for extra help
+November 24: Review session during lunch
+
+Good luck on your test!

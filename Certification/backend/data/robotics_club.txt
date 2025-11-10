@@ -1,13 +1,101 @@
 Robotics Club
 The Robotics Club is organized by Tech Innovators Youth Program. This program falls under the School category. It is designed for participants in the Grades 6-12 age range.
 
+Season: 2024-2025
 Meeting Schedule: Tuesdays and Thursdays, 3:30-5:30 PM
+Additional Saturday sessions during competition season
+Location: STEM Lab, Building C
+
+Program Structure:
+
+Middle School Team (Grades 6-8):
+- VEX IQ Competition
+- Focus on fundamentals
+- Team building activities
+- Local competitions
+
+High School Team (Grades 9-12):
+- VEX Robotics Competition (VRC)
+- Advanced programming and design
+- Regional and state competitions
+- Potential world championship qualification
+
+Season Timeline:
+- September 2024: Robot reveal and strategy planning
+- September-November: Build season
+- December 2024-February 2025: Competition season
+- March-April 2025: Championship events
+- May 2025: VEX Worlds (if qualified)
+
+Competition Schedule 2024-2025:
+- Qualifier 1: November 16, 2024
+- Qualifier 2: December 14, 2024
+- Qualifier 3: January 18, 2025
+- Regional Championship: February 22, 2025
+- State Championship: March 15, 2025
+- VEX Worlds: April 23-26, 2025 (Dallas, TX)
+
+Skills Developed:
+- Mechanical design and engineering
+- Programming (C++, Python, RobotC)
+- Problem-solving
+- Teamwork and collaboration
+- Project management
+- Documentation and presentation
+- Competition strategy
+
+Roles on Team:
+- Builders/Designers
+- Programmers
+- Drivers
+- Scouts
+- Notebook/Documentation
+- CAD designers
+- Media/Marketing
+
+What to Expect:
+- Hands-on robot building
+- Programming workshops
+- Strategy sessions
+- Team bonding activities
+- Competition weekends
+- Community outreach
+
+Equipment Provided:
+- VEX robotics kits
+- Tools and hardware
+- Computers with software
+- Practice field
+- Competition robot parts
+
+Team Activities:
+- Weekly build sessions
+- Programming workshops
+- Strategy meetings
+- Scrimmages with other teams
+- Community STEM outreach
+- Fundraising events
+
+Costs:
+- Registration fee: $150 per student
+- Team t-shirt and gear: Included
+- Competition fees: Covered by program
+- Optional: Team jacket $45
+
+Fundraising Opportunities:
+- Bake sales
+- Car washes
+- Sponsorship outreach
+- Grant applications
 
 Registration Information:
-Registration is currently open. The registration deadline is September 1, 2025. Join Our Team
+Registration is currently open. The registration deadline is September 1, 2024 for 2024-2025 season. Join Our Team. No prior experience necessary!
+
+Parent Information Meeting: August 22, 2024 at 6:00 PM
 
 Contact Information:
 Website: techinnovatorsyouth.org
 Email: robotics@techinnovators.org
 Phone: 512-555-1000
+Head Coach: Mr. Patel
 

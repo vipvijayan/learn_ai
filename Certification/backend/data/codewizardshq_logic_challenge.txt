@@ -1,10 +1,43 @@
 Logic Challenge
 
-The Logic Challenge is organized by CodeWizardsHQ. 
+The Logic Challenge is organized by CodeWizardsHQ.
 
+Event Dates:
+- Regional Competition: February 10, 2025
+- State Finals: March 22, 2025
+- National Championship: May 10, 2025
+
+Age Groups:
+- Junior Division: Ages 8-10
+- Intermediate Division: Ages 11-13
+- Senior Division: Ages 14-17
+
+Challenge Categories:
+- Algorithm Design
+- Problem Solving
+- Computational Thinking
+- Pattern Recognition
+- Code Optimization
+
+Competition Format:
+- Round 1: Online qualifying (January 15-25, 2025)
+- Round 2: Regional in-person event
+- Finals: Top scorers compete for scholarships
+
+Prizes:
+- 1st Place: $1,000 scholarship + coding course
+- 2nd Place: $500 scholarship + coding course
+- 3rd Place: $250 scholarship + coding course
+- All participants receive certificate
 
 Registration:
+Registration Deadline: January 10, 2025
+Entry Fee: $25 per participant
 Call To Action: Register Today!
 Website: www.codewizardshq.com/logic-challenge/
 Qr Code: Available for quick registration
+
+Contact Information:
+Email: challenge@codewizardshq.com
+Phone: 512-555-1700
 

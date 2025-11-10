@@ -12,3 +12,10 @@ Website: austinyouthsoccer.org
 Email: info@austinyouthsoccer.org
 Phone: 512-555-0500
 
+
+
+Seasons:
+- Fall 2024: September 7 - November 16, 2024
+- Spring 2025: March 1 - May 17, 2025
+Registration Deadline: 2 weeks before season start
+Ages: 4-14, all skill levels

@@ -1,6 +1,37 @@
 Coding Boot Camp for Kids
 The Coding Boot Camp for Kids is organized by Code Warriors Academy. This program falls under the Community category. It is designed for participants in the Ages 8-16 age range.
 
+Session Dates:
+- Winter Session: January 20 - March 15, 2025
+- Spring Session: April 1 - May 24, 2025
+- Summer Camp Session 1: June 2 - July 25, 2025
+- Summer Camp Session 2: July 28 - August 22, 2025
+- Fall Session: September 8 - November 1, 2025
+
+Course Tracks:
+
+Beginner Track (Ages 8-10):
+- Scratch programming
+- Basic game design
+- Introduction to robotics
+- Creative coding projects
+
+Intermediate Track (Ages 11-13):
+- Python fundamentals
+- Web development (HTML/CSS)
+- App development basics
+- Game development with Unity
+
+Advanced Track (Ages 14-16):
+- JavaScript and React
+- Mobile app development
+- Database fundamentals
+- Final capstone project
+
+Schedule:
+- Weekday Classes: Monday/Wednesday or Tuesday/Thursday, 4:00-6:00 PM
+- Weekend Classes: Saturday, 10:00 AM - 1:00 PM
+
 Program Features:
 This program offers several valuable features including Small class sizes (max 10 students), Project-based learning, Take-home computers for practice, Certificate of completion, Portfolio of projects, and Free coding resources.
 
@@ -9,9 +40,10 @@ Pricing Information:
 - 10 Week Course: $479
 - 12 Week Course: $559
 - Summer Intensive: $899
+- Sibling Discount: 15% off second child
 
 Registration Information:
-Registration is currently enrolling now. Enroll Today
+Registration is currently enrolling now. Enroll Today. Early bird discount: Save $50 if registered by December 31, 2024.
 
 Contact Information:
 Website: codewarriorsacademy.com

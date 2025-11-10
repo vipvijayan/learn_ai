@@ -10,7 +10,7 @@ Information from national_childrens_chorus_auditions.json
   "country": "United States of America",
   "application_details": {
     "status": "Apply Now",
-    "season": "Spring 2026",
+    "season": "Spring 2025",
     "rehearsal_schedule": "Weekly Sunday Rehearsals",
     "location": "Northwest Hills"
   },

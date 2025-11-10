@@ -1,0 +1,55 @@
+Chemistry Lab Report - Acid-Base Titration
+
+Student: Aadi Vipin
+Class: Chemistry I - Period 4
+Teacher: Dr. Martinez
+Date: November 3, 2024
+Due Date: November 10, 2024
+Time: 1:45 PM
+
+Lab Title: Determining the Concentration of an Unknown Acid
+
+Objective:
+Use titration to determine the molarity of an unknown hydrochloric acid (HCl) solution using a standardized sodium hydroxide (NaOH) solution.
+
+Pre-Lab Questions (Complete before lab):
+1. What is the purpose of an indicator in a titration?
+2. Calculate the molarity of NaOH if 25.0 mL of 0.100 M HCl neutralizes 23.5 mL of NaOH.
+3. What safety precautions must be followed when working with acids and bases?
+
+Lab Procedure:
+1. Set up titration apparatus with burette and conical flask
+2. Add 25.0 mL of unknown HCl to flask
+3. Add 2-3 drops of phenolphthalein indicator
+4. Titrate with 0.150 M NaOH until endpoint
+5. Repeat three times for accuracy
+
+Data Collection Required:
+- Initial burette reading
+- Final burette reading
+- Volume of NaOH used
+- Observations during titration
+- Color change at endpoint
+
+Calculations:
+- Calculate molarity of unknown HCl
+- Determine percent error
+- Show all work with proper significant figures
+
+Report Format:
+1. Title page
+2. Objective and hypothesis
+3. Materials and methods
+4. Data tables and observations
+5. Calculations and results
+6. Error analysis
+7. Conclusion
+
+Teacher Notes:
+Aadi, excellent attention to detail in your previous lab on molecular formulas. For this titration, focus on precision with your measurements and watch carefully for the endpoint. The color change can be subtle. Make sure to swirl the flask continuously during titration.
+
+Safety reminder: Wear goggles and apron at all times. Report any spills immediately.
+
+Points Possible: 75
+Lab Performance: 25 points
+Written Report: 50 points
