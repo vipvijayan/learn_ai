@@ -81,9 +81,18 @@ from app.database import (
 # ============================================================
 
 # CORS configuration
-FRONTEND_URL = "http://localhost:3000"
-# Allow all Vercel deployment URLs for this project
-VERCEL_FRONTEND_PATTERN = "https://frontend-.*-vipin-vijayan-nairs-projects.vercel.app"
+# Check if running in local mode
+LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
+
+if LOCAL_MODE:
+    logger.info("🏠 Running in LOCAL MODE - CORS configured for localhost only")
+    FRONTEND_URL = "http://localhost:3000"
+    VERCEL_FRONTEND_PATTERN = None  # Disable Vercel pattern in local mode
+else:
+    logger.info("🌐 Running in PRODUCTION MODE - CORS configured for production URLs")
+    FRONTEND_URL = "http://localhost:3000"
+    # Allow all Vercel deployment URLs for this project
+    VERCEL_FRONTEND_PATTERN = "https://frontend-.*-vipin-vijayan-nairs-projects.vercel.app"
 
 # Retrieval method configuration
 RETRIEVAL_METHODS = {
@@ -150,14 +159,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="School Assistant API", lifespan=lifespan)
 
 # Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[FRONTEND_URL],  # React dev server
-    allow_origin_regex=VERCEL_FRONTEND_PATTERN,  # All Vercel deployments
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+cors_config = {
+    "allow_origins": [FRONTEND_URL],  # React dev server
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+
+# Only add origin regex if not in local mode
+if VERCEL_FRONTEND_PATTERN:
+    cors_config["allow_origin_regex"] = VERCEL_FRONTEND_PATTERN
+
+app.add_middleware(CORSMiddleware, **cors_config)
 
 # ============================================================
 # PYDANTIC MODELS
@@ -1515,9 +1528,17 @@ from google.auth.transport.requests import Request
 import google.auth.exceptions
 
 # Gmail OAuth configuration
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
-# Use Railway URL in production, localhost in development
-REDIRECT_URI = os.getenv('GMAIL_REDIRECT_URI', 'https://school-assistant-production.up.railway.app/api/auth/gmail/callback')
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/userinfo.profile'  # For getting user's name
+]
+# Use localhost in local mode, production URL otherwise
+if LOCAL_MODE:
+    REDIRECT_URI = os.getenv('GMAIL_REDIRECT_URI', 'http://localhost:8000/api/auth/gmail/callback')
+    logger.info(f"🏠 Gmail OAuth redirect URI (LOCAL): {REDIRECT_URI}")
+else:
+    REDIRECT_URI = os.getenv('GMAIL_REDIRECT_URI', 'https://school-assistant-production.up.railway.app/api/auth/gmail/callback')
+    logger.info(f"🌐 Gmail OAuth redirect URI (PRODUCTION): {REDIRECT_URI}")
 CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), 'credentials', 'gmail_credentials.json')
 
 def get_gmail_oauth_flow():
@@ -1604,11 +1625,45 @@ async def gmail_callback(code: str, state: str):
         # Get credentials
         creds = flow.credentials
         
-        # Get Gmail email address from Google
+        # Get Gmail email address and name from Google
         from googleapiclient.discovery import build
+        from google.oauth2.credentials import Credentials
+        
+        # Get Gmail profile
         service = build('gmail', 'v1', credentials=creds)
         profile = service.users().getProfile(userId='me').execute()
         gmail_email = profile.get('emailAddress')
+        
+        # Get user's name from Google OAuth userinfo
+        gmail_name = None
+        try:
+            # Try to get user info from OAuth2 API (uses same credentials, no extra API needed)
+            import requests
+            userinfo_url = 'https://www.googleapis.com/oauth2/v2/userinfo'
+            headers = {'Authorization': f'Bearer {creds.token}'}
+            response = requests.get(userinfo_url, headers=headers)
+            
+            if response.status_code == 200:
+                userinfo = response.json()
+                gmail_name = userinfo.get('name')
+                if gmail_name:
+                    logger.info(f"📝 Retrieved name from OAuth2 userinfo: {gmail_name}")
+                else:
+                    # Try given_name + family_name if name is not available
+                    given_name = userinfo.get('given_name', '')
+                    family_name = userinfo.get('family_name', '')
+                    if given_name or family_name:
+                        gmail_name = f"{given_name} {family_name}".strip()
+                        logger.info(f"📝 Retrieved name from OAuth2 userinfo (given+family): {gmail_name}")
+            else:
+                logger.warning(f"⚠️ Could not fetch name from OAuth2 userinfo: Status {response.status_code}")
+        except Exception as name_error:
+            logger.warning(f"⚠️ Could not fetch name from OAuth2 API: {name_error}")
+        
+        # If still no name, try to extract from email
+        if not gmail_name and gmail_email:
+            gmail_name = gmail_email.split('@')[0].replace('.', ' ').title()
+            logger.info(f"📝 Using email-based name as fallback: {gmail_name}")
         
         # Create or get user with this Gmail email
         user = get_or_create_user(gmail_email)
@@ -1624,7 +1679,7 @@ async def gmail_callback(code: str, state: str):
             'expiry': creds.expiry.isoformat() if creds.expiry else None
         }
         
-        save_user_gmail_token(gmail_email, json.dumps(token_data), gmail_email)
+        save_user_gmail_token(gmail_email, json.dumps(token_data), gmail_email, gmail_name)
         
         logger.info(f"✅ Gmail OAuth login successful for: {gmail_email}")
         
@@ -1691,6 +1746,7 @@ async def gmail_status(email: str):
             return {
                 "connected": True,
                 "gmail_email": token_data['gmail_email'],
+                "gmail_name": token_data.get('gmail_name'),
                 "connected_at": token_data['connected_at']
             }
         else:

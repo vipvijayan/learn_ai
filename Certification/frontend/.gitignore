@@ -1,1 +1,17 @@
 .vercel
+
+# Environment files
+.env.local
+.env
+
+# Dependencies
+node_modules/
+
+# Build
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+

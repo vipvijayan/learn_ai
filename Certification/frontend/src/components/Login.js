@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app';
+// Determine API URL based on LOCAL_MODE flag
+const isLocalMode = process.env.REACT_APP_LOCAL_MODE === 'true';
+const API_BASE_URL = isLocalMode 
+  ? 'http://localhost:8000' 
+  : (process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app');
 
 const Login = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -53,6 +57,7 @@ const Login = ({ onLoginSuccess }) => {
               const userData = {
                 ...loginResponse.data.user,
                 gmail_email: statusResponse.data.connected ? gmailEmail : null,
+                gmail_name: statusResponse.data.gmail_name,
                 gmail_connected_at: statusResponse.data.connected_at
               };
               

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app';
+// Determine API URL based on LOCAL_MODE flag
+const isLocalMode = process.env.REACT_APP_LOCAL_MODE === 'true';
+const API_BASE_URL = isLocalMode 
+  ? 'http://localhost:8000' 
+  : (process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app');
 
 const SchoolSelection = ({ user, onSchoolSelected }) => {
   const [schools, setSchools] = useState([]);

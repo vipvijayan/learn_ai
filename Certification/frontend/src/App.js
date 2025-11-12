@@ -5,7 +5,11 @@ import EventPopup from './components/EventPopup';
 import SchoolSelection from './components/SchoolSelection';
 import Login from './components/Login';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app';
+// Determine API URL based on LOCAL_MODE flag
+const isLocalMode = process.env.REACT_APP_LOCAL_MODE === 'true';
+const API_BASE_URL = isLocalMode 
+  ? 'http://localhost:8000' 
+  : (process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app');
 
 // Function to parse markdown bold syntax
 const parseMarkdown = (text) => {
@@ -343,6 +347,8 @@ function App() {
   const [bookmarks, setBookmarks] = useState([]); // Store bookmarked messages
   const [showBookmarkToast, setShowBookmarkToast] = useState(false); // Show bookmark toast
   const [bookmarkToastMessage, setBookmarkToastMessage] = useState(''); // Toast message text
+  const [showGmailDisconnectConfirm, setShowGmailDisconnectConfirm] = useState(false); // Show Gmail disconnect confirmation
+  const [showGmailDisconnectSuccess, setShowGmailDisconnectSuccess] = useState(false); // Show Gmail disconnect success message
 
   // Check for existing session on mount
   useEffect(() => {
@@ -373,6 +379,7 @@ function App() {
       
       if (gmailStatus.data.connected) {
         userData.gmail_email = gmailStatus.data.gmail_email;
+        userData.gmail_name = gmailStatus.data.gmail_name;
         userData.gmail_connected_at = gmailStatus.data.connected_at;
       }
     } catch (error) {
@@ -442,6 +449,7 @@ function App() {
             setUser({
               ...user,
               gmail_email: statusResponse.data.gmail_email,
+              gmail_name: statusResponse.data.gmail_name,
               gmail_connected_at: statusResponse.data.connected_at
             });
             alert('Gmail connected successfully!');
@@ -457,9 +465,13 @@ function App() {
   
   // Disconnect Gmail account
   const handleDisconnectGmail = async () => {
-    if (!window.confirm('Are you sure you want to disconnect your Gmail account?')) {
-      return;
-    }
+    // Show confirmation dialog
+    setShowGmailDisconnectConfirm(true);
+  };
+  
+  // Confirm Gmail disconnect
+  const confirmDisconnectGmail = async () => {
+    setShowGmailDisconnectConfirm(false);
     
     try {
       await axios.post(`${API_BASE_URL}/api/auth/gmail/disconnect`, {
@@ -470,14 +482,26 @@ function App() {
       setUser({
         ...user,
         gmail_email: null,
-        gmail_connected_at: null
+        gmail_connected_at: null,
+        gmail_name: null
       });
       
-      alert('Gmail disconnected successfully');
+      // Show success message
+      setShowGmailDisconnectSuccess(true);
+      
+      // Hide success message after 5 seconds
+      setTimeout(() => {
+        setShowGmailDisconnectSuccess(false);
+      }, 5000);
     } catch (error) {
       console.error('Error disconnecting Gmail:', error);
-      alert('Failed to disconnect Gmail');
+      alert('Failed to disconnect Gmail. Please try again.');
     }
+  };
+  
+  // Cancel Gmail disconnect
+  const cancelDisconnectGmail = () => {
+    setShowGmailDisconnectConfirm(false);
   };
   
   // Copy message content to clipboard
@@ -1840,7 +1864,7 @@ function App() {
                   alignItems: 'center',
                   marginBottom: '16px'
                 }}>
-                  <h3 style={{ margin: 0 }}>👤 Account & Gmail</h3>
+                  <h3 style={{ margin: 0 }}>👤 Account</h3>
                   <button 
                     className="logout-button"
                     onClick={handleLogout}
@@ -1869,7 +1893,6 @@ function App() {
                       e.target.style.boxShadow = 'none';
                     }}
                   >
-                    <span>🚪</span>
                     <span>Logout</span>
                   </button>
                 </div>
@@ -1889,8 +1912,13 @@ function App() {
                           border: '1px solid #4caf50',
                           marginTop: '8px'
                         }}>
+                          {user.gmail_name && (
+                            <p className="setting-description" style={{ marginBottom: '8px', color: '#2e7d32', fontSize: '1.1em' }}>
+                              ✓ <strong>{user.gmail_name}</strong>
+                            </p>
+                          )}
                           <p className="setting-description" style={{ marginBottom: '4px', color: '#2e7d32' }}>
-                            ✓ Signed in as: <strong>{user.gmail_email}</strong>
+                            {user.gmail_name ? 'Email: ' : '✓ Signed in as: '}<strong>{user.gmail_email}</strong>
                           </p>
                           {user.gmail_connected_at && (
                             <p className="setting-description" style={{ fontSize: '0.85em', color: '#666', marginTop: '4px' }}>
@@ -1901,32 +1929,114 @@ function App() {
                             Your Gmail is connected and can be searched for school-related emails.
                           </p>
                           
-                          {/* Disconnect Button */}
-                          <button
-                            onClick={handleDisconnectGmail}
-                            style={{
-                              padding: '8px 14px',
-                              background: '#fff',
-                              color: '#f44336',
-                              border: '2px solid #f44336',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '0.85em',
-                              fontWeight: '500',
-                              transition: 'all 0.2s',
-                              marginTop: '12px'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.background = '#f44336';
-                              e.target.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.background = '#fff';
-                              e.target.style.color = '#f44336';
-                            }}
-                          >
-                            Disconnect Gmail
-                          </button>
+                          {/* Disconnect Confirmation */}
+                          {showGmailDisconnectConfirm && (
+                            <div style={{
+                              marginTop: '12px',
+                              padding: '16px',
+                              background: '#fff3e0',
+                              border: '2px solid #ff9800',
+                              borderRadius: '8px'
+                            }}>
+                              <p style={{ margin: '0 0 12px 0', color: '#e65100', fontWeight: '600' }}>
+                                ⚠️ Are you sure?
+                              </p>
+                              <p style={{ margin: '0 0 16px 0', fontSize: '0.9em', color: '#666' }}>
+                                Disconnecting will remove access to your Gmail for searching school-related emails.
+                              </p>
+                              <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                  onClick={confirmDisconnectGmail}
+                                  style={{
+                                    flex: 1,
+                                    padding: '10px 16px',
+                                    background: '#f44336',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9em',
+                                    fontWeight: '600',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
+                                  onMouseLeave={(e) => e.target.style.background = '#f44336'}
+                                >
+                                  Yes, Disconnect
+                                </button>
+                                <button
+                                  onClick={cancelDisconnectGmail}
+                                  style={{
+                                    flex: 1,
+                                    padding: '10px 16px',
+                                    background: '#fff',
+                                    color: '#666',
+                                    border: '2px solid #ddd',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9em',
+                                    fontWeight: '600',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = '#f5f5f5';
+                                    e.target.style.borderColor = '#999';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = '#fff';
+                                    e.target.style.borderColor = '#ddd';
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Disconnect Button - Only show if not confirming */}
+                          {!showGmailDisconnectConfirm && (
+                            <button
+                              onClick={handleDisconnectGmail}
+                              style={{
+                                padding: '8px 14px',
+                                background: '#fff',
+                                color: '#f44336',
+                                border: '2px solid #f44336',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.85em',
+                                fontWeight: '500',
+                                transition: 'all 0.2s',
+                                marginTop: '12px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.background = '#f44336';
+                                e.target.style.color = 'white';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.background = '#fff';
+                                e.target.style.color = '#f44336';
+                              }}
+                            >
+                              Disconnect Gmail
+                            </button>
+                          )}
+                        </div>
+                      ) : showGmailDisconnectSuccess ? (
+                        <div style={{
+                          padding: '16px',
+                          background: '#e8f5e9',
+                          borderRadius: '8px',
+                          border: '2px solid #4caf50',
+                          marginTop: '8px',
+                          animation: 'fadeIn 0.3s ease-in'
+                        }}>
+                          <p style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '1.1em', fontWeight: '600' }}>
+                            ✓ Gmail Disconnected Successfully
+                          </p>
+                          <p style={{ margin: '0', fontSize: '0.9em', color: '#666' }}>
+                            Your Gmail account has been disconnected. Sign in again to reconnect.
+                          </p>
                         </div>
                       ) : (
                         <p className="setting-description" style={{ color: '#f57c00', marginTop: '8px' }}>

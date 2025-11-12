@@ -44,6 +44,11 @@ def _migrate_database(conn):
         if 'gmail_connected_at' not in columns:
             logger.info("Adding gmail_connected_at column to users table")
             cursor.execute("ALTER TABLE users ADD COLUMN gmail_connected_at TIMESTAMP")
+            
+        # Add gmail_name column if it doesn't exist
+        if 'gmail_name' not in columns:
+            logger.info("Adding gmail_name column to users table")
+            cursor.execute("ALTER TABLE users ADD COLUMN gmail_name TEXT")
         
         conn.commit()
         logger.info("Database migration completed successfully")
@@ -70,6 +75,7 @@ def init_database():
                 selected_school_id INTEGER,
                 gmail_token TEXT,
                 gmail_email TEXT,
+                gmail_name TEXT,
                 gmail_connected_at TIMESTAMP,
                 FOREIGN KEY (selected_school_id) REFERENCES schools (id)
             )
@@ -633,7 +639,7 @@ def get_user_bookmarks(email: str):
         conn.close()
 
 
-def save_user_gmail_token(email: str, gmail_token: str, gmail_email: str):
+def save_user_gmail_token(email: str, gmail_token: str, gmail_email: str, gmail_name: str = None):
     """Save Gmail OAuth token for a user"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -643,12 +649,13 @@ def save_user_gmail_token(email: str, gmail_token: str, gmail_email: str):
             UPDATE users 
             SET gmail_token = ?, 
                 gmail_email = ?,
+                gmail_name = ?,
                 gmail_connected_at = CURRENT_TIMESTAMP
             WHERE email = ?
-        """, (gmail_token, gmail_email, email))
+        """, (gmail_token, gmail_email, gmail_name, email))
         
         conn.commit()
-        logger.info(f"✅ Gmail token saved for user: {email} (Gmail: {gmail_email})")
+        logger.info(f"✅ Gmail token saved for user: {email} (Gmail: {gmail_email}, Name: {gmail_name})")
         return True
     except Exception as e:
         logger.error(f"Error saving Gmail token: {e}")
@@ -665,7 +672,7 @@ def get_user_gmail_token(email: str):
     
     try:
         cursor.execute("""
-            SELECT gmail_token, gmail_email, gmail_connected_at
+            SELECT gmail_token, gmail_email, gmail_name, gmail_connected_at
             FROM users
             WHERE email = ?
         """, (email,))
@@ -675,6 +682,7 @@ def get_user_gmail_token(email: str):
             return {
                 'token': result['gmail_token'],
                 'gmail_email': result['gmail_email'],
+                'gmail_name': result['gmail_name'],
                 'connected_at': result['gmail_connected_at']
             }
         return None
@@ -695,6 +703,7 @@ def disconnect_user_gmail(email: str):
             UPDATE users 
             SET gmail_token = NULL,
                 gmail_email = NULL,
+                gmail_name = NULL,
                 gmail_connected_at = NULL
             WHERE email = ?
         """, (email,))
