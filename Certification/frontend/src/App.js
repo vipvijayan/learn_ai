@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { ReactComponent as SchoolIcon } from './assets/SchoolIcon.svg';
+import logo from './assets/logo.png';
 import EventPopup from './components/EventPopup';
 import SchoolSelection from './components/SchoolSelection';
 import Login from './components/Login';
@@ -817,16 +817,71 @@ function App() {
             console.log(`   Response ${i+1}: ${resp.agent} (${resp.content.length} chars)`);
           });
           
+          // Helper function to check if a response indicates no results
+          const hasNoResults = (content) => {
+            if (!content) return true;
+            const lowerContent = content.toLowerCase();
+            return (
+              lowerContent.includes('i could not find') ||
+              lowerContent.includes("i couldn't find") ||
+              lowerContent.includes('could not find') ||
+              lowerContent.includes("couldn't find") ||
+              lowerContent.includes('no relevant') ||
+              lowerContent.includes('no results') ||
+              lowerContent.includes('found 0') ||
+              lowerContent.includes('found no') ||
+              lowerContent.includes('did not find') ||
+              lowerContent.includes("didn't find") ||
+              lowerContent.includes('unable to find') ||
+              lowerContent.includes('no events') ||
+              lowerContent.includes('no emails') ||
+              lowerContent.includes('nothing found') ||
+              lowerContent.includes('i don\'t have') ||
+              lowerContent.includes('i do not have') ||
+              lowerContent.includes('no information') ||
+              lowerContent.includes('no data') ||
+              (content.trim().length < 50 && lowerContent.includes('no'))
+            );
+          };
+          
+          // Helper function to estimate result count from content
+          const countResults = (content, agentName) => {
+            if (!content || hasNoResults(content)) return 0;
+            
+            // Try to find explicit counts like "Found 3 events" or "3 results"
+            const explicitCountMatch = content.match(/found\s+(\d+)|(\d+)\s+(?:result|event|email|item)/i);
+            if (explicitCountMatch) {
+              return parseInt(explicitCountMatch[1] || explicitCountMatch[2]);
+            }
+            
+            // For Local Database, count event cards (numbered items like "1. Event Name")
+            if (agentName === 'Local Database') {
+              const eventMatches = content.match(/^\d+\.\s+/gm);
+              if (eventMatches) return eventMatches.length;
+            }
+            
+            // For Gmail, count email indicators
+            if (agentName === 'Gmail') {
+              const emailMatches = content.match(/From:|Subject:/gi);
+              if (emailMatches) return emailMatches.length / 2; // Both From and Subject per email
+            }
+            
+            // Default: if content is substantial and not a "no results" message, assume at least 1 result
+            return content.trim().length > 100 ? 1 : 0;
+          };
+          
           let combinedContent = '';
+          let toolResultCounts = {}; // Track results from each tool
           
           if (allResponses.length > 1) {
             // Multiple agents - combine their results
-            // Filter out system messages
+            // Filter out system messages and empty/no-result responses
             const meaningfulResponses = allResponses.filter(resp => 
               resp.agent !== 'system' && 
               resp.agent !== 'System' &&
               !resp.content.includes('Compiling final') &&
-              !resp.content.includes('All sources searched')
+              !resp.content.includes('All sources searched') &&
+              !hasNoResults(resp.content) // Filter out empty results
             );
             
             if (meaningfulResponses.length > 1) {
@@ -839,6 +894,10 @@ function App() {
                   'Web Search': '🌐'
                 }[resp.agent] || '📋';
                 
+                // Count results from this agent
+                const resultCount = countResults(resp.content, resp.agent);
+                toolResultCounts[resp.agent] = resultCount;
+                
                 // Add source header
                 combinedContent += `${agentIcon} **${resp.agent}**\n\n`;
                 combinedContent += resp.content;
@@ -847,17 +906,43 @@ function App() {
                   combinedContent += '\n\n---\n\n';
                 }
               });
+              console.log(`✅ Created combined content from ${meaningfulResponses.length} sources: ${combinedContent.length} chars`);
             } else if (meaningfulResponses.length === 1) {
               combinedContent = meaningfulResponses[0].content;
+              const resultCount = countResults(meaningfulResponses[0].content, meaningfulResponses[0].agent);
+              toolResultCounts[meaningfulResponses[0].agent] = resultCount;
+              console.log(`✅ Single meaningful response from ${meaningfulResponses[0].agent}`);
             } else {
-              combinedContent = cleanedContent;
+              // All agents returned no results - use the final message if it has content
+              if (!hasNoResults(cleanedContent)) {
+                combinedContent = cleanedContent;
+                console.log(`⚠️ No meaningful agent responses, using final message content`);
+              } else {
+                combinedContent = 'I apologize, but I could not find any relevant information from the available sources.';
+                console.log(`⚠️ All sources returned no results`);
+              }
             }
             
-            console.log(`✅ Created combined content from ${meaningfulResponses.length} sources: ${combinedContent.length} chars`);
+            // Count results from all agents (including those filtered out)
+            allResponses.forEach(resp => {
+              if (resp.agent !== 'system' && resp.agent !== 'System') {
+                if (!toolResultCounts[resp.agent]) {
+                  toolResultCounts[resp.agent] = countResults(resp.content, resp.agent);
+                }
+              }
+            });
           } else if (allResponses.length === 1) {
-            // Single agent response
-            combinedContent = allResponses[0].content;
-            console.log(`✅ Single agent response from ${allResponses[0].agent}`);
+            // Single agent response - check if it has results
+            if (!hasNoResults(allResponses[0].content)) {
+              combinedContent = allResponses[0].content;
+              const resultCount = countResults(allResponses[0].content, allResponses[0].agent);
+              toolResultCounts[allResponses[0].agent] = resultCount;
+              console.log(`✅ Single agent response from ${allResponses[0].agent}`);
+            } else {
+              combinedContent = 'I apologize, but I could not find any relevant information from the available sources.';
+              toolResultCounts[allResponses[0].agent] = 0;
+              console.log(`⚠️ Single agent returned no results`);
+            }
           } else {
             // Fallback to the final message content
             combinedContent = cleanedContent;
@@ -870,7 +955,8 @@ function App() {
             source: allResponses.length > 1 ? 'Multiple Sources' : data.agent,
             tool: data.tool,
             responseTime: data.response_time,
-            evaluation: null // Will be updated when evaluation arrives
+            evaluation: null, // Will be updated when evaluation arrives
+            toolResultCounts: toolResultCounts // Store the result counts
           }]);
           
           // Clear accumulated responses for next query
@@ -1103,7 +1189,7 @@ function App() {
     return (
       <div className="splash-screen">
         <div className="splash-content">
-          <SchoolIcon className="splash-icon" />
+          <img src={logo} alt="School Assistant" className="splash-icon" />
           <h1 className="splash-title">School Assistant</h1>
           <div className="splash-loader">
             <div className="loader-dot"></div>
@@ -1177,7 +1263,7 @@ function App() {
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           title="Change school"
         >
-          <SchoolIcon className="header-icon" />
+          <img src={logo} alt="School Assistant" className="header-icon" />
         </div>
         <h1>School Assistant</h1>
         {selectedSchoolDistrict && (
@@ -1345,63 +1431,53 @@ function App() {
                     : message.content
                   }
                 </div>
+                
+                {/* All metadata in one line */}
                 {message.type === 'assistant' && message.source && (
                   <div style={{ 
                     marginTop: '12px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid #e0e0e0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '12px',
-                    flexWrap: 'wrap'
+                    flexWrap: 'wrap',
+                    fontSize: '0.8em'
                   }}>
-                    {/* Left side: Evaluation status */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Left side: Result counts and Evaluation status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#666' }}>
+                      {message.toolResultCounts && Object.keys(message.toolResultCounts).length > 0 && (
+                        <>
+                          {Object.entries(message.toolResultCounts).map(([tool, count]) => {
+                            const toolConfig = {
+                              'Gmail': { icon: '📧', label: 'Gmail' },
+                              'Local Database': { icon: '💾', label: 'Local' },
+                              'Web Search': { icon: '🌐', label: 'Web' }
+                            };
+                            const config = toolConfig[tool] || { icon: '📋', label: tool };
+                            
+                            return (
+                              <span key={tool}>
+                                {config.icon} {config.label}: {count}
+                              </span>
+                            );
+                          })}
+                        </>
+                      )}
                       {message.evaluation && message.evaluation.status === 'completed' && (
-                        <div style={{ 
-                          fontSize: '0.85em', 
-                          color: '#4caf50',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          <span>✓</span>
-                          <span>Evaluated</span>
-                        </div>
+                        <span style={{ color: '#4caf50' }}>
+                          ✓ Evaluated
+                        </span>
                       )}
                     </div>
                     
-                    {/* Right side: Source, Tool, Response Time, Copy, Bookmark */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <div className="source-badge" style={{
-                        fontSize: '0.85em',
-                        fontWeight: '500',
-                        color: message.source === 'Local Database' ? '#1976d2' : 
-                              message.source === 'Gmail' ? '#f57c00' : 
-                              message.source === 'Web Search' ? '#7b1fa2' : '#616161'
-                      }}>
-                        📚 Source: {message.source}
-                      </div>
-                      {message.tool && (
-                        <div style={{
-                          fontSize: '0.75em',
-                          color: '#757575',
-                          fontStyle: 'italic',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
-                          <span>🔧</span>
-                          <span>{message.tool}</span>
-                        </div>
-                      )}
+                    {/* Right side: Response Time, Copy, Bookmark */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {message.responseTime && (
-                        <div className="response-time-badge" style={{
-                          fontSize: '0.85em',
-                          fontWeight: '500',
-                          color: '#666'
-                        }}>
+                        <span style={{ color: '#666' }}>
                           ⏱️ {formatResponseTime(message.responseTime)}
-                        </div>
+                        </span>
                       )}
                       <button 
                         className="copy-button"
