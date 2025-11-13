@@ -205,6 +205,7 @@ class QueryRequest(BaseModel):
     email_suffixes: List[str] = None  # Optional list of email suffixes for multi-school filtering
     school_district: str = None  # Optional school district name for better search context
     school_districts: List[str] = None  # Optional list of school district names
+    school_websites: List[str] = None  # Optional list of school website URLs for domain-restricted search
 
 class QueryResponse(BaseModel):
     answer: str
@@ -1386,7 +1387,11 @@ async def multi_agent_query_events(request: QueryRequest):
             tavily_client = get_tavily_client()
             # Use the first district as primary context (Tavily doesn't support multi-context yet)
             district_name = request.school_districts[0]
-            tavily_client.set_school_context(district=district_name, email_suffix=request.email_suffixes[0] if request.email_suffixes else None)
+            tavily_client.set_school_context(
+                district=district_name, 
+                email_suffix=request.email_suffixes[0] if request.email_suffixes else None,
+                websites=request.school_websites if request.school_websites else None
+            )
             logger.info(f"🏫 Tavily search context set to: {district_name} (+ {len(request.school_districts)-1} more)")
         elif request.school_district or request.email_suffix:
             # Legacy single school mode
@@ -1398,7 +1403,11 @@ async def multi_agent_query_events(request: QueryRequest):
             if not district_name and request.email_suffix:
                 district_name = request.email_suffix.split('.')[0].replace('isd', ' ISD').replace('txed', '').title()
             
-            tavily_client.set_school_context(district=district_name, email_suffix=request.email_suffix)
+            tavily_client.set_school_context(
+                district=district_name, 
+                email_suffix=request.email_suffix,
+                websites=request.school_websites if request.school_websites else None
+            )
             logger.info(f"🏫 Tavily search context set to: {district_name}")
         
         # Initialize multi-agents if not already done
@@ -1846,10 +1855,11 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
             # Store final response for evaluation
             final_response = None
             final_agent_name = None
+            final_result_counts = {}  # Store result counts by agent
             
             # Define callback to send updates via WebSocket
-            async def send_update(agent_name: str, content: str, is_final: bool, tool_name: str = None, duration: float = None):
-                nonlocal final_response, final_agent_name
+            async def send_update(agent_name: str, content: str, is_final: bool, tool_name: str = None, duration: float = None, result_count: int = None, tool_counts: dict = None):
+                nonlocal final_response, final_agent_name, final_result_counts
                 try:
                     message = {
                         "type": "final" if is_final else "update",
@@ -1860,13 +1870,24 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                     if tool_name:
                         message["tool"] = tool_name
                     
+                    if result_count is not None:
+                        message["result_count"] = result_count
+                        # Store count for final message
+                        if agent_name not in ["system", "Combined Results"]:
+                            final_result_counts[agent_name] = result_count
+                    
                     if is_final and duration:
                         message["response_time"] = round(duration, 2)
+                        # Use provided tool_counts or fallback to accumulated counts
+                        message["tool_result_counts"] = tool_counts if tool_counts is not None else final_result_counts
                         final_response = content
                         final_agent_name = agent_name
+                        logger.info(f"   📊 tool_counts parameter: {tool_counts}")
+                        logger.info(f"   📊 final_result_counts: {final_result_counts}")
+                        logger.info(f"   📊 Final message tool_result_counts: {message['tool_result_counts']}")
                     
                     await websocket.send_json(message)
-                    logger.info(f"📤 Sent {'final' if is_final else 'update'} from {agent_name}")
+                    logger.info(f"📤 Sent {'final' if is_final else 'update'} from {agent_name}" + (f" (count: {result_count})" if result_count is not None else ""))
                 except Exception as e:
                     logger.error(f"❌ Error sending WebSocket update: {e}")
             

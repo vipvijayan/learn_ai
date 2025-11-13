@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import logo from './assets/logo.png';
+import gmailIcon from './assets/gmail.png';
+import settingsIcon from './assets/settings.png';
+import bookmarksIcon from './assets/bookmarks.png';
+import chatIcon from './assets/chat.png';
+import eventsIcon from './assets/events.png';
+import timeIcon from './assets/time.png';
+import databaseIcon from './assets/database.png';
+import chatbotIcon from './assets/chatbot.png';
+import userIcon from './assets/user.png';
 import EventPopup from './components/EventPopup';
 import SchoolSelection from './components/SchoolSelection';
 import Login from './components/Login';
@@ -36,6 +45,64 @@ const parseMarkdown = (text) => {
   return parts.length > 0 ? parts : [{ type: 'text', content: text }];
 };
 
+// Function to detect and render URLs in text
+const renderTextWithLinks = (text, key) => {
+  // First handle markdown-style links: [text](url)
+  const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  // Then handle bare URLs that should be hidden
+  const bareUrlRegex = /\((https?:\/\/[^)]+)\)/g;
+  
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  
+  // Process markdown-style links first
+  const processedText = text.replace(markdownLinkRegex, (fullMatch, linkText, url) => {
+    return `__MARKDOWN_LINK__${linkText}__URL__${url}__END__`;
+  });
+  
+  // Now process the text with placeholders
+  const linkPlaceholderRegex = /__MARKDOWN_LINK__([^_]+)__URL__([^_]+)__END__/g;
+  
+  while ((match = linkPlaceholderRegex.exec(processedText)) !== null) {
+    // Add text before the link
+    if (match.index > lastIndex) {
+      const beforeText = processedText.substring(lastIndex, match.index);
+      // Remove any bare URLs in parentheses and "Link:" prefix from the before text
+      let cleanedBeforeText = beforeText.replace(bareUrlRegex, '');
+      // Remove "Link:" or "Link :" text that appears right before the link
+      cleanedBeforeText = cleanedBeforeText.replace(/Link\s*:\s*$/i, '');
+      if (cleanedBeforeText.trim()) {
+        parts.push(<span key={`text-${key}-${lastIndex}`}>{cleanedBeforeText}</span>);
+      }
+    }
+    // Add the clickable link with just the link text
+    parts.push(
+      <a 
+        key={`link-${key}-${match.index}`}
+        href={match[2]} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{ color: '#1976d2', textDecoration: 'underline', cursor: 'pointer' }}
+      >
+        {match[1]}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text and remove any bare URLs
+  if (lastIndex < processedText.length) {
+    const remainingText = processedText.substring(lastIndex);
+    const cleanedRemainingText = remainingText.replace(bareUrlRegex, '');
+    if (cleanedRemainingText) {
+      parts.push(<span key={`text-${key}-${lastIndex}`}>{cleanedRemainingText}</span>);
+    }
+  }
+  
+  return parts.length > 0 ? parts : text;
+};
+
 // Function to render text with markdown formatting
 const renderMarkdownText = (text, key) => {
   const parts = parseMarkdown(text);
@@ -43,9 +110,9 @@ const renderMarkdownText = (text, key) => {
     <span key={key}>
       {parts.map((part, i) => 
         part.type === 'bold' ? (
-          <strong key={i}>{part.content}</strong>
+          <strong key={i}>{renderTextWithLinks(part.content, `${key}-${i}`)}</strong>
         ) : (
-          <span key={i}>{part.content}</span>
+          <span key={i}>{renderTextWithLinks(part.content, `${key}-${i}`)}</span>
         )
       )}
     </span>
@@ -229,8 +296,8 @@ const formatResponseText = (text) => {
         return <div key={idx} className="event-card" style={{
           border: '2px solid #e3f2fd',
           borderRadius: '12px',
-          padding: '24px',
-          marginBottom: '24px',
+          padding: '20px',
+          marginBottom: '16px',
           backgroundColor: '#fafafa',
           transition: 'all 0.3s ease'
         }}>
@@ -257,7 +324,7 @@ const formatResponseText = (text) => {
                 <span style={{ color: '#424242' }}>{renderMarkdownText(item.content, i)}</span>
               </div>;
             } else if (item.type === 'text') {
-              return <p key={i} style={{ color: '#616161', lineHeight: '1.6', marginTop: '8px' }}>
+              return <p key={i} style={{ color: '#616161', lineHeight: '1.6', marginTop: '8px', marginBottom: '4px' }}>
                 {renderMarkdownText(item.content, i)}
               </p>;
             }
@@ -273,8 +340,36 @@ const formatResponseText = (text) => {
           {renderMarkdownText(element.content, idx)}
         </h2>;
       case 'h3':
+        // Replace emoji icons with actual icons in h3 headers
+        let h3Content = element.content;
+        const renderH3Content = () => {
+          // Check if this is an agent result header
+          if (h3Content.includes('Gmail Search Results')) {
+            return (
+              <>
+                <img src={gmailIcon} alt="" style={{width: '20px', height: '20px', marginRight: '8px', verticalAlign: 'middle'}} />
+                Gmail Search Results
+              </>
+            );
+          } else if (h3Content.includes('Local Database Results')) {
+            return (
+              <>
+                <img src={databaseIcon} alt="" style={{width: '20px', height: '20px', marginRight: '8px', verticalAlign: 'middle'}} />
+                Local Database Results
+              </>
+            );
+          } else if (h3Content.includes('Web Search Results')) {
+            return (
+              <>
+                🌐 Web Search Results
+              </>
+            );
+          }
+          return renderMarkdownText(element.content, idx);
+        };
+        
         return <h3 key={idx} className="response-header" style={{ fontSize: '1.2em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
-          {renderMarkdownText(element.content, idx)}
+          {renderH3Content()}
         </h3>;
       case 'numbered-list':
         return <ol key={idx} className="formatted-list" style={{ marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em' }}>
@@ -305,6 +400,29 @@ const formatResponseText = (text) => {
 };
 
 function App() {
+  // Icon mapping for agents
+  const getAgentIcon = (agentName) => {
+    const iconMap = {
+      'Gmail': gmailIcon,
+      'Local Database': databaseIcon,
+      'Web Search': '🌐' // keeping emoji for web search as no icon provided
+    };
+    return iconMap[agentName] || '📋';
+  };
+
+  const getAgentIconHtml = (agentName, size = '18px') => {
+    const icon = getAgentIcon(agentName);
+    if (typeof icon === 'string' && icon.startsWith('http')) {
+      return `<img src="${icon}" alt="${agentName}" style="width: ${size}; height: ${size}; vertical-align: middle; margin-right: 4px;" />`;
+    } else if (typeof icon === 'object') {
+      // It's an imported image - we need to use it differently in markdown
+      return agentName === 'Gmail' ? `<img src="${gmailIcon}" alt="${agentName}" style="width: ${size}; height: ${size}; vertical-align: middle; margin-right: 4px;" />` :
+             agentName === 'Local Database' ? `<img src="${databaseIcon}" alt="${agentName}" style="width: ${size}; height: ${size}; vertical-align: middle; margin-right: 4px;" />` :
+             '📋';
+    }
+    return icon; // Return emoji as is
+  };
+
   // Authentication state
   const [user, setUser] = useState(null); // Current logged-in user
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -734,14 +852,16 @@ function App() {
         // Extract email suffixes and district names from all selected schools
         const email_suffixes = user?.schools?.map(s => s.email_suffix).filter(Boolean) || [];
         const school_districts = user?.schools?.map(s => s.name).filter(Boolean) || [];
+        const school_websites = user?.schools?.map(s => s.website).filter(Boolean) || [];
         
         console.log('📧 WebSocket sending query with school data:', {
           schools_count: user?.schools?.length || 0,
           email_suffixes,
-          school_districts
+          school_districts,
+          school_websites
         });
         
-        // Send the question with email suffixes, school districts, and user email
+        // Send the question with email suffixes, school districts, websites, and user email
         console.log('📧 Sending WebSocket message with user email:', user?.email);
         console.log('📧 Full user object:', user);
         
@@ -750,6 +870,7 @@ function App() {
           user_email: user?.email,  // For per-user Gmail authentication
           email_suffixes: email_suffixes.length > 0 ? email_suffixes : null,
           school_districts: school_districts.length > 0 ? school_districts : null,
+          school_websites: school_websites.length > 0 ? school_websites : null,
           // Legacy fields for backwards compatibility
           email_suffix: selectedSchoolDistrict?.email_suffix || (email_suffixes.length > 0 ? email_suffixes[0] : null),
           school_district: selectedSchoolDistrict?.district || (school_districts.length > 0 ? school_districts[0] : null)
@@ -797,17 +918,55 @@ function App() {
           console.log(`📊 Accumulated responses from: ${Object.keys(accumulatedResponsesRef.current).join(', ')}`);
           console.log(`   ${data.agent}: ${cleanedContent.substring(0, 100)}...`);
           
-          // Show current agent's progress in streaming message
+          // Combine all accumulated responses for streaming display
+          const currentResponses = Object.values(accumulatedResponsesRef.current);
+          let streamingContent = '';
+          
+          if (currentResponses.length > 1) {
+            // Multiple agents have responded - show all of them
+            currentResponses.forEach((resp, index) => {
+              const agentIcon = {
+                'Gmail': '📧',
+                'Local Database': '💾',
+                'Web Search': '🌐'
+              }[resp.agent] || '📋';
+              
+              const agentTitle = {
+                'Gmail': 'Gmail Search Results',
+                'Local Database': 'Local Database Results',
+                'Web Search': 'Web Search Results'
+              }[resp.agent] || resp.agent;
+              
+              streamingContent += `### ${agentIcon} ${agentTitle}\n\n`;
+              // Ensure content starts fresh on a new line
+              const content = resp.content.trim();
+              streamingContent += content;
+              
+              if (index < currentResponses.length - 1) {
+                streamingContent += '\n\n---\n\n';
+              }
+            });
+          } else {
+            // Only one agent has responded so far
+            streamingContent = cleanedContent;
+          }
+          
+          // Show all accumulated responses in streaming message
           setStreamingMessage(prev => ({
             ...prev,
-            content: cleanedContent,
-            source: data.agent,
+            content: streamingContent,
+            source: currentResponses.length > 1 ? 'Multiple Sources' : data.agent,
             tool: data.tool,
             isStreaming: true
           }));
         } else if (data.type === 'final') {
           // Final message received - combine all accumulated agent responses
           const cleanedContent = cleanContent(data.content);
+          
+          // Use tool_result_counts from backend if available, otherwise calculate from accumulated responses
+          let toolResultCounts = data.tool_result_counts || {};
+          
+          console.log(`🎯 FINAL: Backend provided counts:`, toolResultCounts);
           
           // Get all agent responses that were collected
           const allResponses = Object.values(accumulatedResponsesRef.current);
@@ -844,34 +1003,7 @@ function App() {
             );
           };
           
-          // Helper function to estimate result count from content
-          const countResults = (content, agentName) => {
-            if (!content || hasNoResults(content)) return 0;
-            
-            // Try to find explicit counts like "Found 3 events" or "3 results"
-            const explicitCountMatch = content.match(/found\s+(\d+)|(\d+)\s+(?:result|event|email|item)/i);
-            if (explicitCountMatch) {
-              return parseInt(explicitCountMatch[1] || explicitCountMatch[2]);
-            }
-            
-            // For Local Database, count event cards (numbered items like "1. Event Name")
-            if (agentName === 'Local Database') {
-              const eventMatches = content.match(/^\d+\.\s+/gm);
-              if (eventMatches) return eventMatches.length;
-            }
-            
-            // For Gmail, count email indicators
-            if (agentName === 'Gmail') {
-              const emailMatches = content.match(/From:|Subject:/gi);
-              if (emailMatches) return emailMatches.length / 2; // Both From and Subject per email
-            }
-            
-            // Default: if content is substantial and not a "no results" message, assume at least 1 result
-            return content.trim().length > 100 ? 1 : 0;
-          };
-          
           let combinedContent = '';
-          let toolResultCounts = {}; // Track results from each tool
           
           if (allResponses.length > 1) {
             // Multiple agents - combine their results
@@ -888,29 +1020,34 @@ function App() {
               combinedContent = '';
               
               meaningfulResponses.forEach((resp, index) => {
+                console.log(`📝 Processing response ${index + 1}/${meaningfulResponses.length}: Agent="${resp.agent}", Content length=${resp.content.length}`);
+                
                 const agentIcon = {
                   'Gmail': '📧',
                   'Local Database': '💾',
                   'Web Search': '🌐'
                 }[resp.agent] || '📋';
                 
-                // Count results from this agent
-                const resultCount = countResults(resp.content, resp.agent);
-                toolResultCounts[resp.agent] = resultCount;
+                const agentTitle = {
+                  'Gmail': 'Gmail Search Results',
+                  'Local Database': 'Local Database Results',
+                  'Web Search': 'Web Search Results'
+                }[resp.agent] || resp.agent;
                 
-                // Add source header
-                combinedContent += `${agentIcon} **${resp.agent}**\n\n`;
-                combinedContent += resp.content;
+                // Add organized section header with title
+                combinedContent += `### ${agentIcon} ${agentTitle}\n\n`;
+                // Ensure content starts fresh on a new line
+                const content = resp.content.trim();
+                combinedContent += content;
                 
                 if (index < meaningfulResponses.length - 1) {
                   combinedContent += '\n\n---\n\n';
                 }
               });
               console.log(`✅ Created combined content from ${meaningfulResponses.length} sources: ${combinedContent.length} chars`);
+              console.log(`📊 Tool Result Counts from backend:`, toolResultCounts);
             } else if (meaningfulResponses.length === 1) {
               combinedContent = meaningfulResponses[0].content;
-              const resultCount = countResults(meaningfulResponses[0].content, meaningfulResponses[0].agent);
-              toolResultCounts[meaningfulResponses[0].agent] = resultCount;
               console.log(`✅ Single meaningful response from ${meaningfulResponses[0].agent}`);
             } else {
               // All agents returned no results - use the final message if it has content
@@ -922,25 +1059,13 @@ function App() {
                 console.log(`⚠️ All sources returned no results`);
               }
             }
-            
-            // Count results from all agents (including those filtered out)
-            allResponses.forEach(resp => {
-              if (resp.agent !== 'system' && resp.agent !== 'System') {
-                if (!toolResultCounts[resp.agent]) {
-                  toolResultCounts[resp.agent] = countResults(resp.content, resp.agent);
-                }
-              }
-            });
           } else if (allResponses.length === 1) {
             // Single agent response - check if it has results
             if (!hasNoResults(allResponses[0].content)) {
               combinedContent = allResponses[0].content;
-              const resultCount = countResults(allResponses[0].content, allResponses[0].agent);
-              toolResultCounts[allResponses[0].agent] = resultCount;
               console.log(`✅ Single agent response from ${allResponses[0].agent}`);
             } else {
               combinedContent = 'I apologize, but I could not find any relevant information from the available sources.';
-              toolResultCounts[allResponses[0].agent] = 0;
               console.log(`⚠️ Single agent returned no results`);
             }
           } else {
@@ -956,7 +1081,7 @@ function App() {
             tool: data.tool,
             responseTime: data.response_time,
             evaluation: null, // Will be updated when evaluation arrives
-            toolResultCounts: toolResultCounts // Store the result counts
+            toolResultCounts: toolResultCounts // Use counts from backend
           }]);
           
           // Clear accumulated responses for next query
@@ -1037,17 +1162,20 @@ function App() {
       // Extract email suffixes and district names from all selected schools
       const email_suffixes = user?.schools?.map(s => s.email_suffix).filter(Boolean) || [];
       const school_districts = user?.schools?.map(s => s.name).filter(Boolean) || [];
+      const school_websites = user?.schools?.map(s => s.website).filter(Boolean) || [];
       
       console.log('📧 Sending query with school data:', {
         schools_count: user?.schools?.length || 0,
         email_suffixes,
-        school_districts
+        school_districts,
+        school_websites
       });
       
       const response = await axios.post(`${API_BASE_URL}/multi-agent-query`, {
         question: userMessage,
         email_suffixes: email_suffixes.length > 0 ? email_suffixes : null,
         school_districts: school_districts.length > 0 ? school_districts : null,
+        school_websites: school_websites.length > 0 ? school_websites : null,
         // Legacy fields for backwards compatibility
         email_suffix: selectedSchoolDistrict?.email_suffix || (email_suffixes.length > 0 ? email_suffixes[0] : null),
         school_district: selectedSchoolDistrict?.district || (school_districts.length > 0 ? school_districts[0] : null)
@@ -1369,7 +1497,9 @@ function App() {
                           <div className="event-details-column">
                             {event.date && (
                               <div className="event-detail">
-                                <span className="detail-icon">📅</span>
+                                <span className="detail-icon">
+                                  <img src={eventsIcon} alt="" style={{width: '14px', height: '14px', verticalAlign: 'middle'}} />
+                                </span>
                                 <span>{event.date}</span>
                               </div>
                             )}
@@ -1422,7 +1552,11 @@ function App() {
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.type}`}>
               <div className="message-icon">
-                {message.type === 'user' ? '👤' : '🤖'}
+                {message.type === 'user' ? (
+                  <img src={userIcon} alt="User" style={{width: '32px', height: '32px'}} />
+                ) : (
+                  <img src={chatbotIcon} alt="Assistant" style={{width: '32px', height: '32px', backgroundColor: 'white', borderRadius: '50%', padding: '2px'}} />
+                )}
               </div>
               <div className="message-content">
                 <div className="message-text">
@@ -1451,15 +1585,20 @@ function App() {
                         <>
                           {Object.entries(message.toolResultCounts).map(([tool, count]) => {
                             const toolConfig = {
-                              'Gmail': { icon: '📧', label: 'Gmail' },
-                              'Local Database': { icon: '💾', label: 'Local' },
-                              'Web Search': { icon: '🌐', label: 'Web' }
+                              'Gmail': { icon: gmailIcon, label: 'Gmail', isImage: true },
+                              'Local Database': { icon: databaseIcon, label: 'Local', isImage: true },
+                              'Web Search': { icon: '🌐', label: 'Web', isImage: false }
                             };
-                            const config = toolConfig[tool] || { icon: '📋', label: tool };
+                            const config = toolConfig[tool] || { icon: '📋', label: tool, isImage: false };
                             
                             return (
-                              <span key={tool}>
-                                {config.icon} {config.label}: {count}
+                              <span key={tool} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {config.isImage ? (
+                                  <img src={config.icon} alt="" style={{width: '14px', height: '14px'}} />
+                                ) : (
+                                  config.icon
+                                )}
+                                {' '}{config.label}: {count}
                               </span>
                             );
                           })}
@@ -1475,8 +1614,9 @@ function App() {
                     {/* Right side: Response Time, Copy, Bookmark */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {message.responseTime && (
-                        <span style={{ color: '#666' }}>
-                          ⏱️ {formatResponseTime(message.responseTime)}
+                        <span style={{ color: '#666', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <img src={timeIcon} alt="" style={{width: '14px', height: '14px'}} />
+                          {formatResponseTime(message.responseTime)}
                         </span>
                       )}
                       <button 
@@ -1596,7 +1736,7 @@ function App() {
           {streamingMessage && (
             <div className="message assistant streaming">
               <div className="message-icon">
-                🤖
+                <img src={chatbotIcon} alt="Assistant" style={{width: '32px', height: '32px', backgroundColor: 'white', borderRadius: '50%', padding: '2px'}} />
               </div>
               <div className="message-content">
                 {streamingMessage.content 
@@ -1649,7 +1789,7 @@ function App() {
                       gap: '6px'
                     }}>
                       <span>⚡</span>
-                      <span>Waiting for the magic...</span>
+                      <span>Please wait...</span>
                     </div>
                   )}
                 </div>
@@ -1683,7 +1823,7 @@ function App() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask about school events and programs..."
+                  placeholder="Ask about school events, programs, activities and more..."
                   className="message-input"
                   disabled={isLoading}
                 />
@@ -1866,7 +2006,9 @@ function App() {
                   <br /><br />
                   Bookmark assistant messages from the Chat tab to save them here for later reference.
                   <br /><br />
-                  Look for the 🔖 icon on assistant messages!
+                  <span style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
+                    Look for the <img src={bookmarksIcon} alt="bookmark" style={{width: '16px', height: '16px', verticalAlign: 'middle'}} /> icon on assistant messages!
+                  </span>
                 </div>
               ) : (
                 <div className="bookmarks-list" style={{ paddingBottom: '60px' }}>
@@ -2170,9 +2312,21 @@ function App() {
                                 <p className="setting-description" style={{ 
                                   color: '#666',
                                   fontSize: '0.85em',
-                                  marginTop: '2px'
+                                  marginTop: '2px',
+                                  marginBottom: '2px'
                                 }}>
                                   📍 {school.location}
+                                </p>
+                              )}
+                              {school.website && (
+                                <p className="setting-description" style={{ 
+                                  color: '#666',
+                                  fontSize: '0.85em',
+                                  marginTop: '2px'
+                                }}>
+                                  🌐 <a href={school.website} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'none' }}>
+                                    {school.website.replace(/^https?:\/\/(www\.)?/, '')}
+                                  </a>
                                 </p>
                               )}
                             </div>
@@ -2236,8 +2390,14 @@ function App() {
                   <p><strong>Your School Assistant</strong></p>
                   <p>I help you find school events by searching multiple places at once:</p>
                   <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                    <li>📧 Your Gmail inbox for school emails</li>
-                    <li>📚 Our local database of curated events</li>
+                    <li style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px'}}>
+                      <img src={gmailIcon} alt="" style={{width: '16px', height: '16px'}} />
+                      Your Gmail inbox for school emails
+                    </li>
+                    <li style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px'}}>
+                      <img src={databaseIcon} alt="" style={{width: '16px', height: '16px'}} />
+                      Our local database of curated events
+                    </li>
                     <li>🌐 The web for the newest updates</li>
                     <li>⚡ Live updates as you search</li>
                   </ul>

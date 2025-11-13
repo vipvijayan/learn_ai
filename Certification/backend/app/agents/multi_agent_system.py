@@ -589,7 +589,7 @@ async def query_with_agent_stream(question: str, callback, agents=None):
     
     Args:
         question: User's question
-        callback: Async function to call with updates (agent_name, content, is_final, tool_name)
+        callback: Async function to call with updates (agent_name, content, is_final, tool_name, duration, result_count, tool_counts)
         agents: Pre-created agents dict with user-specific credentials (optional)
         
     Returns:
@@ -688,9 +688,10 @@ async def query_with_agent_stream(question: str, callback, agents=None):
                                     f"completed_{node_name}"
                                 )
                             
-                            # Send the actual content
-                            logger.info(f"   📤 Sending update from {agent_info['name']}: {len(content)} chars")
-                            await callback(agent_info['name'], content, False, agent_info['tool'])
+                            # Send the actual content with result count
+                            result_count = last_message.additional_kwargs.get("result_count", 0) if hasattr(last_message, 'additional_kwargs') else 0
+                            logger.info(f"   📤 Sending update from {agent_info['name']}: {len(content)} chars, {result_count} results")
+                            await callback(agent_info['name'], content, False, agent_info['tool'], None, result_count)
                         
                         result = node_data
         
@@ -712,18 +713,34 @@ async def query_with_agent_stream(question: str, callback, agents=None):
             logger.info(f"{'='*80}")
             logger.info(f"   Total messages in state: {len(result['messages'])}")
             
+            # Agent name mapping for display
+            agent_display_names = {
+                "GmailAgent": "Gmail",
+                "LocalEvents": "Local Database",
+                "WebSearch": "Web Search"
+            }
+            
             # First pass: count results from each agent
-            agent_result_counts = {}
+            # Initialize all agents with 0 counts first
+            agent_result_counts = {
+                "Gmail": 0,
+                "Local Database": 0,
+                "Web Search": 0
+            }
+            
+            # Then update with actual counts from agents that executed
             for msg in result["messages"][1:]:
                 if hasattr(msg, 'name') and msg.name in ["GmailAgent", "LocalEvents", "WebSearch"]:
                     result_count = msg.additional_kwargs.get("result_count", 0) if hasattr(msg, 'additional_kwargs') else 0
-                    agent_result_counts[msg.name] = result_count
+                    # Use display name for the counts
+                    display_name = agent_display_names.get(msg.name, msg.name)
+                    agent_result_counts[display_name] = result_count
             
             logger.info(f"\n📊 RESULT COUNT BY AGENT:")
-            logger.info(f"   📧 GmailAgent:    {agent_result_counts.get('GmailAgent', 0)} results")
-            logger.info(f"   💾 LocalEvents:   {agent_result_counts.get('LocalEvents', 0)} results")
-            logger.info(f"   🌐 WebSearch:     {agent_result_counts.get('WebSearch', 0)} results")
-            logger.info(f"   📈 Total:         {sum(agent_result_counts.values())} results")
+            logger.info(f"   📧 Gmail:          {agent_result_counts.get('Gmail', 0)} results")
+            logger.info(f"   💾 Local Database: {agent_result_counts.get('Local Database', 0)} results")
+            logger.info(f"   🌐 Web Search:     {agent_result_counts.get('Web Search', 0)} results")
+            logger.info(f"   📈 Total:          {sum(agent_result_counts.values())} results")
             logger.info(f"")
             
             # Collect all agent responses (skip the original user query)
@@ -759,12 +776,7 @@ async def query_with_agent_stream(question: str, callback, agents=None):
                 final_content = f"📊 Combined results from {len(combined_responses)} sources ({total_results} total results):\n\n"
                 
                 for i, resp in enumerate(combined_responses, 1):
-                    agent_map = {
-                        "GmailAgent": "📧 Gmail",
-                        "LocalEvents": "💾 Local Database",
-                        "WebSearch": "🌐 Web Search"
-                    }
-                    source_name = agent_map.get(resp["agent"], resp["agent"])
+                    source_name = agent_display_names.get(resp["agent"], resp["agent"])
                     final_content += f"{'='*70}\n"
                     final_content += f"Source {i}: {source_name} ({resp['result_count']} results)\n"
                     final_content += f"{'='*70}\n"
@@ -772,7 +784,11 @@ async def query_with_agent_stream(question: str, callback, agents=None):
                     if i < len(combined_responses):
                         final_content += "\n\n"
                 
-                await callback("Combined Results", final_content, True, "Multiple Sources", duration)
+                # Build counts dict with display name - include ALL agents even with 0 results
+                display_counts = agent_result_counts.copy()  # Use the complete counts we already built
+                logger.info(f"   📊 Sending final callback with counts: {display_counts}")
+                
+                await callback("Combined Results", final_content, True, "Multiple Sources", duration, None, display_counts)
             else:
                 # Single agent response
                 last_message = result["messages"][-1]
@@ -785,7 +801,14 @@ async def query_with_agent_stream(question: str, callback, agents=None):
                 }
                 agent_info = agent_map.get(agent_name, {"name": "Unknown", "tool": "Unknown"})
                 
-                await callback(agent_info['name'], last_message.content, True, agent_info['tool'], duration)
+                # Get result count for this agent
+                result_count = last_message.additional_kwargs.get("result_count", 0) if hasattr(last_message, 'additional_kwargs') else 0
+                
+                # Build counts dict with display name
+                display_counts = {agent_info['name']: result_count}
+                logger.info(f"   📊 Sending final callback with counts: {display_counts}")
+                
+                await callback(agent_info['name'], last_message.content, True, agent_info['tool'], duration, result_count, display_counts)
         
         logger.info("\n" + "🟢"*40)
         logger.info(f"✅ STREAMING QUERY COMPLETED (Total time: {duration:.2f}s)")

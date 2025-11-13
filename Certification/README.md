@@ -58,6 +58,16 @@ Parents receive numerous emails from schools about different events and programs
 
 An AI-powered chat interface that allows parents to ask natural language questions about school events and get relevant information from all available school data.
 
+## 🏠 Local Mode Support
+
+The application now supports **Local Mode** for development on localhost!
+
+👉 **[Complete Local Mode Guide →](LOCAL_MODE_GUIDE.md)** - Learn how to run the app locally
+
+**Quick Setup for Local Mode:**
+- Backend: Set `LOCAL_MODE=true` in `backend/.env`
+- Frontend: Use `frontend/.env.local` (already configured)
+
 ## Quick Start
 
 ### Prerequisites

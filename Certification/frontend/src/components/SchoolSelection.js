@@ -208,28 +208,38 @@ const SchoolSelection = ({ user, onSchoolSelected }) => {
                         }}>
                           {school.name}
                         </div>
-                        {school.email_suffix && (
-                          <div style={{
-                            color: '#667eea',
-                            fontSize: '0.85em',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            marginBottom: '2px',
-                            fontFamily: 'monospace'
-                          }}>
-                            📧 @{school.email_suffix}
-                          </div>
-                        )}
                         {school.location && (
                           <div style={{
                             color: '#666',
                             fontSize: '0.9em',
                             display: 'flex',
                             alignItems: 'center',
+                            gap: '4px',
+                            marginBottom: '2px'
+                          }}>
+                            � {school.location}
+                          </div>
+                        )}
+                        {school.website && (
+                          <div style={{
+                            color: '#666',
+                            fontSize: '0.85em',
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '4px'
                           }}>
-                            📍 {school.location}
+                            🌐 <a 
+                              href={school.website} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ 
+                                color: '#1976d2', 
+                                textDecoration: 'none' 
+                              }}
+                            >
+                              {school.website.replace(/^https?:\/\/(www\.)?/, '')}
+                            </a>
                           </div>
                         )}
                       </div>

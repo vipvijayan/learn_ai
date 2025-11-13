@@ -7,7 +7,7 @@ import os
 import logging
 from typing import Optional
 from langchain_core.tools import tool
-from langchain_community.tools.tavily_search import TavilySearchResults
+from tavily import TavilyClient
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +16,23 @@ class SchoolContextTavilySearch:
     """Wrapper for Tavily search that includes school context"""
     
     def __init__(self):
-        self.tavily = TavilySearchResults(max_results=5)
+        api_key = os.getenv("TAVILY_API_KEY")
+        if not api_key:
+            raise ValueError("TAVILY_API_KEY environment variable is required")
+        self.tavily = TavilyClient(api_key=api_key)
         self.school_district = None
         self.email_suffix = None
+        self.school_websites = []  # List of school website domains to restrict search
     
-    def set_school_context(self, district: str = None, email_suffix: str = None):
+    def set_school_context(self, district: str = None, email_suffix: str = None, websites: list = None):
         """Set the school context for searches"""
         self.school_district = district
         self.email_suffix = email_suffix
+        self.school_websites = websites if websites else []
         if district:
             logger.info(f"🏫 Tavily search context set to: {district}")
+        if self.school_websites:
+            logger.info(f"🌐 Tavily search will be restricted to domains: {', '.join(self.school_websites)}")
     
     def search(self, query: str) -> str:
         """
@@ -44,11 +51,33 @@ class SchoolContextTavilySearch:
             enhanced_query = f"{query} {self.school_district}"
             logger.info(f"🔍 Enhanced Tavily query: {enhanced_query}")
         
-        # Perform search
+        # Perform search with domain restrictions if available
         try:
-            results = self.tavily.invoke(enhanced_query)
-            logger.info(f"✅ Tavily search completed, found {len(results) if isinstance(results, list) else 'N/A'} results")
-            return results
+            search_params = {
+                "query": enhanced_query,
+                "max_results": 5
+            }
+            
+            # Add domain restrictions if school websites are provided
+            if self.school_websites:
+                search_params["include_domains"] = self.school_websites
+                logger.info(f"🌐 Restricting search to domains: {self.school_websites}")
+            
+            response = self.tavily.search(**search_params)
+            
+            # Format results similar to TavilySearchResults output
+            if response and "results" in response:
+                results = []
+                for result in response["results"]:
+                    results.append({
+                        "url": result.get("url", ""),
+                        "content": result.get("content", "")
+                    })
+                logger.info(f"✅ Tavily search completed, found {len(results)} results")
+                return results
+            else:
+                logger.warning("⚠️ Tavily search returned no results")
+                return []
         except Exception as e:
             logger.error(f"❌ Tavily search error: {e}")
             return f"Error performing web search: {str(e)}"
