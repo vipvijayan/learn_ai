@@ -45,6 +45,22 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.tools.tavily_search import TavilySearchResults
 
+# Transformers imports for Phi-3 (moved after LangChain to avoid import conflicts)
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+import warnings
+
+# Suppress specific transformers warnings
+warnings.filterwarnings("ignore", message=".*flash-attention.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*torch_dtype.*", category=UserWarning)
+
+# Suppress transformers module warnings
+logging.getLogger("transformers_modules").setLevel(logging.ERROR)
+
+# Global variables for Phi-3 model
+phi_model = None
+phi_tokenizer = None
+
 # Import custom tool
 from app.tools.school_events_tool import create_school_events_tool
 
@@ -73,7 +89,10 @@ from app.database import (
     # Gmail OAuth functions
     save_user_gmail_token,
     get_user_gmail_token,
-    disconnect_user_gmail
+    disconnect_user_gmail,
+    add_children_for_user,
+    get_children_for_user,
+    delete_child_for_user
 )
 
 # ============================================================
@@ -134,11 +153,33 @@ async def lifespan(app: FastAPI):
     logger.info("="*80)
     logger.info("�️  Initializing SQLite Database...")
     init_database()
+    
+    # Load TinyLlama model for email parsing (lightweight and fast)
+    logger.info("🤖 Loading TinyLlama-1.1B model for email parsing...")
+    try:
+        global phi_model, phi_tokenizer
+        model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        phi_tokenizer = AutoTokenizer.from_pretrained(model_name)
+        phi_model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            dtype=torch.float16,
+            device_map="auto",
+            low_cpu_mem_usage=True
+        )
+        logger.info("✅ TinyLlama model loaded successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to load TinyLlama model: {e}")
+        phi_tokenizer = None
+        phi_model = None
+    
     logger.info("="*80)
     logger.info("📋 AVAILABLE ENDPOINTS:")
     logger.info("   /api/auth/login → User login with email")
     logger.info("   /api/auth/schools → Get list of schools")
     logger.info("   /api/auth/select-school → Select user's school")
+    logger.info("   /api/auth/add-children → Add children for a user")
+    logger.info("   /api/auth/get-children/{email} → Get children for a user")
+    logger.info("   /api/auth/delete-child/{email}/{child_name} → Delete a child for a user")
     logger.info("   /query → RAG Query (switchable between Original and Naive)")
     logger.info("   /agent-query → Direct Tool Use (school_events_search)")
     logger.info("   /multi-agent-query → Multi-Agent System (WebSearch + LocalEvents)")
@@ -201,6 +242,7 @@ class SchoolSelectionRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     question: str
+    user_email: str  # Required: User email for Gmail authentication
     email_suffix: str = None  # Optional single email suffix for Gmail filtering (legacy)
     email_suffixes: List[str] = None  # Optional list of email suffixes for multi-school filtering
     school_district: str = None  # Optional school district name for better search context
@@ -228,6 +270,10 @@ class PreferenceRequest(BaseModel):
     email: str
     preference_key: str
     preference_value: str
+
+class AddChildrenRequest(BaseModel):
+    email: str
+    children: list[str]
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -532,6 +578,52 @@ async def select_school(request: SchoolSelectionRequest):
         logger.error(f"Error selecting schools: {e}")
         import traceback
         logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/add-children")
+async def add_children(request: AddChildrenRequest):
+    """
+    Add children for a user (parent).
+    """
+    try:
+        email = request.email.strip().lower()
+        children = [c.strip() for c in request.children if c.strip()]
+        if not email or not children:
+            raise HTTPException(status_code=400, detail="Email and at least one child name required.")
+        add_children_for_user(email, children)
+        return {"success": True, "message": f"Added {len(children)} children for {email}"}
+    except Exception as e:
+        logger.error(f"Add children error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/get-children/{email}")
+async def get_children(email: str):
+    """
+    Get children for a user (parent).
+    """
+    try:
+        email = email.strip().lower()
+        children = get_children_for_user(email)
+        return {"success": True, "children": children}
+    except Exception as e:
+        logger.error(f"Get children error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/auth/delete-child/{email}/{child_name}")
+async def delete_child(email: str, child_name: str):
+    """
+    Delete a specific child for a user (parent).
+    """
+    try:
+        email = email.strip().lower()
+        child_name = child_name.strip()
+        delete_child_for_user(email, child_name)
+        return {"success": True, "message": f"Deleted child '{child_name}' for {email}"}
+    except Exception as e:
+        logger.error(f"Delete child error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -899,285 +991,6 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "rag_initialized": retriever is not None}
 
-
-@app.get("/test-gmail", response_class=HTMLResponse)
-async def test_gmail_page():
-    """Serve Gmail integration test page"""
-    html_content = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gmail Integration Test</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 900px;
-            margin: 20px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .section {
-            margin: 20px 0;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .success { border-left: 4px solid #28a745; }
-        .error { border-left: 4px solid #dc3545; }
-        .info { border-left: 4px solid #17a2b8; }
-        .warning { border-left: 4px solid #ffc107; }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            background: #007bff;
-            color: white;
-            font-size: 14px;
-        }
-        button:hover { background: #0056b3; }
-        input {
-            padding: 10px;
-            width: 100%;
-            max-width: 400px;
-            margin: 5px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        pre {
-            background: #f8f9fa;
-            padding: 15px;
-            overflow-x: auto;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-        h1 { color: #333; }
-        h2 { color: #555; font-size: 18px; margin-top: 0; }
-        .result-box {
-            margin-top: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            min-height: 50px;
-        }
-    </style>
-</head>
-<body>
-    <h1>🔧 Gmail Integration Test</h1>
-    
-    <div class="section info">
-        <h2>📋 Step 1: Check Gmail Status in Database</h2>
-        <input type="email" id="userEmail" placeholder="Enter your email" value="vipinvijayan23@gmail.com">
-        <br>
-        <button onclick="checkDatabase()">Check Database</button>
-        <div id="dbResult" class="result-box"></div>
-    </div>
-    
-    <div class="section info">
-        <h2>🌐 Step 2: Test WebSocket Query</h2>
-        <input type="text" id="query" placeholder="Enter query" value="school programs">
-        <br>
-        <button onclick="testWebSocket()">Send WebSocket Query</button>
-        <button onclick="clearMessages()">Clear Messages</button>
-        <div id="wsResult" class="result-box"></div>
-    </div>
-    
-    <div class="section info">
-        <h2>📊 Step 3: Database Tables</h2>
-        <button onclick="loadTables()">Load Database Tables</button>
-        <div id="tablesResult" class="result-box"></div>
-    </div>
-    
-    <div class="section info">
-        <h2>📝 Step 4: Backend Logs</h2>
-        <p><em>Check terminal/logs for backend activity</em></p>
-        <pre>tail -f backend/nohup.out</pre>
-    </div>
-
-    <script>
-        const API_URL = window.location.origin;
-        
-        async function checkDatabase() {
-            const result = document.getElementById('dbResult');
-            const email = document.getElementById('userEmail').value;
-            result.innerHTML = '<p>⏳ Checking database...</p>';
-            
-            try {
-                const response = await fetch(API_URL + '/api/auth/gmail/status?email=' + encodeURIComponent(email));
-                const data = await response.json();
-                
-                const parent = result.closest('.section');
-                parent.className = data.connected ? 'section success' : 'section error';
-                
-                result.innerHTML = '<strong>Result:</strong><pre>' + JSON.stringify(data, null, 2) + '</pre>';
-                
-                if (!data.connected) {
-                    result.innerHTML += '<p style="color: #dc3545;">❌ Gmail not connected! Please sign in with Gmail OAuth first.</p>';
-                }
-            } catch (error) {
-                result.innerHTML = '<p style="color: #dc3545;">❌ Error: ' + error.message + '</p>';
-                result.closest('.section').className = 'section error';
-            }
-        }
-        
-        function clearMessages() {
-            document.getElementById('wsResult').innerHTML = '';
-            document.getElementById('wsResult').closest('.section').className = 'section info';
-        }
-        
-        function testWebSocket() {
-            const email = document.getElementById('userEmail').value;
-            const query = document.getElementById('query').value;
-            const result = document.getElementById('wsResult');
-            
-            result.innerHTML = '<p>⏳ Connecting to WebSocket...</p>';
-            
-            const ws = new WebSocket('ws://' + window.location.host + '/ws/multi-agent-stream');
-            
-            let gmailFound = false;
-            
-            ws.onopen = () => {
-                result.innerHTML = '<p>✅ Connected! Sending query...</p>';
-                
-                const message = {
-                    question: query,
-                    user_email: email,
-                    email_suffixes: null,
-                    school_districts: null
-                };
-                
-                console.log('📤 Sending:', message);
-                result.innerHTML += '<pre>Sent: ' + JSON.stringify(message, null, 2) + '</pre>';
-                
-                ws.send(JSON.stringify(message));
-            };
-            
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log('📥 Received:', data);
-                
-                if (data.type === 'update' && data.agent === 'Gmail') {
-                    gmailFound = true;
-                    const content = data.content;
-                    
-                    result.innerHTML += '<div style="margin: 15px 0; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">';
-                    result.innerHTML += '<strong>📧 Gmail Agent Response:</strong><br>';
-                    result.innerHTML += content;
-                    result.innerHTML += '</div>';
-                    
-                    if (content.includes('unable to access') || content.includes('not connected')) {
-                        result.closest('.section').className = 'section error';
-                        result.innerHTML += '<p style="color: #dc3545; font-weight: bold;">❌ Gmail search FAILED!</p>';
-                    } else if (content.includes('Found') && content.includes('email')) {
-                        result.closest('.section').className = 'section success';
-                        result.innerHTML += '<p style="color: #28a745; font-weight: bold;">✅ Gmail search SUCCESS!</p>';
-                    }
-                }
-                
-                if (data.type === 'final') {
-                    result.innerHTML += '<p style="margin-top: 15px;"><strong>✅ Query complete!</strong></p>';
-                    
-                    if (!gmailFound) {
-                        result.innerHTML += '<p style="color: #dc3545;">⚠️ Warning: No Gmail agent response received!</p>';
-                        result.closest('.section').className = 'section warning';
-                    }
-                    
-                    ws.close();
-                }
-            };
-            
-            ws.onerror = (error) => {
-                result.innerHTML += '<p style="color: #dc3545;">❌ WebSocket Error</p>';
-                result.closest('.section').className = 'section error';
-            };
-            
-            ws.onclose = () => {
-                result.innerHTML += '<p><em>Connection closed</em></p>';
-            };
-        }
-        
-        async function loadTables() {
-            const result = document.getElementById('tablesResult');
-            result.innerHTML = '<p>⏳ Loading database tables...</p>';
-            
-            try {
-                const response = await fetch(API_URL + '/api/debug/tables');
-                const data = await response.json();
-                
-                result.closest('.section').className = 'section success';
-                
-                let html = '<h3>Database Tables</h3>';
-                
-                for (const [tableName, tableData] of Object.entries(data.tables)) {
-                    html += '<div style="margin: 20px 0; border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">';
-                    html += '<div style="background: #007bff; color: white; padding: 10px; font-weight: bold;">';
-                    html += '📋 ' + tableName + ' (' + tableData.count + ' rows)';
-                    html += '</div>';
-                    
-                    if (tableData.data && tableData.data.length > 0) {
-                        html += '<div style="overflow-x: auto;">';
-                        html += '<table style="width: 100%; border-collapse: collapse;">';
-                        
-                        // Header
-                        html += '<thead><tr style="background: #f8f9fa;">';
-                        for (const col of tableData.columns) {
-                            html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: left;">' + col + '</th>';
-                        }
-                        html += '</tr></thead>';
-                        
-                        // Data rows
-                        html += '<tbody>';
-                        for (const row of tableData.data) {
-                            html += '<tr>';
-                            for (const col of tableData.columns) {
-                                let value = row[col];
-                                
-                                // Truncate long values
-                                if (typeof value === 'string' && value.length > 100) {
-                                    value = value.substring(0, 100) + '...';
-                                }
-                                
-                                // Highlight NULL values
-                                if (value === null || value === undefined) {
-                                    value = '<em style="color: #999;">NULL</em>';
-                                }
-                                
-                                html += '<td style="padding: 8px; border: 1px solid #ddd;">' + value + '</td>';
-                            }
-                            html += '</tr>';
-                        }
-                        html += '</tbody>';
-                        html += '</table>';
-                        html += '</div>';
-                    } else {
-                        html += '<div style="padding: 20px; text-align: center; color: #999;">No data</div>';
-                    }
-                    
-                    html += '</div>';
-                }
-                
-                result.innerHTML = html;
-            } catch (error) {
-                result.innerHTML = '<p style="color: #dc3545;">❌ Error: ' + error.message + '</p>';
-                result.closest('.section').className = 'section error';
-            }
-        }
-        
-        // Auto-load on page load
-        window.onload = () => {
-            console.log('Test page loaded. API URL:', API_URL);
-        };
-    </script>
-</body>
-</html>
-    """
-    return HTMLResponse(content=html_content)
-
-
 @app.get("/api/debug/tables")
 async def get_debug_tables():
     """
@@ -1247,11 +1060,357 @@ async def get_debug_tables():
         return {"error": str(e), "tables": {}}
 
 
-@app.get("/events")
-async def get_events():
-    """Get all events from the data directory"""
+def _parse_event_from_email(email_data: dict) -> dict:
+    """
+    Parse an email to extract event information.
+    Returns event dict or None if not a valid event.
+    """
+    import re
+    from datetime import datetime
+    
+    subject = email_data.get('subject', '')
+    body = email_data.get('body', '')
+    sender = email_data.get('from', '')
+    email_date = email_data.get('date', '')
+    email_id = email_data.get('id', '')
+    
+    # Combine subject and body for parsing
+    full_text = f"{subject}\n{body}"
+    full_text_lower = full_text.lower()
+    
+    # Check if this looks like an event email
+    event_indicators = [
+        'event', 'program', 'activity', 'workshop', 'camp', 
+        'class', 'registration', 'sign up', 'rsvp', 'join us',
+        'invitation', 'schedule', 'session'
+    ]
+    
+    if not any(indicator in full_text_lower for indicator in event_indicators):
+        return None
+    
+    # Extract event name (use subject as default)
+    event_name = subject.strip()
+    
+    # Try to extract organization from sender
+    organization = ""
+    if '<' in sender and '>' in sender:
+        # Extract domain from email
+        email_match = re.search(r'<([^@]+@([^>]+))>', sender)
+        if email_match:
+            domain = email_match.group(2)
+            # Clean up domain to make it readable
+            organization = domain.replace('.com', '').replace('.org', '').replace('.edu', '').title()
+    else:
+        organization = sender.split('@')[1].split('.')[0].title() if '@' in sender else "Unknown"
+    
+    # Extract description (first substantial paragraph from body)
+    description = ""
+    body_lines = body.split('\n')
+    for line in body_lines:
+        if len(line.strip()) > 50 and not line.strip().startswith(('>', '|', '-', '*')):
+            description = line.strip()[:200]
+            break
+    
+    if not description:
+        description = body[:200].strip() if body else subject
+    
+    # Extract dates
+    date_info = ""
+    date_patterns = [
+        r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:,?\s+\d{4})?',
+        r'\d{1,2}/\d{1,2}/\d{2,4}',
+        r'\d{4}-\d{2}-\d{2}'
+    ]
+    
+    for pattern in date_patterns:
+        matches = re.findall(pattern, full_text_lower)
+        if matches:
+            date_info = matches[0].title()
+            break
+    
+    # Extract cost/pricing
+    cost = ""
+    price_patterns = [
+        r'\$\d+(?:\.\d{2})?(?:\s*(?:per|/)\s*\w+)?',
+        r'free',
+        r'no cost',
+        r'complimentary'
+    ]
+    
+    for pattern in price_patterns:
+        matches = re.findall(pattern, full_text_lower)
+        if matches:
+            if matches[0] in ['free', 'no cost', 'complimentary']:
+                cost = "Free"
+            else:
+                cost = matches[0]
+            break
+    
+    # Extract age range / target audience
+    target_audience = ""
+    age_patterns = [
+        r'ages?\s+[\d\-\+\s]+',
+        r'grades?\s+[k\d\-\+\s]+',
+        r'(?:elementary|middle|high)\s+school',
+        r'kindergarten|k-\d+'
+    ]
+    
+    for pattern in age_patterns:
+        matches = re.findall(pattern, full_text_lower, re.IGNORECASE)
+        if matches:
+            target_audience = matches[0].title()
+            break
+    
+    # Determine event type/category
+    event_type = "Event"
+    if 'camp' in full_text_lower:
+        event_type = "Camp"
+    elif any(word in full_text_lower for word in ['class', 'lesson', 'course']):
+        event_type = "Class"
+    elif any(word in full_text_lower for word in ['workshop', 'seminar']):
+        event_type = "Workshop"
+    elif any(word in full_text_lower for word in ['program', 'activity']):
+        event_type = "Program"
+    
+    return {
+        "id": f"email_{email_id}",
+        "name": event_name,
+        "organization": organization,
+        "description": description,
+        "target_audience": target_audience,
+        "date": date_info,
+        "cost": cost,
+        "type": event_type,
+        "source": "email"
+    }
+
+
+def _parse_student_report_from_email(email_data: dict, child_name: str) -> dict:
+    """
+    Parse a student report email to extract progress information.
+    Returns report dict or None if not a valid student report.
+    """
+    import re
+    from datetime import datetime
+    
+    subject = email_data.get('subject', '')
+    body = email_data.get('body', '')
+    sender = email_data.get('from', '')
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    import json
+    subject = email_data.get('subject', '')
+    body = email_data.get('body', '')
+    sender = email_data.get('from', '')
+    email_date = email_data.get('date', '')
+    email_id = email_data.get('id', '')
+
+    print(f"EMAIL BODY for REPORT PARSING:\n{body}\n{'-'*40}")
+
+    # Use TinyLlama LLM to extract fields
+    if phi_model is None or phi_tokenizer is None:
+        logger.error("TinyLlama model not loaded, cannot parse email")
+        llm_data = {
+            "subjects": [],
+            "overall_summary": "Model not available for parsing."
+        }
+    else:
+        try:
+            # Format prompt for TinyLlama chat model
+            system_prompt = "You are a helpful assistant that extracts information from student report emails and returns JSON."
+            
+            user_message = f"""Extract student report data from this email:
+
+Subject: {subject}
+Body: {body}
+
+Find:
+1. Subject name (Math, Reading, etc.)
+2. Expected lessons (look for "District Expectation: X Lessons")
+3. Completed lessons (look for "Completed this week: X")
+4. Performance notes
+
+Return JSON format:
+{{
+  "subjects": [{{
+    "name": "subject_name",
+    "expected_lessons": 0,
+    "completed_lessons": 0,
+    "performance": "text",
+    "summary": "text"
+  }}],
+  "overall_summary": "text"
+}}
+
+JSON:"""
+
+            # TinyLlama chat format
+            full_prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{user_message}</s>\n<|assistant|>\n"
+            
+            # Truncate input to manageable size for faster processing
+            inputs = phi_tokenizer(full_prompt, return_tensors="pt", max_length=2048, truncation=True)
+            inputs = {k: v.to(phi_model.device) for k, v in inputs.items()}
+            
+            # Use timeout to prevent hanging
+            import signal
+            from contextlib import contextmanager
+            
+            @contextmanager
+            def timeout_context(seconds):
+                def timeout_handler(signum, frame):
+                    raise TimeoutError(f"Model generation timeout after {seconds} seconds")
+                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(seconds)
+                try:
+                    yield
+                finally:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
+            
+            try:
+                with timeout_context(15):  # 15 second timeout for TinyLlama
+                    with torch.no_grad():
+                        outputs = phi_model.generate(
+                            **inputs,
+                            max_new_tokens=300,  # Reduced for faster processing
+                            temperature=0.7,
+                            do_sample=True,
+                            top_p=0.9,
+                            pad_token_id=phi_tokenizer.eos_token_id
+                        )
+                
+                response = phi_tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
+                logger.info(f"TinyLlama raw response for email {email_id}: {response[:500]}...")
+            except TimeoutError as te:
+                logger.warning(f"TinyLlama generation timeout for email {email_id}: {te}")
+                raise Exception("Model generation timeout - using fallback")
+            
+            # Extract JSON from response with multiple strategies
+            llm_data = None
+            
+            # Strategy 1: Try to find JSON in response
+            json_start = response.find('{')
+            json_end = response.rfind('}') + 1
+            if json_start != -1 and json_end > json_start:
+                json_str = response[json_start:json_end]
+                try:
+                    llm_data = json.loads(json_str)
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse JSON from TinyLlama response")
+            
+            # Strategy 2: Fallback to regex parsing if JSON extraction fails
+            if not llm_data or not llm_data.get('subjects'):
+                import re
+                logger.info(f"Using regex fallback for email {email_id}")
+                
+                subjects = []
+                # Look for subject patterns in body
+                subject_patterns = re.findall(r'(Math|Reading|Science|English|Social Studies)\s+Engagement', body, re.IGNORECASE)
+                
+                for subj_name in set(subject_patterns):
+                    # Extract expected lessons
+                    expected_match = re.search(r'District Expectation:\s*(\d+)\s*Lesson', body, re.IGNORECASE)
+                    expected = int(expected_match.group(1)) if expected_match else 0
+                    
+                    # Extract completed lessons
+                    completed_match = re.search(r'Completed this week:\s*(\d+)', body, re.IGNORECASE)
+                    completed = int(completed_match.group(1)) if completed_match else 0
+                    
+                    subjects.append({
+                        "name": subj_name.capitalize(),
+                        "expected_lessons": expected,
+                        "completed_lessons": completed,
+                        "performance": "See email for details",
+                        "summary": f"{subj_name} report"
+                    })
+                
+                llm_data = {
+                    "subjects": subjects,
+                    "overall_summary": "Extracted using regex fallback"
+                }
+            
+            if not llm_data:
+                llm_data = {
+                    "subjects": [],
+                    "overall_summary": "Could not extract data from response."
+                }
+            
+            print(f"TinyLlama extracted data for email {email_id}: {json.dumps(llm_data, indent=2)}")
+            
+        except Exception as e:
+            logger.error(f"TinyLlama extraction failed for email {email_id}: {e}")
+            llm_data = {
+                "subjects": [],
+                "overall_summary": f"Extraction failed: {str(e)}"
+            }
+            print(f"TinyLlama extraction failed for email {email_id}. Using fallback: {json.dumps(llm_data, indent=2)}")
+
+    # Use email received date (prioritize this over content-extracted dates)
+    report_date = email_date if email_date else "Date not available"
+    if report_date and report_date != "Date not available":
+        try:
+            from email.utils import parsedate_to_datetime
+            parsed_date = parsedate_to_datetime(report_date)
+            report_date = parsed_date.strftime("%B %d, %Y at %I:%M %p")
+        except Exception as e:
+            logger.debug(f"Could not parse date '{report_date}': {e}")
+            pass
+
+    # If subjects extracted, return one report per subject (Math, Reading, etc.)
+    reports = []
+    for subj in llm_data.get("subjects", []):
+        reports.append({
+            "id": f"student_report_{email_id}_{subj.get('name','General')}",
+            "child_name": child_name,
+            "report_type": "Student Report (LLM)",
+            "subject_area": subj.get("name", "General"),
+            "score": None,
+            "lessons_completed": subj.get("completed_lessons", 0),
+            "lessons_expected": subj.get("expected_lessons", 0),
+            "time_spent": None,
+            "performance": subj.get("performance", None),
+            "date": report_date,
+            "summary": subj.get("summary", subject),
+            "source": "email",
+            "email_subject": subject,
+            "subject": subject,
+            "sender": sender,
+            "email_body": body
+        })
+    # If no subjects, fallback to one report
+    if not reports:
+        reports.append({
+            "id": f"student_report_{email_id}",
+            "child_name": child_name,
+            "report_type": "Student Report (LLM)",
+            "subject_area": "General",
+            "score": None,
+            "lessons_completed": 0,
+            "lessons_expected": 0,
+            "time_spent": None,
+            "performance": None,
+            "date": report_date,
+            "summary": llm_data.get("overall_summary", subject),
+            "source": "email",
+            "email_subject": subject,
+            "subject": subject,
+            "sender": sender,
+            "email_body": body
+        })
+    # If called from batch, return list; if called from API, return first
+    return reports[0] if len(reports) == 1 else reports
+
+
+@app.get("/events/legacy")
+async def get_events_legacy():
+    """Legacy endpoint - kept for reference but disabled"""
     try:
         events = []
+        
+        # Check if data directory exists
+        if not os.path.exists(DATA_DIR):
+            logger.warning(f"⚠️ Data directory not found: {DATA_DIR}")
+            return {"events": [], "count": 0}
         
         for filename in os.listdir(DATA_DIR):
             if filename.endswith('.txt'):
@@ -1353,6 +1512,227 @@ async def get_events():
         raise HTTPException(status_code=500, detail=f"Error retrieving events: {str(e)}")
 
 
+@app.get("/events/email/{user_email}")
+async def get_email_events(user_email: str):
+    """Get events from user's Gmail inbox"""
+    try:
+        logger.info(f"📧 Fetching email events for user: {user_email}")
+        
+        # Get user's Gmail token from database
+        gmail_token_data = get_user_gmail_token(user_email)
+        if not gmail_token_data:
+            logger.warning(f"⚠️ No Gmail token for user: {user_email}")
+            return {"events": [], "count": 0, "message": "Gmail not connected. Please sign in with Gmail to enable event search."}
+        
+        # Extract the actual token string from the database row
+        if isinstance(gmail_token_data, dict):
+            gmail_token = gmail_token_data.get('token')
+        else:
+            gmail_token = gmail_token_data
+            
+        logger.info(f"✅ Found Gmail token for user: {user_email}")
+        
+        # Get user's selected schools to filter emails
+        user_schools = get_user_schools(user_email)
+        if not user_schools:
+            logger.warning(f"⚠️ No schools selected for user: {user_email}")
+            return {"events": [], "count": 0, "message": "No schools selected. Please select your schools first."}
+        
+        # Extract school email domains from selected schools
+        school_domains = []
+        for school in user_schools:
+            if school.get('email_suffix'):
+                school_domains.append(school['email_suffix'])
+        
+        if not school_domains:
+            logger.warning(f"⚠️ No school email domains found for user: {user_email}")
+            return {"events": [], "count": 0, "message": "School email domains not configured."}
+        
+        logger.info(f"📧 Filtering emails from school domains: {school_domains}")
+        
+        # Initialize Gmail client with user token
+        from app.tools.gmail_tool import GmailToolClient
+        gmail_client = GmailToolClient(user_token_data=gmail_token)
+        
+        # Set school domains filter - ONLY search emails from registered schools
+        gmail_client.set_email_suffixes(school_domains)
+        
+        # Test if Gmail service is accessible
+        service = gmail_client.get_gmail_service()
+        if not service:
+            logger.error(f"❌ Failed to get Gmail service for user: {user_email}")
+            return {"events": [], "count": 0, "message": "Gmail authentication failed. Please reconnect Gmail."}
+        
+        # Search for event-related emails from school domains only
+        # More specific keywords to avoid newsletters and tech news
+        search_query = "(event OR program OR camp OR workshop OR registration OR enrollment OR \"sign up\" OR rsvp)"
+        
+        logger.info(f"🔍 Searching Gmail with query: {search_query}")
+        logger.info(f"📊 Email suffixes set to: {gmail_client.email_suffixes} (empty = search all emails)")
+        
+        # Search emails and get structured data (limit to recent 50 for better results)
+        email_list = gmail_client.search_emails_structured(query=search_query, max_results=50)
+        
+        logger.info(f"📧 Gmail search returned {len(email_list)} emails")
+        
+        if not email_list:
+            logger.warning(f"⚠️ No email events found for {user_email} - Gmail search returned 0 results")
+            logger.info(f"🔍 Search query was: {search_query}")
+            return {
+                "events": [], 
+                "count": 0, 
+                "message": "No event-related emails found. The system searches for keywords like 'event', 'program', 'activity', 'workshop', 'camp', 'class', 'registration', etc."
+            }
+        
+        logger.info(f"📧 Found {len(email_list)} emails, parsing for events...")
+        
+        # Parse emails to extract event information
+        events = []
+        for email_data in email_list:
+            try:
+                # Extract event details from email
+                event = _parse_event_from_email(email_data)
+                if event:
+                    events.append(event)
+            except Exception as e:
+                logger.error(f"Error parsing email {email_data.get('id')}: {e}")
+                continue
+        
+        logger.info(f"✅ Parsed {len(events)} events from {len(email_list)} emails")
+        return {"events": events, "count": len(events)}
+        
+    except Exception as e:
+        logger.error(f"❌ Error retrieving email events: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error retrieving email events: {str(e)}")
+
+
+@app.get("/student/reports/{user_email}/{child_name}")
+async def get_student_reports(user_email: str, child_name: str):
+    """Get student reports for a specific child from user's Gmail inbox (school emails only)"""
+    try:
+        logger.info(f"📊 Fetching student reports for child '{child_name}' (user: {user_email})")
+        
+        # Get user's Gmail token from database
+        gmail_token_data = get_user_gmail_token(user_email)
+        if not gmail_token_data:
+            logger.warning(f"⚠️ No Gmail token for user: {user_email}")
+            return {"reports": [], "count": 0, "message": "Gmail not connected. Please sign in with Gmail to access reports."}
+        
+        # Extract the actual token string from the database row
+        if isinstance(gmail_token_data, dict):
+            gmail_token = gmail_token_data.get('token')
+        else:
+            gmail_token = gmail_token_data
+            
+        logger.info(f"✅ Found Gmail token for user: {user_email}")
+        
+        # Get user's selected schools to filter emails - CRITICAL: Only search school emails
+        user_schools = get_user_schools(user_email)
+        if not user_schools:
+            logger.warning(f"⚠️ No schools selected for user: {user_email}")
+            return {"reports": [], "count": 0, "message": "No schools selected. Please select your schools in settings first."}
+        
+        # Extract school email domains - ONLY these domains will be searched
+        school_domains = []
+        for school in user_schools:
+            if school.get('email_suffix'):
+                school_domains.append(school['email_suffix'])
+        
+        if not school_domains:
+            logger.warning(f"⚠️ No school email domains found for user: {user_email}")
+            return {"reports": [], "count": 0, "message": "School email domains not configured."}
+        
+        logger.info(f"📧 Searching ONLY school email domains: {school_domains}")
+        
+        # Initialize Gmail client with user token
+        from app.tools.gmail_tool import GmailToolClient
+        gmail_client = GmailToolClient(user_token_data=gmail_token)
+        
+        # Set email filters - this ensures ONLY school emails are searched
+        gmail_client.set_email_suffixes(school_domains)
+        
+        # Test if Gmail service is accessible
+        service = gmail_client.get_gmail_service()
+        if not service:
+            logger.error(f"❌ Failed to get Gmail service for user: {user_email}")
+            return {"reports": [], "count": 0, "message": "Gmail authentication failed. Please reconnect Gmail in settings."}
+        
+        # Search for "student report" emails with child's name - ONLY from school domains
+        # Using subject: filter to search specifically in email subject lines
+        search_query = f'subject:"student report" {child_name}'
+        logger.info(f"🔍 Searching Gmail with query: {search_query}")
+        logger.info(f"🏫 Filtering to school domains only: {', '.join(['@' + d for d in school_domains])}")
+        
+        email_list = gmail_client.search_emails_structured(
+            query=search_query,
+            max_results=100  # Increased to find more reports
+        )
+        
+        if not email_list:
+            logger.info(f"ℹ️ No student report emails found for {child_name}")
+            logger.info(f"💡 Tip: Make sure you have emails with 'student report' in the subject line from school addresses: {', '.join(['@' + d for d in school_domains])}")
+            return {
+                "reports": [],
+                "count": 0,
+                "message": f"No student reports found for {child_name}. The system searches for emails with 'student report' in the subject line from your registered school email addresses ({', '.join(['@' + d for d in school_domains])}). Make sure such emails exist in your inbox."
+            }
+        
+        logger.info(f"📧 Found {len(email_list)} student report emails, parsing for {child_name}...")
+        
+        # Parse emails to extract student report information
+        reports = []
+        for email_data in email_list:
+            try:
+                # Extract report details from email
+                report = _parse_student_report_from_email(email_data, child_name)
+                if report:
+                    reports.append(report)
+                    logger.info(f"✅ Parsed report from: {email_data.get('subject', 'Unknown')}")
+            except Exception as e:
+                logger.error(f"Error parsing student report email {email_data.get('id')}: {e}")
+                continue
+        
+        logger.info(f"✅ Successfully parsed {len(reports)} student reports from {len(email_list)} emails for {child_name}")
+        return {"reports": reports, "count": len(reports), "child_name": child_name}
+        
+    except Exception as e:
+        logger.error(f"❌ Error retrieving student reports: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error retrieving student reports: {str(e)}")
+
+
+@app.post("/test/phi3-extraction")
+async def test_phi3_extraction(request: dict):
+    """Test Phi-3 email extraction with sample data"""
+    try:
+        test_email = {
+            'subject': request.get('subject', 'Student Report - Math Engagement'),
+            'body': request.get('body', 'District Expectation: 2 Lessons\nCompleted this week: 0\nMath performance is good.'),
+            'from': request.get('from', 'school@example.com'),
+            'date': request.get('date', '2025-11-23T10:00:00Z'),
+            'id': request.get('id', 'test123')
+        }
+        
+        child_name = request.get('child_name', 'Test Child')
+        result = _parse_student_report_from_email(test_email, child_name)
+        
+        return {
+            "success": True,
+            "result": result,
+            "message": "Phi-3 extraction completed successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Phi-3 test extraction failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Phi-3 extraction failed"
+        }
+
 
 @app.post("/multi-agent-query")
 async def multi_agent_query_events(request: QueryRequest):
@@ -1363,6 +1743,7 @@ async def multi_agent_query_events(request: QueryRequest):
     logger.info("="*80)
     logger.info(f"📥 /multi-agent-query ENDPOINT")
     logger.info(f"Query: {request.question}")
+    logger.info(f"User Email: {request.user_email}")
     logger.info(f"Email Suffix (single): {request.email_suffix}")
     logger.info(f"Email Suffixes (multiple): {request.email_suffixes}")
     
@@ -1421,7 +1802,7 @@ async def multi_agent_query_events(request: QueryRequest):
         
         # Use the agent graph to process the query
         logger.info("🚀 Routing query through multi-agent system...")
-        result = query_with_agent(request.question)
+        result = query_with_agent(request.question, user_email=request.user_email)
         
         # Extract the response from messages
         if "messages" in result and len(result["messages"]) > 0:
@@ -1855,11 +2236,10 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
             # Store final response for evaluation
             final_response = None
             final_agent_name = None
-            final_result_counts = {}  # Store result counts by agent
             
             # Define callback to send updates via WebSocket
             async def send_update(agent_name: str, content: str, is_final: bool, tool_name: str = None, duration: float = None, result_count: int = None, tool_counts: dict = None):
-                nonlocal final_response, final_agent_name, final_result_counts
+                nonlocal final_response, final_agent_name
                 try:
                     message = {
                         "type": "final" if is_final else "update",
@@ -1872,19 +2252,12 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                     
                     if result_count is not None:
                         message["result_count"] = result_count
-                        # Store count for final message
-                        if agent_name not in ["system", "Combined Results"]:
-                            final_result_counts[agent_name] = result_count
                     
                     if is_final and duration:
                         message["response_time"] = round(duration, 2)
-                        # Use provided tool_counts or fallback to accumulated counts
-                        message["tool_result_counts"] = tool_counts if tool_counts is not None else final_result_counts
                         final_response = content
                         final_agent_name = agent_name
-                        logger.info(f"   📊 tool_counts parameter: {tool_counts}")
-                        logger.info(f"   📊 final_result_counts: {final_result_counts}")
-                        logger.info(f"   📊 Final message tool_result_counts: {message['tool_result_counts']}")
+                        logger.info(f"   📊 Total result count: {result_count}")
                     
                     await websocket.send_json(message)
                     logger.info(f"📤 Sent {'final' if is_final else 'update'} from {agent_name}" + (f" (count: {result_count})" if result_count is not None else ""))

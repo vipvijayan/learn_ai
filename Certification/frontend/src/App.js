@@ -1,18 +1,30 @@
-import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import logo from './assets/logo.png';
-import gmailIcon from './assets/gmail.png';
-import settingsIcon from './assets/settings.png';
-import bookmarksIcon from './assets/bookmarks.png';
-import chatIcon from './assets/chat.png';
-import eventsIcon from './assets/events.png';
-import timeIcon from './assets/time.png';
-import databaseIcon from './assets/database.png';
-import chatbotIcon from './assets/chatbot.png';
-import userIcon from './assets/user.png';
+import BookmarksContainer from './components/BookmarksContainer';
+import ComparisonInsights from './components/ComparisonInsights';
+import CopyToast from './components/CopyToast';
+import BookmarkToast from './components/BookmarkToast';
+import Header from './components/Header';
+import WelcomeMessage from './components/WelcomeMessage';
+import CopySuccessIcon from './components/CopySuccessIcon';
+import CopyIcon from './components/CopyIcon';
 import EventPopup from './components/EventPopup';
 import SchoolSelection from './components/SchoolSelection';
 import Login from './components/Login';
+import SplashScreen from './components/SplashScreen';
+import ChildrenInput from './components/ChildrenInput';
+import ErrorScreen from './components/ErrorScreen';
+import { User, Bot, Calendar, Clock, Database, Mail, Bookmark, Tent, Target, Drama, Activity, Palette, BookOpen, Users, DollarSign, Settings, MessageSquare, Trash2 } from 'lucide-react';
+import SettingsContainer from './components/SettingsContainer';
+import ComparisonResults from './components/ComparisonResults';
+import ComparisonHeader from './components/ComparisonHeader';
+import ChildTabContent from './components/ChildTabContent';
+import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
+import logo from './assets/logo.png';
+import {
+  formatResponseTime,
+  formatResponseText
+} from './utils';
+// ...existing imports...
 
 // Determine API URL based on LOCAL_MODE flag
 const isLocalMode = process.env.REACT_APP_LOCAL_MODE === 'true';
@@ -20,413 +32,12 @@ const API_BASE_URL = isLocalMode
   ? 'http://localhost:8000' 
   : (process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app');
 
-// Function to parse markdown bold syntax
-const parseMarkdown = (text) => {
-  const parts = [];
-  let lastIndex = 0;
-  const boldRegex = /\*\*(.+?)\*\*/g;
-  let match;
-  
-  while ((match = boldRegex.exec(text)) !== null) {
-    // Add text before the match
-    if (match.index > lastIndex) {
-      parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
-    }
-    // Add the bold text
-    parts.push({ type: 'bold', content: match[1] });
-    lastIndex = match.index + match[0].length;
-  }
-  
-  // Add remaining text
-  if (lastIndex < text.length) {
-    parts.push({ type: 'text', content: text.substring(lastIndex) });
-  }
-  
-  return parts.length > 0 ? parts : [{ type: 'text', content: text }];
-};
-
-// Function to detect and render URLs in text
-const renderTextWithLinks = (text, key) => {
-  // First handle markdown-style links: [text](url)
-  const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
-  // Then handle bare URLs that should be hidden
-  const bareUrlRegex = /\((https?:\/\/[^)]+)\)/g;
-  
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  
-  // Process markdown-style links first
-  const processedText = text.replace(markdownLinkRegex, (fullMatch, linkText, url) => {
-    return `__MARKDOWN_LINK__${linkText}__URL__${url}__END__`;
-  });
-  
-  // Now process the text with placeholders
-  const linkPlaceholderRegex = /__MARKDOWN_LINK__([^_]+)__URL__([^_]+)__END__/g;
-  
-  while ((match = linkPlaceholderRegex.exec(processedText)) !== null) {
-    // Add text before the link
-    if (match.index > lastIndex) {
-      const beforeText = processedText.substring(lastIndex, match.index);
-      // Remove any bare URLs in parentheses and "Link:" prefix from the before text
-      let cleanedBeforeText = beforeText.replace(bareUrlRegex, '');
-      // Remove "Link:" or "Link :" text that appears right before the link
-      cleanedBeforeText = cleanedBeforeText.replace(/Link\s*:\s*$/i, '');
-      if (cleanedBeforeText.trim()) {
-        parts.push(<span key={`text-${key}-${lastIndex}`}>{cleanedBeforeText}</span>);
-      }
-    }
-    // Add the clickable link with just the link text
-    parts.push(
-      <a 
-        key={`link-${key}-${match.index}`}
-        href={match[2]} 
-        target="_blank" 
-        rel="noopener noreferrer"
-        style={{ color: '#1976d2', textDecoration: 'underline', cursor: 'pointer' }}
-      >
-        {match[1]}
-      </a>
-    );
-    lastIndex = match.index + match[0].length;
-  }
-  
-  // Add remaining text and remove any bare URLs
-  if (lastIndex < processedText.length) {
-    const remainingText = processedText.substring(lastIndex);
-    const cleanedRemainingText = remainingText.replace(bareUrlRegex, '');
-    if (cleanedRemainingText) {
-      parts.push(<span key={`text-${key}-${lastIndex}`}>{cleanedRemainingText}</span>);
-    }
-  }
-  
-  return parts.length > 0 ? parts : text;
-};
-
-// Function to render text with markdown formatting
-const renderMarkdownText = (text, key) => {
-  const parts = parseMarkdown(text);
-  return (
-    <span key={key}>
-      {parts.map((part, i) => 
-        part.type === 'bold' ? (
-          <strong key={i}>{renderTextWithLinks(part.content, `${key}-${i}`)}</strong>
-        ) : (
-          <span key={i}>{renderTextWithLinks(part.content, `${key}-${i}`)}</span>
-        )
-      )}
-    </span>
-  );
-};
-
-// Function to format time in seconds to readable format
-const formatResponseTime = (seconds) => {
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}h: ${minutes}m: ${secs}s`;
-  } else {
-    return `${minutes}m: ${secs}s`;
-  }
-};
-
-// Function to format LLM response text into HTML
-const formatResponseText = (text) => {
-  if (!text) return '';
-  
-  // Split by single newlines first to handle headers properly
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-  const elements = [];
-  let currentParagraph = [];
-  let inEventBlock = false;
-  let eventBlockContent = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Skip intro lines that mention "found the following" or similar 
-    if (line.match(/(?:found the following|here (?:are|is)|based on)/i) && line.length < 150) {
-      continue;
-    }
-    
-    // Check if this line introduces an event (e.g., "...database: EventName")
-    const eventIntroMatch = line.match(/(?:database|search|inbox):\s+(.+)$/i);
-    if (eventIntroMatch && !inEventBlock) {
-      // Extract event title from the intro line
-      const eventTitle = eventIntroMatch[1].trim();
-      // Flush current paragraph
-      if (currentParagraph.length > 0) {
-        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-        currentParagraph = [];
-      }
-      inEventBlock = true;
-      eventBlockContent.push({ type: 'event-title', content: eventTitle, number: '' });
-      continue;
-    }
-    
-    // Check if this is an event title (numbered item that looks like a title)
-    const eventTitleMatch = line.match(/^(\d+)\.\s+(.+)$/);
-    if (eventTitleMatch && !line.includes(':') && line.length > 10) {
-      // This is likely an event title - start a new event block
-      if (inEventBlock && eventBlockContent.length > 0) {
-        // Save previous event block
-        elements.push({ type: 'event-block', content: eventBlockContent });
-        eventBlockContent = [];
-      }
-      inEventBlock = true;
-      eventBlockContent.push({ type: 'event-title', content: eventTitleMatch[2], number: eventTitleMatch[1] });
-      continue;
-    }
-    
-    // If we're in an event block, collect content
-    if (inEventBlock) {
-      // Check for field labels in bullet points or plain format
-      const fieldMatch = line.match(/^[•-]?\s*(Organizer|Type|Category|Registration|Call to Action|Contact Information|Website|Email|Phone|From|Summary|Key Details|Date|Location|Time|Description):\s*(.+)$/i);
-      if (fieldMatch) {
-        const label = fieldMatch[1];
-        const content = fieldMatch[2].trim();
-        eventBlockContent.push({ type: 'field', label, content });
-        continue;
-      }
-      
-      // Check if we're starting a new numbered item (next event)
-      if (line.match(/^\d+\.\s+/) && !line.includes(':') && line.length > 10) {
-        // Save current event block and start new one
-        if (eventBlockContent.length > 0) {
-          elements.push({ type: 'event-block', content: eventBlockContent });
-          eventBlockContent = [];
-        }
-        const match = line.match(/^(\d+)\.\s+(.+)$/);
-        eventBlockContent.push({ type: 'event-title', content: match[2], number: match[1] });
-        continue;
-      }
-      
-      // Check if this line signals end of event block (no colon, not a bullet, looks like regular text)
-      if (!line.startsWith('•') && !line.startsWith('-') && !line.match(/^\d+\./) && line.length > 20 && !line.match(/:/)) {
-        // End event block and add this as regular text
-        if (eventBlockContent.length > 0) {
-          elements.push({ type: 'event-block', content: eventBlockContent });
-          eventBlockContent = [];
-          inEventBlock = false;
-        }
-        currentParagraph.push(line);
-        continue;
-      }
-      
-      // Add other content to current event block (strip bullet if present)
-      const cleanLine = line.replace(/^[•-]\s*/, '');
-      if (cleanLine) {
-        eventBlockContent.push({ type: 'text', content: cleanLine });
-      }
-      continue;
-    }
-    
-    // Check for markdown headers
-    if (line.match(/^###\s+/)) {
-      // Flush current paragraph
-      if (currentParagraph.length > 0) {
-        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-        currentParagraph = [];
-      }
-      elements.push({ type: 'h3', content: line.replace(/^###\s+/, '') });
-    } else if (line.match(/^##\s+/)) {
-      if (currentParagraph.length > 0) {
-        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-        currentParagraph = [];
-      }
-      elements.push({ type: 'h2', content: line.replace(/^##\s+/, '') });
-    } else if (line.match(/^#\s+/)) {
-      if (currentParagraph.length > 0) {
-        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-        currentParagraph = [];
-      }
-      elements.push({ type: 'h1', content: line.replace(/^#\s+/, '') });
-    } else if (line.match(/^\d+\.\s+/)) {
-      // Numbered list (e.g., "1. ", "2. ")
-      if (currentParagraph.length > 0) {
-        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-        currentParagraph = [];
-      }
-      // Collect consecutive numbered items
-      const numberedItems = [line.replace(/^\d+\.\s*/, '')];
-      while (i + 1 < lines.length && lines[i + 1].match(/^\d+\.\s+/)) {
-        i++;
-        numberedItems.push(lines[i].replace(/^\d+\.\s*/, ''));
-      }
-      elements.push({ type: 'numbered-list', items: numberedItems });
-    } else if (line.startsWith('•') || line.startsWith('-')) {
-      // Bullet point
-      if (currentParagraph.length > 0) {
-        elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-        currentParagraph = [];
-      }
-      // Collect consecutive bullet points
-      const bulletItems = [line.replace(/^[•-]\s*/, '')];
-      while (i + 1 < lines.length && (lines[i + 1].startsWith('•') || lines[i + 1].startsWith('-'))) {
-        i++;
-        bulletItems.push(lines[i].replace(/^[•-]\s*/, ''));
-      }
-      elements.push({ type: 'list', items: bulletItems });
-    } else {
-      // Regular line - add to current paragraph
-      currentParagraph.push(line);
-    }
-  }
-  
-  // Flush remaining event block
-  if (inEventBlock && eventBlockContent.length > 0) {
-    elements.push({ type: 'event-block', content: eventBlockContent });
-  }
-  
-  // Flush remaining paragraph
-  if (currentParagraph.length > 0) {
-    elements.push({ type: 'paragraph', content: currentParagraph.join('\n') });
-  }
-  
-  // Render elements
-  return elements.map((element, idx) => {
-    switch (element.type) {
-      case 'event-block':
-        return <div key={idx} className="event-card" style={{
-          border: '2px solid #e3f2fd',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '16px',
-          backgroundColor: '#fafafa',
-          transition: 'all 0.3s ease'
-        }}>
-          {element.content.map((item, i) => {
-            if (item.type === 'event-title') {
-              return <h3 key={i} style={{
-                color: '#1976d2',
-                marginBottom: '16px',
-                fontSize: '1.3em',
-                fontWeight: '600',
-                borderBottom: '2px solid #e3f2fd',
-                paddingBottom: '12px'
-              }}>
-                {item.number}. {renderMarkdownText(item.content, i)}
-              </h3>;
-            } else if (item.type === 'field') {
-              return <div key={i} style={{
-                marginBottom: '12px',
-                paddingLeft: '8px',
-                borderLeft: '3px solid #90caf9'
-              }}>
-                <strong style={{ color: '#1565c0', fontSize: '0.95em' }}>{item.label}:</strong>
-                {' '}
-                <span style={{ color: '#424242' }}>{renderMarkdownText(item.content, i)}</span>
-              </div>;
-            } else if (item.type === 'text') {
-              return <p key={i} style={{ color: '#616161', lineHeight: '1.6', marginTop: '8px', marginBottom: '4px' }}>
-                {renderMarkdownText(item.content, i)}
-              </p>;
-            }
-            return null;
-          })}
-        </div>;
-      case 'h1':
-        return <h1 key={idx} className="response-header" style={{ fontSize: '1.6em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
-          {renderMarkdownText(element.content, idx)}
-        </h1>;
-      case 'h2':
-        return <h2 key={idx} className="response-header" style={{ fontSize: '1.4em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
-          {renderMarkdownText(element.content, idx)}
-        </h2>;
-      case 'h3':
-        // Replace emoji icons with actual icons in h3 headers
-        let h3Content = element.content;
-        const renderH3Content = () => {
-          // Check if this is an agent result header
-          if (h3Content.includes('Gmail Search Results')) {
-            return (
-              <>
-                <img src={gmailIcon} alt="" style={{width: '20px', height: '20px', marginRight: '8px', verticalAlign: 'middle'}} />
-                Gmail Search Results
-              </>
-            );
-          } else if (h3Content.includes('Local Database Results')) {
-            return (
-              <>
-                <img src={databaseIcon} alt="" style={{width: '20px', height: '20px', marginRight: '8px', verticalAlign: 'middle'}} />
-                Local Database Results
-              </>
-            );
-          } else if (h3Content.includes('Web Search Results')) {
-            return (
-              <>
-                🌐 Web Search Results
-              </>
-            );
-          }
-          return renderMarkdownText(element.content, idx);
-        };
-        
-        return <h3 key={idx} className="response-header" style={{ fontSize: '1.2em', fontWeight: 'bold', marginTop: '1em', marginBottom: '0.5em' }}>
-          {renderH3Content()}
-        </h3>;
-      case 'numbered-list':
-        return <ol key={idx} className="formatted-list" style={{ marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em' }}>
-          {element.items.map((item, i) => (
-            <li key={i}>{renderMarkdownText(item, i)}</li>
-          ))}
-        </ol>;
-      case 'list':
-        return <ul key={idx} className="formatted-list" style={{ marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em' }}>
-          {element.items.map((item, i) => (
-            <li key={i}>{renderMarkdownText(item, i)}</li>
-          ))}
-        </ul>;
-      case 'paragraph':
-        // Check if it's a header-like line (ends with :)
-        if (element.content.endsWith(':') && element.content.length < 50 && !element.content.includes('\n')) {
-          return <h4 key={idx} className="response-header" style={{ fontWeight: 'bold', marginTop: '0.8em', marginBottom: '0.3em' }}>
-            {renderMarkdownText(element.content, idx)}
-          </h4>;
-        }
-        return <p key={idx} className="response-text" style={{ marginBottom: '0.5em' }}>
-          {renderMarkdownText(element.content, idx)}
-        </p>;
-      default:
-        return null;
-    }
-  });
-};
-
 function App() {
-  // Icon mapping for agents
-  const getAgentIcon = (agentName) => {
-    const iconMap = {
-      'Gmail': gmailIcon,
-      'Local Database': databaseIcon,
-      'Web Search': '🌐' // keeping emoji for web search as no icon provided
-    };
-    return iconMap[agentName] || '📋';
-  };
-
-  const getAgentIconHtml = (agentName, size = '18px') => {
-    const icon = getAgentIcon(agentName);
-    if (typeof icon === 'string' && icon.startsWith('http')) {
-      return `<img src="${icon}" alt="${agentName}" style="width: ${size}; height: ${size}; vertical-align: middle; margin-right: 4px;" />`;
-    } else if (typeof icon === 'object') {
-      // It's an imported image - we need to use it differently in markdown
-      return agentName === 'Gmail' ? `<img src="${gmailIcon}" alt="${agentName}" style="width: ${size}; height: ${size}; vertical-align: middle; margin-right: 4px;" />` :
-             agentName === 'Local Database' ? `<img src="${databaseIcon}" alt="${agentName}" style="width: ${size}; height: ${size}; vertical-align: middle; margin-right: 4px;" />` :
-             '📋';
-    }
-    return icon; // Return emoji as is
-  };
-
   // Authentication state
   const [user, setUser] = useState(null); // Current logged-in user
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [needsSchoolSelection, setNeedsSchoolSelection] = useState(false);
+  const [needsChildrenInput, setNeedsChildrenInput] = useState(false);
   
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -437,27 +48,15 @@ function App() {
     original: null,
     naive: null
   });
-  // eslint-disable-next-line no-unused-vars
-  const [isComparing, setIsComparing] = useState(false);
   const [isRunningComparison, setIsRunningComparison] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [currentMethod, setCurrentMethod] = useState('naive');
   const messagesEndRef = useRef(null);
   const [events, setEvents] = useState([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  // eslint-disable-next-line no-unused-vars
-  const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [backendStatus, setBackendStatus] = useState('checking'); // 'checking', 'online', 'offline'
-  // eslint-disable-next-line no-unused-vars
-  const [backendError, setBackendError] = useState('');
   const [useWebSocket, setUseWebSocket] = useState(true); // Toggle for WebSocket vs HTTP
   const wsRef = useRef(null); // WebSocket connection reference
-  const [streamingMessage, setStreamingMessage] = useState(null); // Current streaming message
-  // eslint-disable-next-line no-unused-vars
-  const [schools, setSchools] = useState([]); // List of schools
-  // eslint-disable-next-line no-unused-vars
   const [selectedSchoolDistrict, setSelectedSchoolDistrict] = useState(null); // Selected school from localStorage
   const [showSchoolSelection, setShowSchoolSelection] = useState(false); // Show school selection screen (LEGACY - using auth system now)
   const [copiedMessageIndex, setCopiedMessageIndex] = useState(null); // Track which message was copied
@@ -467,6 +66,88 @@ function App() {
   const [bookmarkToastMessage, setBookmarkToastMessage] = useState(''); // Toast message text
   const [showGmailDisconnectConfirm, setShowGmailDisconnectConfirm] = useState(false); // Show Gmail disconnect confirmation
   const [showGmailDisconnectSuccess, setShowGmailDisconnectSuccess] = useState(false); // Show Gmail disconnect success message
+  const [childToDelete, setChildToDelete] = useState(null); // Track which child is being deleted for inline confirmation
+  const [currentAgentUpdate, setCurrentAgentUpdate] = useState(null); // Track current agent processing updates
+  const [studentReports, setStudentReports] = useState({}); // Store student reports by child name: {childName: reports[]}
+  const [loadingReports, setLoadingReports] = useState({}); // Track loading state per child: {childName: boolean}
+  const [expandedReports, setExpandedReports] = useState({}); // Track which report email contents are expanded: {reportId: boolean}
+
+  // Helper function to remove [Source: ...] prefix from content
+  const cleanContent = (content) => {
+    if (!content) return content;
+    // Remove [Source: ...] tag if present at the beginning
+    return content.replace(/^\[Source:\s*[^\]]+\]\s*/i, '').trim();
+  };
+
+  // Modular WebSocket message handler
+  const handleWebSocketMessage = (data) => {
+    switch (data.type) {
+      case 'status':
+        // Status messages are for logging/debugging only, don't display as chat bubbles
+        console.log('📊 Status:', data.content);
+        break;
+      case 'final': {
+        // Final combined message from backend - already formatted with all agent results
+        const cleanedContent = cleanContent(data.content);
+        console.log(`🎯 FINAL: Received pre-combined message from backend`);
+        console.log(`   Agent: ${data.agent}`);
+        console.log(`   Content length: ${cleanedContent.length} chars`);
+        console.log(`   Result count:`, data.result_count);
+        setMessages(prev => [...prev, {
+          type: 'assistant',
+          content: cleanedContent,
+          source: data.agent || 'Combined Results',
+          tool: data.tool,
+          responseTime: data.response_time || null,
+          evaluation: null,
+          resultCount: data.result_count || 0
+        }]);
+        setIsLoading(false);
+        setCurrentAgentUpdate(null); // Clear agent update when final response arrives
+        break;
+      }
+      // Uncomment and handle evaluation type if needed in future
+      // case 'evaluation': {
+      //   // Evaluation message received - update the last assistant message
+      //   console.log('📊 Evaluation received from WebSocket:', data.evaluation);
+      //   setMessages(prev => {
+      //     const newMessages = [...prev];
+      //     // Find the last assistant message and add evaluation
+      //     for (let i = newMessages.length - 1; i >= 0; i--) {
+      //       if (newMessages[i].type === 'assistant') {
+      //         newMessages[i] = {
+      //           ...newMessages[i],
+      //           evaluation: data.evaluation
+      //         };
+      //         break;
+      //       }
+      //     }
+      //     return newMessages;
+      //   });
+      //   break;
+      // }
+      case 'update':
+        // Update/progress messages from backend - show in UI
+        console.log('🔄 Update:', data.content, 'from', data.agent);
+        // Map agent names to user-friendly messages
+        const agentMessages = {
+          'Gmail': 'Searching your email...',
+          'Web Agent': 'Searching school websites...',
+          'Vector Store': 'Searching event database...',
+          'Combined Results': 'Combining results...'
+        };
+        setCurrentAgentUpdate({
+          agent: agentMessages[data.agent] || 'Processing your request...'
+        });
+        break;
+      case 'error':
+        setError(`❌ ${data.content}`);
+        setIsLoading(false);
+        break;
+      default:
+        console.warn('Unknown WebSocket message type:', data.type);
+    }
+  };
 
   // Check for existing session on mount
   useEffect(() => {
@@ -476,8 +157,12 @@ function App() {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         setIsAuthenticated(true);
+        // Check if user needs to add children (no children added yet)
+        if (!parsedUser.children || parsedUser.children.length === 0) {
+          setNeedsChildrenInput(true);
+        }
         // Check if user needs to select schools (no schools selected yet)
-        if (!parsedUser.schools || parsedUser.schools.length === 0) {
+        else if (!parsedUser.schools || parsedUser.schools.length === 0) {
           setNeedsSchoolSelection(true);
         }
       } catch (err) {
@@ -508,8 +193,35 @@ function App() {
     setIsAuthenticated(true);
     localStorage.setItem('user', JSON.stringify(userData));
     
+    // Check if user needs to add children (no children added yet)
+    if (!userData.children || userData.children.length === 0) {
+      setNeedsChildrenInput(true);
+    }
     // Check if user needs to select schools (no schools selected yet)
-    if (!userData.schools || userData.schools.length === 0) {
+    else if (!userData.schools || userData.schools.length === 0) {
+      setNeedsSchoolSelection(true);
+    }
+  };
+
+  // Handle children added
+  const handleChildrenAdded = (children) => {
+    const updatedUser = { ...user, children };
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setNeedsChildrenInput(false);
+    
+    // Move to school selection if needed
+    if (!updatedUser.schools || updatedUser.schools.length === 0) {
+      setNeedsSchoolSelection(true);
+    }
+  };
+  
+  // Handle skip children input
+  const handleSkipChildren = () => {
+    setNeedsChildrenInput(false);
+    
+    // Move to school selection if needed
+    if (!user.schools || user.schools.length === 0) {
       setNeedsSchoolSelection(true);
     }
   };
@@ -526,6 +238,7 @@ function App() {
     // Clear all state
     setUser(null);
     setIsAuthenticated(false);
+    setNeedsChildrenInput(false);
     setNeedsSchoolSelection(false);
     setMessages([]);
     setBookmarks([]);
@@ -537,48 +250,6 @@ function App() {
     setActiveTab('chat');
     
     console.log('User logged out, localStorage cleared');
-  };
-  
-  // Connect Gmail account
-  // eslint-disable-next-line no-unused-vars
-  const handleConnectGmail = async () => {
-    try {
-      // Get OAuth authorization URL
-      const response = await axios.get(`${API_BASE_URL}/api/auth/gmail/authorize`, {
-        params: { email: user.email }
-      });
-      
-      // Open OAuth popup
-      const authUrl = response.data.authorization_url;
-      const popup = window.open(authUrl, 'Gmail OAuth', 'width=600,height=700');
-      
-      // Poll for popup closure and refresh user data
-      const checkPopup = setInterval(async () => {
-        if (popup.closed) {
-          clearInterval(checkPopup);
-          
-          // Check Gmail connection status
-          const statusResponse = await axios.get(`${API_BASE_URL}/api/auth/gmail/status`, {
-            params: { email: user.email }
-          });
-          
-          if (statusResponse.data.connected) {
-            // Update user object with Gmail info
-            setUser({
-              ...user,
-              gmail_email: statusResponse.data.gmail_email,
-              gmail_name: statusResponse.data.gmail_name,
-              gmail_connected_at: statusResponse.data.connected_at
-            });
-            alert('Gmail connected successfully!');
-          }
-        }
-      }, 500);
-      
-    } catch (error) {
-      console.error('Error connecting Gmail:', error);
-      alert('Failed to connect Gmail. Please try again.');
-    }
   };
   
   // Disconnect Gmail account
@@ -620,6 +291,42 @@ function App() {
   // Cancel Gmail disconnect
   const cancelDisconnectGmail = () => {
     setShowGmailDisconnectConfirm(false);
+  };
+
+  // Show delete child confirmation
+  const handleDeleteChild = (childName) => {
+    setChildToDelete(childName);
+  };
+
+  // Cancel delete child
+  const cancelDeleteChild = () => {
+    setChildToDelete(null);
+  };
+
+  // Confirm delete child
+  const confirmDeleteChild = async () => {
+    if (!childToDelete) return;
+    
+    try {
+      await axios.delete(`${API_BASE_URL}/api/auth/delete-child/${encodeURIComponent(user.email)}/${encodeURIComponent(childToDelete)}`);
+      
+      // Update user object to remove the child
+      const updatedUser = {
+        ...user,
+        children: user.children.filter(child => child !== childToDelete)
+      };
+      setUser(updatedUser);
+      
+      // Update localStorage
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      // Clear the confirmation state
+      setChildToDelete(null);
+    } catch (error) {
+      console.error('Error deleting child:', error);
+      alert('Failed to delete child. Please try again.');
+      setChildToDelete(null);
+    }
   };
   
   // Copy message content to clipboard
@@ -743,11 +450,12 @@ function App() {
     const checkBackendHealth = async () => {
       try {
         const response = await axios.get(`${API_BASE_URL}/health`, {
-          timeout: 5000
+          timeout: 15000 // Increased timeout for backend startup
         });
         
         if (response.status === 200) {
           setBackendStatus('online');
+          console.log('✅ Backend is online');
           
           // Hide splash screen after 1 second if backend is online
           setTimeout(() => {
@@ -755,16 +463,12 @@ function App() {
           }, 1000);
         }
       } catch (err) {
-        console.error('Backend health check failed:', err);
+        console.warn('⚠️ Backend health check failed, but continuing:', err.message);
         setBackendStatus('offline');
-        
-        if (err.code === 'ECONNABORTED') {
-          setBackendError('Connection timeout - Backend server is not responding');
-        } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-          setBackendError(`Backend server is not running on ${API_BASE_URL}`);
-        } else {
-          setBackendError(`Backend error: ${err.message}`);
-        }
+        // Still hide splash screen so app can load
+        setTimeout(() => {
+          setShowSplash(false);
+        }, 2000);
       }
     };
     
@@ -779,37 +483,119 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
-  // Fetch events on component mount
+  // Fetch student reports for a specific child
+  const fetchStudentReports = async (userEmail, childName) => {
+    try {
+      console.log('Fetching student reports for:', childName);
+      setLoadingReports(prev => ({ ...prev, [childName]: true }));
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/student/reports/${encodeURIComponent(userEmail)}/${encodeURIComponent(childName)}`,
+        { timeout: 300000 } // 5 minutes timeout for LLM processing
+      );
+      
+      if (response.data.message) {
+        console.log(`ℹ️ ${response.data.message}`);
+      }
+      
+      if (response.data.reports && response.data.reports.length > 0) {
+        console.log(`✅ Loaded ${response.data.reports.length} student reports for ${childName}`);
+        setStudentReports(prev => ({ ...prev, [childName]: response.data.reports }));
+        return response.data.reports;
+      } else {
+        console.log(`ℹ️ No student reports found for ${childName}`);
+        setStudentReports(prev => ({ ...prev, [childName]: [] }));
+        return [];
+      }
+    } catch (err) {
+      if (err.code === 'ECONNABORTED' || err.name === 'CanceledError') {
+        console.warn(`⚠️ Student reports fetch timed out for ${childName}`);
+      } else {
+        console.warn(`⚠️ Could not fetch student reports for ${childName}:`, err.message);
+      }
+      setStudentReports(prev => ({ ...prev, [childName]: [] }));
+      return [];
+    } finally {
+      setLoadingReports(prev => ({ ...prev, [childName]: false }));
+    }
+  };
+
+  // Fetch email events for the logged-in user
+  const fetchEmailEvents = async (userEmail) => {
+    try {
+      console.log('Fetching email events for:', userEmail);
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/events/email/${encodeURIComponent(userEmail)}`,
+        { 
+          timeout: 15000 // 15 second timeout
+        }
+      );
+      
+      if (response.data.message) {
+        console.log(`ℹ️ ${response.data.message}`);
+      }
+      
+      if (response.data.events && response.data.events.length > 0) {
+        console.log(`✅ Loaded ${response.data.events.length} events from email`);
+        return response.data.events;
+      } else {
+        console.log('ℹ️ No email events found. Make sure you have event-related emails in your inbox.');
+        return [];
+      }
+    } catch (err) {
+      if (err.code === 'ECONNABORTED' || err.name === 'CanceledError') {
+        console.warn('⚠️ Email event fetch timed out - continuing without events');
+      } else if (err.code === 'ERR_CANCELED') {
+        console.warn('⚠️ Email event fetch was cancelled');
+      } else {
+        console.warn('⚠️ Could not fetch email events:', err.message);
+      }
+      return [];
+    }
+  };
+
+  // Fetch events on component mount (non-blocking)
   useEffect(() => {
+    // Don't block app startup - fetch events in background
+    if (!user || !user.email) {
+      console.log('ℹ️ No user logged in, skipping email events fetch');
+      setIsLoadingEvents(false);
+      return;
+    }
+
     const fetchEvents = async () => {
       try {
         setIsLoadingEvents(true);
-        const response = await axios.get(`${API_BASE_URL}/events`);
-        setEvents(response.data.events);
+        console.log('📧 Fetching email events in background...');
+        
+        // Fetch email events asynchronously without blocking
+        const emailEvents = await fetchEmailEvents(user.email);
+        
+        if (emailEvents && emailEvents.length > 0) {
+          console.log(`✅ Loaded ${emailEvents.length} events from email`);
+          setEvents(emailEvents);
+        } else {
+          console.log('ℹ️ No events found in email');
+          setEvents([]);
+        }
       } catch (err) {
         console.error('Error fetching events:', err);
+        setEvents([]); // Set empty array on error
       } finally {
         setIsLoadingEvents(false);
       }
     };
 
-    fetchEvents();
-  }, []);
+    // Use setTimeout to ensure app renders first, then fetch events
+    const timeoutId = setTimeout(() => {
+      fetchEvents();
+    }, 100); // Small delay to let UI render first
 
-  // Fetch schools on component mount
-  useEffect(() => {
-    const fetchSchools = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/schools`);
-        setSchools(response.data.schools);
-        console.log('Schools loaded:', response.data.schools);
-      } catch (err) {
-        console.error('Error fetching schools:', err);
-      }
-    };
+    return () => clearTimeout(timeoutId);
+  }, [user]); // Re-fetch when user changes
 
-    fetchSchools();
-  }, []);
+
 
   const handleShowEventDetails = (event, e) => {
     e.stopPropagation(); // Prevent event card click
@@ -834,9 +620,6 @@ function App() {
     setInputValue(query);
   };
 
-  // Store accumulated agent responses for combining using useRef for immediate access
-  const accumulatedResponsesRef = React.useRef({});
-  
   const sendMessageWithWebSocket = (userMessage) => {
     // Create WebSocket connection if not exists
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -845,9 +628,6 @@ function App() {
       
       ws.onopen = () => {
         console.log('🔌 WebSocket connected');
-        
-        // Reset accumulated responses for new query
-        accumulatedResponsesRef.current = {};
         
         // Extract email suffixes and district names from all selected schools
         const email_suffixes = user?.schools?.map(s => s.email_suffix).filter(Boolean) || [];
@@ -875,248 +655,17 @@ function App() {
           email_suffix: selectedSchoolDistrict?.email_suffix || (email_suffixes.length > 0 ? email_suffixes[0] : null),
           school_district: selectedSchoolDistrict?.district || (school_districts.length > 0 ? school_districts[0] : null)
         }));
-        
-        // Initialize streaming message with initial status
-        setStreamingMessage({
-          type: 'assistant',
-          content: '🔍 Starting search...',
-          source: 'System',
-          isStreaming: true
-        });
       };
       
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log('📨 WebSocket message:', data);
-        
-        // Helper function to remove [Source: ...] prefix from content
-        const cleanContent = (content) => {
-          if (!content) return content;
-          // Remove [Source: ...] tag if present at the beginning
-          return content.replace(/^\[Source:\s*[^\]]+\]\s*/i, '').trim();
-        };
-        
-        if (data.type === 'status') {
-          // Show status update
-          setStreamingMessage(prev => ({
-            ...prev,
-            content: cleanContent(data.content),
-            source: 'System',
-            tool: data.tool
-          }));
-        } else if (data.type === 'update') {
-          // Accumulate agent responses - collect from each agent
-          const cleanedContent = cleanContent(data.content);
-          
-          // Store this agent's response in ref for immediate access
-          accumulatedResponsesRef.current[data.agent] = {
-            content: cleanedContent,
-            agent: data.agent,
-            tool: data.tool
-          };
-          
-          console.log(`📊 Accumulated responses from: ${Object.keys(accumulatedResponsesRef.current).join(', ')}`);
-          console.log(`   ${data.agent}: ${cleanedContent.substring(0, 100)}...`);
-          
-          // Combine all accumulated responses for streaming display
-          const currentResponses = Object.values(accumulatedResponsesRef.current);
-          let streamingContent = '';
-          
-          if (currentResponses.length > 1) {
-            // Multiple agents have responded - show all of them
-            currentResponses.forEach((resp, index) => {
-              const agentIcon = {
-                'Gmail': '📧',
-                'Local Database': '💾',
-                'Web Search': '🌐'
-              }[resp.agent] || '📋';
-              
-              const agentTitle = {
-                'Gmail': 'Gmail Search Results',
-                'Local Database': 'Local Database Results',
-                'Web Search': 'Web Search Results'
-              }[resp.agent] || resp.agent;
-              
-              streamingContent += `### ${agentIcon} ${agentTitle}\n\n`;
-              // Ensure content starts fresh on a new line
-              const content = resp.content.trim();
-              streamingContent += content;
-              
-              if (index < currentResponses.length - 1) {
-                streamingContent += '\n\n---\n\n';
-              }
-            });
-          } else {
-            // Only one agent has responded so far
-            streamingContent = cleanedContent;
-          }
-          
-          // Show all accumulated responses in streaming message
-          setStreamingMessage(prev => ({
-            ...prev,
-            content: streamingContent,
-            source: currentResponses.length > 1 ? 'Multiple Sources' : data.agent,
-            tool: data.tool,
-            isStreaming: true
-          }));
-        } else if (data.type === 'final') {
-          // Final message received - combine all accumulated agent responses
-          const cleanedContent = cleanContent(data.content);
-          
-          // Use tool_result_counts from backend if available, otherwise calculate from accumulated responses
-          let toolResultCounts = data.tool_result_counts || {};
-          
-          console.log(`🎯 FINAL: Backend provided counts:`, toolResultCounts);
-          
-          // Get all agent responses that were collected
-          const allResponses = Object.values(accumulatedResponsesRef.current);
-          
-          console.log(`🎯 FINAL: Combining ${allResponses.length} agent responses into final message`);
-          allResponses.forEach((resp, i) => {
-            console.log(`   Response ${i+1}: ${resp.agent} (${resp.content.length} chars)`);
-          });
-          
-          // Helper function to check if a response indicates no results
-          const hasNoResults = (content) => {
-            if (!content) return true;
-            const lowerContent = content.toLowerCase();
-            return (
-              lowerContent.includes('i could not find') ||
-              lowerContent.includes("i couldn't find") ||
-              lowerContent.includes('could not find') ||
-              lowerContent.includes("couldn't find") ||
-              lowerContent.includes('no relevant') ||
-              lowerContent.includes('no results') ||
-              lowerContent.includes('found 0') ||
-              lowerContent.includes('found no') ||
-              lowerContent.includes('did not find') ||
-              lowerContent.includes("didn't find") ||
-              lowerContent.includes('unable to find') ||
-              lowerContent.includes('no events') ||
-              lowerContent.includes('no emails') ||
-              lowerContent.includes('nothing found') ||
-              lowerContent.includes('i don\'t have') ||
-              lowerContent.includes('i do not have') ||
-              lowerContent.includes('no information') ||
-              lowerContent.includes('no data') ||
-              (content.trim().length < 50 && lowerContent.includes('no'))
-            );
-          };
-          
-          let combinedContent = '';
-          
-          if (allResponses.length > 1) {
-            // Multiple agents - combine their results
-            // Filter out system messages and empty/no-result responses
-            const meaningfulResponses = allResponses.filter(resp => 
-              resp.agent !== 'system' && 
-              resp.agent !== 'System' &&
-              !resp.content.includes('Compiling final') &&
-              !resp.content.includes('All sources searched') &&
-              !hasNoResults(resp.content) // Filter out empty results
-            );
-            
-            if (meaningfulResponses.length > 1) {
-              combinedContent = '';
-              
-              meaningfulResponses.forEach((resp, index) => {
-                console.log(`📝 Processing response ${index + 1}/${meaningfulResponses.length}: Agent="${resp.agent}", Content length=${resp.content.length}`);
-                
-                const agentIcon = {
-                  'Gmail': '📧',
-                  'Local Database': '💾',
-                  'Web Search': '🌐'
-                }[resp.agent] || '📋';
-                
-                const agentTitle = {
-                  'Gmail': 'Gmail Search Results',
-                  'Local Database': 'Local Database Results',
-                  'Web Search': 'Web Search Results'
-                }[resp.agent] || resp.agent;
-                
-                // Add organized section header with title
-                combinedContent += `### ${agentIcon} ${agentTitle}\n\n`;
-                // Ensure content starts fresh on a new line
-                const content = resp.content.trim();
-                combinedContent += content;
-                
-                if (index < meaningfulResponses.length - 1) {
-                  combinedContent += '\n\n---\n\n';
-                }
-              });
-              console.log(`✅ Created combined content from ${meaningfulResponses.length} sources: ${combinedContent.length} chars`);
-              console.log(`📊 Tool Result Counts from backend:`, toolResultCounts);
-            } else if (meaningfulResponses.length === 1) {
-              combinedContent = meaningfulResponses[0].content;
-              console.log(`✅ Single meaningful response from ${meaningfulResponses[0].agent}`);
-            } else {
-              // All agents returned no results - use the final message if it has content
-              if (!hasNoResults(cleanedContent)) {
-                combinedContent = cleanedContent;
-                console.log(`⚠️ No meaningful agent responses, using final message content`);
-              } else {
-                combinedContent = 'I apologize, but I could not find any relevant information from the available sources.';
-                console.log(`⚠️ All sources returned no results`);
-              }
-            }
-          } else if (allResponses.length === 1) {
-            // Single agent response - check if it has results
-            if (!hasNoResults(allResponses[0].content)) {
-              combinedContent = allResponses[0].content;
-              console.log(`✅ Single agent response from ${allResponses[0].agent}`);
-            } else {
-              combinedContent = 'I apologize, but I could not find any relevant information from the available sources.';
-              console.log(`⚠️ Single agent returned no results`);
-            }
-          } else {
-            // Fallback to the final message content
-            combinedContent = cleanedContent;
-            console.log(`⚠️ No accumulated responses, using final message content`);
-          }
-          
-          setMessages(prev => [...prev, {
-            type: 'assistant',
-            content: combinedContent,
-            source: allResponses.length > 1 ? 'Multiple Sources' : data.agent,
-            tool: data.tool,
-            responseTime: data.response_time,
-            evaluation: null, // Will be updated when evaluation arrives
-            toolResultCounts: toolResultCounts // Use counts from backend
-          }]);
-          
-          // Clear accumulated responses for next query
-          accumulatedResponsesRef.current = {};
-          
-          setStreamingMessage(null);
-          setIsLoading(false);
-        } else if (data.type === 'evaluation') {
-          // Evaluation message received - update the last assistant message
-          console.log('📊 Evaluation received from WebSocket:', data.evaluation);
-          setMessages(prev => {
-            const newMessages = [...prev];
-            // Find the last assistant message and add evaluation
-            for (let i = newMessages.length - 1; i >= 0; i--) {
-              if (newMessages[i].type === 'assistant') {
-                newMessages[i] = {
-                  ...newMessages[i],
-                  evaluation: data.evaluation
-                };
-                break;
-              }
-            }
-            return newMessages;
-          });
-        } else if (data.type === 'error') {
-          setError(`❌ ${data.content}`);
-          setStreamingMessage(null);
-          setIsLoading(false);
-        }
+        handleWebSocketMessage(data);
       };
       
       ws.onerror = (error) => {
         console.error('❌ WebSocket error:', error);
         setError('❌ WebSocket connection error');
-        setStreamingMessage(null);
         setIsLoading(false);
       };
       
@@ -1129,14 +678,6 @@ function App() {
     } else {
       // WebSocket already open, send message
       wsRef.current.send(JSON.stringify({ question: userMessage }));
-      
-      // Initialize streaming message with initial status
-      setStreamingMessage({
-        type: 'assistant',
-        content: '🔍 Starting search...',
-        source: 'System',
-        isStreaming: true
-      });
     }
   };
 
@@ -1284,66 +825,28 @@ function App() {
     }
   };
 
-  // eslint-disable-next-line no-unused-vars
-  const handleComparisonTabClick = () => {
-    setActiveTab('comparison');
-    // Auto-run comparison when tab is clicked
-    if (!isRunningComparison && (!comparisonResults.original || !comparisonResults.naive)) {
-      runComparison();
-    }
-  };
-
   // Error screen if backend is offline
   if (backendStatus === 'offline') {
-    return (
-      <div className="splash-screen error-screen">
-        <div className="splash-content">
-          <div className="error-icon">⚠️</div>
-          <h1 className="splash-title error-title">Server Unavailable</h1>
-          <p className="error-message">Unable to connect to the server.</p>
-          <button 
-            className="retry-button"
-            onClick={() => window.location.reload()}
-          >
-            Retry Connection
-          </button>
-        </div>
-      </div>
-    );
+    return <ErrorScreen />;
   }
 
   // Splash screen
   if (showSplash) {
-    return (
-      <div className="splash-screen">
-        <div className="splash-content">
-          <img src={logo} alt="School Assistant" className="splash-icon" />
-          <h1 className="splash-title">School Assistant</h1>
-          <div className="splash-loader">
-            <div className="loader-dot"></div>
-            <div className="loader-dot"></div>
-            <div className="loader-dot"></div>
-          </div>
-        </div>
-        <div className="backend-status">
-          {backendStatus === 'checking' && (
-            <span className="status-checking">
-              🔍 Checking backend...
-            </span>
-          )}
-          {backendStatus === 'online' && (
-            <span className="status-online">
-              ✅ Backend connected
-            </span>
-          )}
-        </div>
-      </div>
-    );
+    return <SplashScreen backendStatus={backendStatus} />;
   }
 
   // Show login if not authenticated
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show children input if user hasn't added children yet
+  if (needsChildrenInput) {
+    return <ChildrenInput 
+      email={user?.email} 
+      onChildrenAdded={handleChildrenAdded} 
+      onSkip={handleSkipChildren} 
+    />;
   }
 
   // Show school selection if user hasn't selected a school
@@ -1361,51 +864,19 @@ function App() {
   return (
     <div className="app">
       {/* Copy Toast Notification */}
-      {showCopyToast && (
-        <div className="copy-toast">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span>Copied to clipboard!</span>
-        </div>
-      )}
+      {showCopyToast && <CopyToast />}
 
       {/* Bookmark Toast Notification */}
-      {showBookmarkToast && (
-        <div className="copy-toast" style={{ backgroundColor: '#4caf50' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-          </svg>
-          <span>{bookmarkToastMessage}</span>
-        </div>
-      )}
+      {showBookmarkToast && <BookmarkToast message={bookmarkToastMessage} />}
 
-      <div className="header">
-        <div 
-          onClick={() => {
-            console.log('School icon clicked!');
-            console.log('Current state - isAuthenticated:', isAuthenticated, 'needsSchoolSelection:', needsSchoolSelection, 'user:', user);
-            setNeedsSchoolSelection(true);
-            console.log('Set needsSchoolSelection to true');
-          }}
-          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-          title="Change school"
-        >
-          <img src={logo} alt="School Assistant" className="header-icon" />
-        </div>
-        <h1>School Assistant</h1>
-        {selectedSchoolDistrict && (
-          <div 
-            className="selected-school-badge"
-            onClick={() => {
-              setNeedsSchoolSelection(true);
-            }}
-            title="Click to change school"
-          >
-            📍 {selectedSchoolDistrict.district}
-          </div>
-        )}
-      </div>
+      <Header 
+        logo={logo}
+        selectedSchoolDistrict={selectedSchoolDistrict}
+        setNeedsSchoolSelection={setNeedsSchoolSelection}
+        isAuthenticated={isAuthenticated}
+        needsSchoolSelection={needsSchoolSelection}
+        user={user}
+      />
 
       {/* Main content area with sidebar and content */}
       <div className="main-content">
@@ -1415,38 +886,45 @@ function App() {
             className={`tab ${activeTab === 'events' ? 'active' : ''}`}
             onClick={() => setActiveTab('events')}
           >
-            🎪&nbsp;&nbsp;Events
+            <Calendar size={18} />&nbsp;&nbsp;Events
           </button>
           <button 
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
-            💬&nbsp;&nbsp;Chat
+            <MessageSquare size={18} />&nbsp;&nbsp;Chat
           </button>
           <button 
             className={`tab ${activeTab === 'bookmarks' ? 'active' : ''}`}
             onClick={() => setActiveTab('bookmarks')}
           >
-            🔖&nbsp;&nbsp;Bookmarks
+            <Bookmark size={18} />&nbsp;&nbsp;Bookmarks
           </button>
-          {/* RAGAS Evaluation now happens automatically for each response */}
-          {/* <button 
-            className={`tab ${activeTab === 'evaluation' ? 'active' : ''}`}
-            onClick={handleEvaluationTabClick}
-          >
-            📊&nbsp;&nbsp;RAGAS Evaluation
-          </button> */}
-          {/* <button 
-            className={`tab ${activeTab === 'comparison' ? 'active' : ''}`}
-            onClick={handleComparisonTabClick}
-          >
-            📈&nbsp;&nbsp;Method Comparison
-          </button> */}
+          {/* Render child tabs above settings tab */}
+          {user && user.children && user.children.length > 0 && (() => {
+            console.log('User object:', user);
+            console.log('User.children:', user.children);
+            return user.children.map((child, idx) => {
+              const childName = child ||  `Child ${idx + 1}`;
+              return (
+                <button
+                  key={`child-tab-${childName}-${idx}`}
+                  className={`tab ${activeTab === `child-${childName}` ? 'active' : ''}`}
+                  onClick={() => {
+                    console.log('Clicked child tab:', childName);
+                    setActiveTab(`child-${childName}`);
+                  }}
+                >
+                  <Users size={18} />&nbsp;&nbsp;{childName}
+                </button>
+              );
+            });
+          })()}
           <button 
             className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('settings')}
           >
-            ⚙️&nbsp;&nbsp;Settings
+            <Settings size={18} />&nbsp;&nbsp;Settings
           </button>
         </div>
 
@@ -1470,11 +948,11 @@ function App() {
                     >
                       <div className="event-header">
                         <div className="event-icon">
-                          {event.type.includes('Camp') ? '🏕️' : 
-                           event.type.includes('Challenge') ? '🎯' : 
-                           event.type.includes('Audition') ? '🎭' :
-                           event.type.includes('Clinic') ? '⚽' :
-                           event.type.includes('Art') ? '🎨' : '📚'}
+                          {event.type.includes('Camp') ? <Tent size={24} /> : 
+                           event.type.includes('Challenge') ? <Target size={24} /> : 
+                           event.type.includes('Audition') ? <Drama size={24} /> :
+                           event.type.includes('Clinic') ? <Activity size={24} /> :
+                           event.type.includes('Art') ? <Palette size={24} /> : <BookOpen size={24} />}
                         </div>
                         <h3 className="event-name">{event.name}</h3>
                       </div>
@@ -1489,7 +967,7 @@ function App() {
                       <div className="event-details">
                         {event.target_audience && (
                           <div className="event-detail">
-                            <span className="detail-icon">👥</span>
+                            <span className="detail-icon"><Users size={16} /></span>
                             <span>{event.target_audience}</span>
                           </div>
                         )}
@@ -1498,14 +976,14 @@ function App() {
                             {event.date && (
                               <div className="event-detail">
                                 <span className="detail-icon">
-                                  <img src={eventsIcon} alt="" style={{width: '14px', height: '14px', verticalAlign: 'middle'}} />
+                                  <Calendar size={16} />
                                 </span>
                                 <span>{event.date}</span>
                               </div>
                             )}
                             {event.cost && (
                               <div className="event-detail">
-                                <span className="detail-icon">💰</span>
+                                <span className="detail-icon"><DollarSign size={16} /></span>
                                 <span className="event-cost">{event.cost}</span>
                               </div>
                             )}
@@ -1536,26 +1014,16 @@ function App() {
                 )}
 
           {messages.length === 0 && (
-            <div className="welcome-message">
-              <strong>Welcome to School Assistant! 🏫</strong>
-              <br /><br />
-              Ask me about school events, programs, and activities. Here are some examples:
-              <br /><br />
-              • "What coding programs are available?"
-              <br />
-              • "Tell me about holiday day camps"
-              <br />
-              • "What activities are there for middle school students?"
-            </div>
+            <WelcomeMessage />
           )}
 
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.type}`}>
               <div className="message-icon">
                 {message.type === 'user' ? (
-                  <img src={userIcon} alt="User" style={{width: '32px', height: '32px'}} />
+                  <User size={24} className="message-icon-user" />
                 ) : (
-                  <img src={chatbotIcon} alt="Assistant" style={{width: '32px', height: '32px', backgroundColor: 'white', borderRadius: '50%', padding: '2px'}} />
+                  <Bot size={24} className="message-icon-assistant" />
                 )}
               </div>
               <div className="message-content">
@@ -1568,54 +1036,25 @@ function App() {
                 
                 {/* All metadata in one line */}
                 {message.type === 'assistant' && message.source && (
-                  <div style={{ 
-                    marginTop: '12px',
-                    paddingTop: '8px',
-                    borderTop: '1px solid #e0e0e0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                    fontSize: '0.8em'
-                  }}>
-                    {/* Left side: Result counts and Evaluation status */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#666' }}>
-                      {message.toolResultCounts && Object.keys(message.toolResultCounts).length > 0 && (
-                        <>
-                          {Object.entries(message.toolResultCounts).map(([tool, count]) => {
-                            const toolConfig = {
-                              'Gmail': { icon: gmailIcon, label: 'Gmail', isImage: true },
-                              'Local Database': { icon: databaseIcon, label: 'Local', isImage: true },
-                              'Web Search': { icon: '🌐', label: 'Web', isImage: false }
-                            };
-                            const config = toolConfig[tool] || { icon: '📋', label: tool, isImage: false };
-                            
-                            return (
-                              <span key={tool} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {config.isImage ? (
-                                  <img src={config.icon} alt="" style={{width: '14px', height: '14px'}} />
-                                ) : (
-                                  config.icon
-                                )}
-                                {' '}{config.label}: {count}
-                              </span>
-                            );
-                          })}
-                        </>
+                  <div className="assistant-metadata-row">
+                    {/* Left side: Total result count and Evaluation status */}
+                    <div className="assistant-metadata-left">
+                      {message.resultCount > 0 && (
+                        <span className="assistant-metadata-results">
+                          📊 Results: {message.resultCount}
+                        </span>
                       )}
                       {message.evaluation && message.evaluation.status === 'completed' && (
-                        <span style={{ color: '#4caf50' }}>
+                        <span className="assistant-metadata-evaluated">
                           ✓ Evaluated
                         </span>
                       )}
                     </div>
-                    
                     {/* Right side: Response Time, Copy, Bookmark */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="assistant-metadata-right">
                       {message.responseTime && (
-                        <span style={{ color: '#666', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <img src={timeIcon} alt="" style={{width: '14px', height: '14px'}} />
+                        <span className="assistant-metadata-time">
+                          <Clock size={14} />
                           {formatResponseTime(message.responseTime)}
                         </span>
                       )}
@@ -1623,17 +1062,6 @@ function App() {
                         className="copy-button"
                         onClick={() => copyToClipboard(message.content, index)}
                         title="Copy message"
-                        style={{
-                          position: 'relative',
-                          right: 'auto',
-                          top: 'auto',
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '4px',
-                          opacity: 0.6,
-                          transition: 'opacity 0.2s'
-                        }}
                       >
                         {copiedMessageIndex === index ? (
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1647,20 +1075,9 @@ function App() {
                         )}
                       </button>
                       <button 
-                        className="bookmark-button"
+                        className={`bookmark-button${isMessageBookmarked(message) ? ' bookmarked' : ''}`}
                         onClick={() => bookmarkMessage(message, index)}
                         title={isMessageBookmarked(message) ? "Already bookmarked" : "Bookmark message"}
-                        style={{
-                          position: 'relative',
-                          right: 'auto',
-                          top: 'auto',
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '4px',
-                          opacity: isMessageBookmarked(message) ? 1 : 0.6,
-                          transition: 'opacity 0.2s'
-                        }}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill={isMessageBookmarked(message) ? "#f57c00" : "none"} stroke="currentColor" strokeWidth="2">
                           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
@@ -1671,38 +1088,16 @@ function App() {
                 )}
                 {/* User message bottom row with copy button */}
                 {message.type === 'user' && (
-                  <div style={{ 
-                    marginTop: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    gap: '12px'
-                  }}>
+                  <div className="user-message-row">
                     <button 
                       className="copy-button"
                       onClick={() => copyToClipboard(message.content, index)}
                       title="Copy message"
-                      style={{
-                        position: 'relative',
-                        right: 'auto',
-                        top: 'auto',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        opacity: 0.6,
-                        transition: 'opacity 0.2s'
-                      }}
                     >
                       {copiedMessageIndex === index ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
+                        <CopySuccessIcon />
                       ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
+                        <CopyIcon />
                       )}
                     </button>
                   </div>
@@ -1728,76 +1123,11 @@ function App() {
                     </div>
                   ))}
                 </div>
-              )} */}
+              } */}
             </div>
           ))}
 
-          {/* Show streaming message */}
-          {streamingMessage && (
-            <div className="message assistant streaming">
-              <div className="message-icon">
-                <img src={chatbotIcon} alt="Assistant" style={{width: '32px', height: '32px', backgroundColor: 'white', borderRadius: '50%', padding: '2px'}} />
-              </div>
-              <div className="message-content">
-                {streamingMessage.content 
-                  ? formatResponseText(streamingMessage.content)
-                  : <div style={{ fontStyle: 'italic', color: '#999' }}>Waiting for response...</div>
-                }
-                <div style={{ 
-                  marginTop: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  flexWrap: 'wrap'
-                }}>
-                  {streamingMessage.source !== 'system' && (
-                    <>
-                      <div className="source-badge" style={{
-                        fontSize: '0.85em',
-                        fontWeight: '500',
-                        color: streamingMessage.source === 'Gmail' ? '#f57c00' : 
-                              streamingMessage.source === 'Local Database' ? '#1976d2' : 
-                              streamingMessage.source === 'Web Search' ? '#7b1fa2' : '#616161',
-                        animation: 'pulse 1.5s ease-in-out infinite'
-                      }}>
-                        📡 {streamingMessage.source} (streaming...)
-                      </div>
-                      {streamingMessage.tool && (
-                        <div style={{
-                          fontSize: '0.75em',
-                          color: '#757575',
-                          fontStyle: 'italic',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
-                          <span>🔧</span>
-                          <span>{streamingMessage.tool}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {streamingMessage.source === 'system' && (
-                    <div style={{
-                      fontSize: '0.85em',
-                      fontWeight: '500',
-                      color: '#4caf50',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}>
-                      <span>⚡</span>
-                      <span>Please wait...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {isLoading && !streamingMessage && (
+          {isLoading && (
             <div className="message assistant loading-message">
               <div className="message-icon loading-icon">
                 <div className="typing-indicator">
@@ -1808,11 +1138,15 @@ function App() {
               </div>
               <div className="message-content">
                 <div className="loading-text">
-                  Searching school events data...
+                  {currentAgentUpdate ? (
+                    currentAgentUpdate.agent
+                  ) : (
+                    'Searching school events data...'
+                  )}
                 </div>
               </div>
             </div>
-                )}
+          )}
 
                 <div ref={messagesEndRef} />
               </div>
@@ -1839,571 +1173,62 @@ function App() {
           )}
 
           {activeTab === 'comparison' && (
-            <div className="evaluation-container">
-              <div className="evaluation-header">
-                <h2>📈 Retrieval Methods Comparison</h2>
-                <p>Compare Original RAG (k=4) vs Naive Retrieval (k=10) using RAGAS metrics</p>
-                {comparisonResults.original && comparisonResults.naive && (
-                  <button 
-                    onClick={runComparison} 
-                    disabled={isRunningComparison}
-                    className="run-evaluation-button"
-                  >
-                    {isRunningComparison ? '⏳ Re-running Comparison...' : '🔄 Re-run Comparison'}
-                  </button>
-                )}
-              </div>
-
-              {error && (
-                <div className="error-message">
-                  {error}
-                </div>
-              )}
-
-              {isRunningComparison && (
-                <div className="evaluation-loading">
-                  <div className="spinner"></div>
-                  <p>Running comparison evaluation... This may take 3-5 minutes</p>
-                  <p style={{fontSize: '14px', color: '#666'}}>
-                    Evaluating both Original (k=4) and Naive (k=10) methods
-                  </p>
-                </div>
-              )}
-
+            <div>
+              <ComparisonHeader
+                comparisonResults={comparisonResults}
+                isRunningComparison={isRunningComparison}
+                runComparison={runComparison}
+                error={error}
+              />
               {!isRunningComparison && comparisonResults.original && comparisonResults.naive && (
-                <div className="comparison-results">
-                  <div className="comparison-summary">
-                    <h3>✅ Comparison Complete</h3>
-                    <p>Both retrieval methods have been evaluated with {comparisonResults.original.test_questions_count} test questions</p>
-                  </div>
-
-                  <div className="comparison-table-container">
-                    <table className="comparison-table">
-                      <thead>
-                        <tr>
-                          <th>Metric</th>
-                          <th>Original RAG (k=4)</th>
-                          <th>Naive Retrieval (k=10)</th>
-                      <th>Improvement</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td><strong>🎯 Faithfulness</strong><br/><span className="metric-desc">Factual accuracy</span></td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.original.metrics.faithfulness * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.original.metrics.faithfulness * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.naive.metrics.faithfulness * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.naive.metrics.faithfulness * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className={`improvement-cell ${comparisonResults.naive.metrics.faithfulness >= comparisonResults.original.metrics.faithfulness ? 'positive' : 'negative'}`}>
-                        {comparisonResults.naive.metrics.faithfulness >= comparisonResults.original.metrics.faithfulness ? '✅' : '⚠️'}
-                        {((comparisonResults.naive.metrics.faithfulness - comparisonResults.original.metrics.faithfulness) * 100).toFixed(1)}%
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td><strong>📝 Answer Relevancy</strong><br/><span className="metric-desc">Relevance to question</span></td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.original.metrics.answer_relevancy * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.original.metrics.answer_relevancy * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.naive.metrics.answer_relevancy * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.naive.metrics.answer_relevancy * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className={`improvement-cell ${comparisonResults.naive.metrics.answer_relevancy >= comparisonResults.original.metrics.answer_relevancy ? 'positive' : 'negative'}`}>
-                        {comparisonResults.naive.metrics.answer_relevancy >= comparisonResults.original.metrics.answer_relevancy ? '✅' : '⚠️'}
-                        {((comparisonResults.naive.metrics.answer_relevancy - comparisonResults.original.metrics.answer_relevancy) * 100).toFixed(1)}%
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td><strong>🎲 Context Precision</strong><br/><span className="metric-desc">Precision of contexts</span></td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.original.metrics.context_precision * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.original.metrics.context_precision * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.naive.metrics.context_precision * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.naive.metrics.context_precision * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className={`improvement-cell ${comparisonResults.naive.metrics.context_precision >= comparisonResults.original.metrics.context_precision ? 'positive' : 'negative'}`}>
-                        {comparisonResults.naive.metrics.context_precision >= comparisonResults.original.metrics.context_precision ? '✅' : '⚠️'}
-                        {((comparisonResults.naive.metrics.context_precision - comparisonResults.original.metrics.context_precision) * 100).toFixed(1)}%
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td><strong>🔍 Context Recall</strong><br/><span className="metric-desc">Completeness of context</span></td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.original.metrics.context_recall * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.original.metrics.context_recall * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className="metric-cell">
-                        <div className="metric-value-large">{(comparisonResults.naive.metrics.context_recall * 100).toFixed(1)}%</div>
-                        <div className="mini-bar">
-                          <div className="mini-bar-fill" style={{width: `${comparisonResults.naive.metrics.context_recall * 100}%`}}></div>
-                        </div>
-                      </td>
-                      <td className={`improvement-cell ${comparisonResults.naive.metrics.context_recall >= comparisonResults.original.metrics.context_recall ? 'positive' : 'negative'}`}>
-                        {comparisonResults.naive.metrics.context_recall >= comparisonResults.original.metrics.context_recall ? '✅' : '⚠️'}
-                        {((comparisonResults.naive.metrics.context_recall - comparisonResults.original.metrics.context_recall) * 100).toFixed(1)}%
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="comparison-insights">
-                <h4>💡 Key Insights</h4>
-                <div className="insights-grid">
-                  <div className="insight-card">
-                    <h5>Original RAG (k=4)</h5>
-                    <ul>
-                      <li>Retrieves 4 most relevant documents</li>
-                      <li>Faster query processing</li>
-                      <li>More focused context</li>
-                    </ul>
-                  </div>
-                  <div className="insight-card">
-                    <h5>Naive Retrieval (k=10)</h5>
-                    <ul>
-                      <li>Retrieves 10 most relevant documents</li>
-                      <li>LCEL chain pattern from Advanced Retrieval</li>
-                      <li>More comprehensive context</li>
-                    </ul>
-                  </div>
+                <div>
+                  <ComparisonResults comparisonResults={comparisonResults} />
+                  <ComparisonInsights />
                 </div>
-              </div>
-            </div>
-          )}
+              )}
             </div>
           )}
 
           {activeTab === 'bookmarks' && (
-            <div className="chat-container">
-              <div className="bookmarks-container">
-              {bookmarks.length === 0 ? (
-                <div className="welcome-message" style={{ textAlign: 'center', padding: '40px' }}>
-                  <strong>No bookmarks yet</strong>
-                  <br /><br />
-                  Bookmark assistant messages from the Chat tab to save them here for later reference.
-                  <br /><br />
-                  <span style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
-                    Look for the <img src={bookmarksIcon} alt="bookmark" style={{width: '16px', height: '16px', verticalAlign: 'middle'}} /> icon on assistant messages!
-                  </span>
-                </div>
-              ) : (
-                <div className="bookmarks-list" style={{ paddingBottom: '60px' }}>
-                  {bookmarks.map((bookmark, index) => (
-                    <div key={bookmark.bookmark_id} className="bookmark-item" style={{
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      marginBottom: '16px',
-                      backgroundColor: '#fafafa',
-                      position: 'relative'
-                    }}>
-                      <button
-                        onClick={() => removeBookmark(bookmark.bookmark_id)}
-                        style={{
-                          position: 'absolute',
-                          top: '12px',
-                          right: '12px',
-                          background: '#ff5252',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          fontSize: '0.85em',
-                          fontWeight: '500',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseOver={(e) => e.target.style.background = '#ff1744'}
-                        onMouseOut={(e) => e.target.style.background = '#ff5252'}
-                        title="Remove bookmark"
-                      >
-                        Remove
-                      </button>
-                      <div style={{ 
-                        fontSize: '0.85em', 
-                        color: '#666', 
-                        marginBottom: '8px',
-                        paddingRight: '80px'
-                      }}>
-                        Saved on {new Date(bookmark.created_at).toLocaleString()}
-                      </div>
-                      <div className="message-content" style={{ marginTop: '12px' }}>
-                        <div className="message-text">
-                          {formatResponseText(bookmark.message_content)}
-                        </div>
-                        {bookmark.message_source && (
-                          <div style={{ 
-                            marginTop: '12px',
-                            fontSize: '0.85em',
-                            color: '#666'
-                          }}>
-                            📚 Source: {bookmark.message_source}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              </div>
-            </div>
+            <BookmarksContainer
+              bookmarks={bookmarks}
+              removeBookmark={removeBookmark}
+              formatResponseText={formatResponseText}
+              BookmarkIcon={Bookmark}
+            />
           )}
 
+          {/* Child tabs content */}
+          <ChildTabContent
+            user={user}
+            activeTab={activeTab}
+            studentReports={studentReports}
+            loadingReports={loadingReports}
+            expandedReports={expandedReports}
+            setExpandedReports={setExpandedReports}
+            fetchStudentReports={fetchStudentReports}
+          />
+
           {activeTab === 'settings' && (
-            <div className="settings-container">
-              <div className="settings-section">
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  marginBottom: '16px'
-                }}>
-                  <h3 style={{ margin: 0 }}>👤 Account</h3>
-                  <button 
-                    className="logout-button"
-                    onClick={handleLogout}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#f44336',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '0.9em',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#d32f2f';
-                      e.target.style.transform = 'translateY(-2px)';
-                      e.target.style.boxShadow = '0 4px 8px rgba(244, 67, 54, 0.3)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#f44336';
-                      e.target.style.transform = 'translateY(0)';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  >
-                    <span>Logout</span>
-                  </button>
-                </div>
-                
-                {/* Gmail Account Status */}
-                <div className="setting-item">
-                  <div className="setting-content">
-                    <div className="setting-label-group">
-                      <label className="setting-label">
-                        Gmail Account
-                      </label>
-                      {user?.gmail_email ? (
-                        <div style={{
-                          padding: '12px',
-                          background: '#e8f5e9',
-                          borderRadius: '8px',
-                          border: '1px solid #4caf50',
-                          marginTop: '8px'
-                        }}>
-                          {user.gmail_name && (
-                            <p className="setting-description" style={{ marginBottom: '8px', color: '#2e7d32', fontSize: '1.1em' }}>
-                              ✓ <strong>{user.gmail_name}</strong>
-                            </p>
-                          )}
-                          <p className="setting-description" style={{ marginBottom: '4px', color: '#2e7d32' }}>
-                            {user.gmail_name ? 'Email: ' : '✓ Signed in as: '}<strong>{user.gmail_email}</strong>
-                          </p>
-                          {user.gmail_connected_at && (
-                            <p className="setting-description" style={{ fontSize: '0.85em', color: '#666', marginTop: '4px' }}>
-                              Connected on {new Date(user.gmail_connected_at).toLocaleDateString()}
-                            </p>
-                          )}
-                          <p className="setting-description" style={{ fontSize: '0.85em', color: '#666', marginTop: '8px' }}>
-                            Your Gmail is connected and can be searched for school-related emails.
-                          </p>
-                          
-                          {/* Disconnect Confirmation */}
-                          {showGmailDisconnectConfirm && (
-                            <div style={{
-                              marginTop: '12px',
-                              padding: '16px',
-                              background: '#fff3e0',
-                              border: '2px solid #ff9800',
-                              borderRadius: '8px'
-                            }}>
-                              <p style={{ margin: '0 0 12px 0', color: '#e65100', fontWeight: '600' }}>
-                                ⚠️ Are you sure?
-                              </p>
-                              <p style={{ margin: '0 0 16px 0', fontSize: '0.9em', color: '#666' }}>
-                                Disconnecting will remove access to your Gmail for searching school-related emails.
-                              </p>
-                              <div style={{ display: 'flex', gap: '10px' }}>
-                                <button
-                                  onClick={confirmDisconnectGmail}
-                                  style={{
-                                    flex: 1,
-                                    padding: '10px 16px',
-                                    background: '#f44336',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9em',
-                                    fontWeight: '600',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
-                                  onMouseLeave={(e) => e.target.style.background = '#f44336'}
-                                >
-                                  Yes, Disconnect
-                                </button>
-                                <button
-                                  onClick={cancelDisconnectGmail}
-                                  style={{
-                                    flex: 1,
-                                    padding: '10px 16px',
-                                    background: '#fff',
-                                    color: '#666',
-                                    border: '2px solid #ddd',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9em',
-                                    fontWeight: '600',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = '#f5f5f5';
-                                    e.target.style.borderColor = '#999';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = '#fff';
-                                    e.target.style.borderColor = '#ddd';
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Disconnect Button - Only show if not confirming */}
-                          {!showGmailDisconnectConfirm && (
-                            <button
-                              onClick={handleDisconnectGmail}
-                              style={{
-                                padding: '8px 14px',
-                                background: '#fff',
-                                color: '#f44336',
-                                border: '2px solid #f44336',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '0.85em',
-                                fontWeight: '500',
-                                transition: 'all 0.2s',
-                                marginTop: '12px'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.background = '#f44336';
-                                e.target.style.color = 'white';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.background = '#fff';
-                                e.target.style.color = '#f44336';
-                              }}
-                            >
-                              Disconnect Gmail
-                            </button>
-                          )}
-                        </div>
-                      ) : showGmailDisconnectSuccess ? (
-                        <div style={{
-                          padding: '16px',
-                          background: '#e8f5e9',
-                          borderRadius: '8px',
-                          border: '2px solid #4caf50',
-                          marginTop: '8px',
-                          animation: 'fadeIn 0.3s ease-in'
-                        }}>
-                          <p style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '1.1em', fontWeight: '600' }}>
-                            ✓ Gmail Disconnected Successfully
-                          </p>
-                          <p style={{ margin: '0', fontSize: '0.9em', color: '#666' }}>
-                            Your Gmail account has been disconnected. Sign in again to reconnect.
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="setting-description" style={{ color: '#f57c00', marginTop: '8px' }}>
-                          ⚠️ Gmail not connected. Please sign out and sign in again to connect Gmail.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="settings-section">
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  marginBottom: '16px'
-                }}>
-                  <h3 style={{ margin: 0 }}>🏫 School Settings</h3>
-                  <button 
-                    className="change-school-button"
-                    onClick={() => {
-                      setNeedsSchoolSelection(true);
-                    }}
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '0.9em'
-                    }}
-                  >
-                    Manage Schools
-                  </button>
-                </div>
-                <div className="setting-item">
-                  <div className="setting-content">
-                    <div className="setting-label-group">
-                      <label className="setting-label">
-                        Selected Schools ({user?.schools?.length || 0})
-                      </label>
-                      {user?.schools && user.schools.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
-                          {user.schools.map((school) => (
-                            <div 
-                              key={school.id}
-                              style={{
-                                padding: '12px',
-                                background: '#f5f5f5',
-                                borderRadius: '8px',
-                                border: '1px solid #e0e0e0'
-                              }}
-                            >
-                              <p className="setting-description" style={{ marginBottom: '4px' }}>
-                                <strong>{school.name}</strong>
-                              </p>
-                              {school.location && (
-                                <p className="setting-description" style={{ 
-                                  color: '#666',
-                                  fontSize: '0.85em',
-                                  marginTop: '2px',
-                                  marginBottom: '2px'
-                                }}>
-                                  📍 {school.location}
-                                </p>
-                              )}
-                              {school.website && (
-                                <p className="setting-description" style={{ 
-                                  color: '#666',
-                                  fontSize: '0.85em',
-                                  marginTop: '2px'
-                                }}>
-                                  🌐 <a href={school.website} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'none' }}>
-                                    {school.website.replace(/^https?:\/\/(www\.)?/, '')}
-                                  </a>
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="setting-description">
-                          <strong>None</strong>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-
-              <div className="settings-section">
-                <h3>🔌 Connection Settings</h3>
-                <div className="setting-item">
-                  <div className="setting-content">
-                    <div className="setting-label-group">
-                      <label htmlFor="websocket-toggle" className="setting-label">
-                        Real-time Streaming (WebSocket)
-                      </label>
-                      <p className="setting-description">
-                        Enable live streaming of agent responses as they are generated. 
-                        When disabled, responses will be delivered in full after completion.
-                      </p>
-                    </div>
-                    <div className="toggle-switch">
-                      <input
-                        id="websocket-toggle"
-                        type="checkbox"
-                        checked={useWebSocket}
-                        onChange={(e) => setUseWebSocket(e.target.checked)}
-                        className="toggle-input"
-                      />
-                      <label htmlFor="websocket-toggle" className="toggle-label">
-                        <span className="toggle-button"></span>
-                      </label>
-                    </div>
-                  </div>
-                  {useWebSocket && (
-                    <div className="setting-status">
-                      <span className="status-indicator active"></span>
-                      <span className="status-text">Live updates enabled</span>
-                    </div>
-                  )}
-                  {!useWebSocket && (
-                    <div className="setting-status">
-                      <span className="status-indicator inactive"></span>
-                      <span className="status-text">Using standard HTTP requests</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="settings-section">
-                <h3>ℹ️ About</h3>
-                <div className="about-info">
-                  <p><strong>Your School Assistant</strong></p>
-                  <p>I help you find school events by searching multiple places at once:</p>
-                  <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                    <li style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px'}}>
-                      <img src={gmailIcon} alt="" style={{width: '16px', height: '16px'}} />
-                      Your Gmail inbox for school emails
-                    </li>
-                    <li style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px'}}>
-                      <img src={databaseIcon} alt="" style={{width: '16px', height: '16px'}} />
-                      Our local database of curated events
-                    </li>
-                    <li>🌐 The web for the newest updates</li>
-                    <li>⚡ Live updates as you search</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+            <SettingsContainer
+              user={user}
+              handleLogout={handleLogout}
+              showGmailDisconnectConfirm={showGmailDisconnectConfirm}
+              showGmailDisconnectSuccess={showGmailDisconnectSuccess}
+              confirmDisconnectGmail={confirmDisconnectGmail}
+              cancelDisconnectGmail={cancelDisconnectGmail}
+              handleDisconnectGmail={handleDisconnectGmail}
+              setNeedsChildrenInput={setNeedsChildrenInput}
+              setNeedsSchoolSelection={setNeedsSchoolSelection}
+              handleDeleteChild={handleDeleteChild}
+              childToDelete={childToDelete}
+              cancelDeleteChild={cancelDeleteChild}
+              confirmDeleteChild={confirmDeleteChild}
+              useWebSocket={useWebSocket}
+              setUseWebSocket={setUseWebSocket}
+              GmailIcon={Mail}
+              DatabaseIcon={Database}
+            />
           )}
         </div>
       </div>

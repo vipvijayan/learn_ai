@@ -1,33 +1,41 @@
 #!/usr/bin/env python3
 """Quick test script for the multi-agent query endpoint"""
 
-import requests
-import json
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-def test_query():
-    url = "http://localhost:8000/multi-agent-query"
-    data = {"question": "Are there any events related to Dia de los Muertos"}
-    
-    print("🔍 Testing query: Are there any events related to Dia de los Muertos")
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables
+
+from app.agents.multi_agent_system import query_with_agent
+import logging
+
+# Set up logging to see debug output
+logging.basicConfig(level=logging.INFO)
+
+def test_direct_query():
+    print("🔍 Testing direct query: show me advaith's reports")
     print("="*80)
     
     try:
-        response = requests.post(url, json=data, timeout=60)
-        response.raise_for_status()
+        result = query_with_agent("show me advaith's reports")
         
-        result = response.json()
-        print(f"\n✅ Response received:")
-        print(f"Agent used: {result.get('agent', 'unknown')}")
-        print(f"Answer: {result.get('answer', 'No answer')[:500]}...")
-        print(f"\nFull response:\n{json.dumps(result, indent=2)}")
+        print(f"\n✅ Query completed:")
+        print(f"Messages in result: {len(result.get('messages', []))}")
         
-    except requests.exceptions.ConnectionError:
-        print("❌ Error: Could not connect to backend on http://localhost:8000")
-        print("Please start the backend server first:")
-        print("  cd /Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/backend")
-        print("  PATH='venv/bin:$PATH' uvicorn main:app --reload --port 8000")
+        for i, msg in enumerate(result.get('messages', [])):
+            print(f"\n--- Message {i+1} ---")
+            print(f"Name: {getattr(msg, 'name', 'N/A')}")
+            print(f"Content length: {len(msg.content)}")
+            print(f"Content preview: {msg.content[:300]}...")
+            if hasattr(msg, 'additional_kwargs'):
+                print(f"Additional kwargs: {msg.additional_kwargs}")
+        
     except Exception as e:
         print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    test_query()
+    test_direct_query()

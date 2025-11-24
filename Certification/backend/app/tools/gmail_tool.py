@@ -145,8 +145,10 @@ class GmailToolClient:
                 
                 headers = {h['name']: h['value'] for h in msg_data['payload']['headers']}
                 
-                # Extract body preview (first 200 chars)
+                # Extract full body content
                 body = self._extract_body(msg_data['payload'])
+                
+                # Extract body preview (first 200 chars)
                 body_preview = body[:200].replace('\n', ' ').strip() if body else "No preview available"
                 if len(body) > 200:
                     body_preview += "..."
@@ -156,7 +158,8 @@ class GmailToolClient:
                     'from': headers.get('From', 'Unknown'),
                     'subject': headers.get('Subject', 'No subject'),
                     'date': headers.get('Date', 'Unknown date'),
-                    'preview': body_preview
+                    'preview': body_preview,
+                    'full_body': body if body else "No content available"
                 })
             
             # Format output
@@ -166,6 +169,7 @@ class GmailToolClient:
                 output += f"   Subject: {email['subject']}\n"
                 output += f"   Date: {email['date']}\n"
                 output += f"   Preview: {email['preview']}\n"
+                output += f"   Full Body: {email['full_body']}\n"
                 output += f"   ID: {email['id']}\n\n"
             
             return output
@@ -181,10 +185,8 @@ class GmailToolClient:
             if not service:
                 return (
                     "Gmail not authenticated. To enable Gmail search:\n"
-                    "1. Run: python authenticate_gmail.py\n"
                     "2. Sign in with your Gmail account\n"
                     "3. Grant permission to read emails\n"
-                    "See GMAIL_AUTHENTICATION.md for detailed instructions."
                 )
             
             msg = service.users().messages().get(
@@ -235,6 +237,68 @@ class GmailToolClient:
             return f"Error extracting body: {str(e)}"
         
         return "No text content found"
+    
+    def search_emails_structured(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+        """
+        Search Gmail and return structured email data (for events parsing).
+        Returns a list of email dictionaries instead of formatted string.
+        """
+        try:
+            service = self.get_gmail_service()
+            if not service:
+                logger.warning("Gmail service not available for structured search")
+                return []
+            
+            # Build search query with email suffix filters if available
+            search_query = query
+            if self.email_suffixes and len(self.email_suffixes) > 0:
+                from_filters = [f"from:*@{suffix}" for suffix in self.email_suffixes]
+                from_clause = f"({' OR '.join(from_filters)})"
+                search_query = f"{query} {from_clause}"
+            
+            logger.info(f"Gmail structured search: {search_query}")
+            
+            # Search for messages
+            results = service.users().messages().list(
+                userId='me',
+                q=search_query,
+                maxResults=max_results
+            ).execute()
+            
+            messages = results.get('messages', [])
+            logger.info(f"📬 Gmail API returned {len(messages)} messages")
+            
+            if not messages:
+                logger.warning(f"⚠️ No messages found for query: {search_query}")
+                return []
+            
+            # Get full details for each message
+            email_list = []
+            for msg in messages:
+                msg_data = service.users().messages().get(
+                    userId='me',
+                    id=msg['id'],
+                    format='full'
+                ).execute()
+                
+                headers = {h['name']: h['value'] for h in msg_data['payload']['headers']}
+                body = self._extract_body(msg_data['payload'])
+                
+                email_list.append({
+                    'id': msg['id'],
+                    'from': headers.get('From', 'Unknown'),
+                    'subject': headers.get('Subject', 'No subject'),
+                    'date': headers.get('Date', 'Unknown date'),
+                    'body': body if body else ""
+                })
+            
+            return email_list
+            
+        except Exception as e:
+            logger.error(f"Error in structured Gmail search: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
 
 
 # Global Gmail client

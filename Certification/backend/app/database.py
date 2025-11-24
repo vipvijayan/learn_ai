@@ -135,6 +135,17 @@ def init_database():
             )
         """)
         
+        # Create children table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS children (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                child_name TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+        
         # Create index on email for faster lookups
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
@@ -162,6 +173,11 @@ def init_database():
         """)
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_bookmarks_id ON bookmarks(bookmark_id)
+        """)
+        
+        # Create indexes for children table
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_children_user ON children(user_id)
         """)
         
         conn.commit()
@@ -441,6 +457,10 @@ def get_user_with_schools(email: str):
         user_dict['schools'] = schools
         user_dict['school_count'] = len(schools)
         
+        # Get children
+        children_names = get_children_for_user(email)
+        user_dict['children'] = [{'child_name': name} for name in children_names]
+        
         # Keep legacy fields for backwards compatibility
         if schools:
             user_dict['school_name'] = schools[0]['name']
@@ -715,6 +735,89 @@ def disconnect_user_gmail(email: str):
         logger.error(f"Error disconnecting Gmail: {e}")
         conn.rollback()
         return False
+    finally:
+        conn.close()
+
+
+def add_children_for_user(email: str, children: list[str]):
+    """Add children for a user by email. Each child is a name string."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get user id
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        if not user:
+            raise ValueError(f"User not found: {email}")
+        user_id = user['id']
+        # Insert each child
+        for child_name in children:
+            cursor.execute(
+                "INSERT INTO children (user_id, child_name) VALUES (?, ?)",
+                (user_id, child_name)
+            )
+        conn.commit()
+        logger.info(f"Added {len(children)} children for user {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Error adding children for user: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_children_for_user(email: str) -> list[str]:
+    """Get children names for a user by email."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get user id
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        if not user:
+            return []
+        user_id = user['id']
+        
+        # Get children
+        cursor.execute("SELECT child_name FROM children WHERE user_id = ?", (user_id,))
+        children = cursor.fetchall()
+        return [child['child_name'] for child in children]
+    except Exception as e:
+        logger.error(f"Error getting children for user: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def delete_child_for_user(email: str, child_name: str) -> bool:
+    """Delete a specific child for a user by email and child name."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get user id
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        if not user:
+            raise ValueError(f"User not found: {email}")
+        user_id = user['id']
+        
+        # Delete the specific child
+        cursor.execute(
+            "DELETE FROM children WHERE user_id = ? AND child_name = ?",
+            (user_id, child_name)
+        )
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Child '{child_name}' not found for user {email}")
+        
+        conn.commit()
+        logger.info(f"Deleted child '{child_name}' for user {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting child for user: {e}")
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

@@ -27,6 +27,11 @@ python-dotenv>=1.0.0
 pydantic>=2.0.0
 tavily-python>=0.3.0
 
+# Transformers for Phi-3
+transformers>=4.35.0
+torch>=2.0.0
+accelerate>=0.24.0
+
 # Google OAuth
 google-auth>=2.0.0
 google-auth-oauthlib>=1.0.0

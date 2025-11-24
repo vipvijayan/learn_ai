@@ -176,8 +176,7 @@ class GmailMCPServer:
                 message = service.users().messages().get(
                     userId='me',
                     id=msg_id,
-                    format='metadata',
-                    metadataHeaders=['Subject', 'From', 'Date']
+                    format='full'  # Changed to 'full' to get body content
                 ).execute()
                 
                 # Extract headers
@@ -186,14 +185,19 @@ class GmailMCPServer:
                 sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown')
                 date = next((h['value'] for h in headers if h['name'] == 'Date'), 'Unknown')
                 
-                snippet = message.get('snippet', '')
+                # Extract full body content
+                body = self._extract_body(message.get('payload', {}))
+                
+                # Create preview from body (first 200 chars)
+                snippet = body[:200] + "..." if len(body) > 200 else body
                 
                 email_summaries.append({
                     'id': msg_id,
                     'subject': subject,
                     'from': sender,
                     'date': date,
-                    'snippet': snippet
+                    'snippet': snippet,
+                    'full_body': body
                 })
             
             # Format response
@@ -203,7 +207,8 @@ class GmailMCPServer:
                 response += f"    Subject: {email['subject']}\n"
                 response += f"    From: {email['from']}\n"
                 response += f"    Date: {email['date']}\n"
-                response += f"    Preview: {email['snippet'][:200]}...\n\n"
+                response += f"    Preview: {email['snippet']}\n"
+                response += f"    Full Body: {email['full_body']}\n\n"
             
             return [TextContent(type="text", text=response)]
             

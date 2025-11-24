@@ -1,0 +1,167 @@
+/* ChildrenInput.css */
+.children-input-bg {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.children-input-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  padding: 48px;
+  max-width: 440px;
+  width: 100%;
+}
+
+.children-input-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.children-input-title {
+  font-size: 2em;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.children-input-desc {
+  color: #666;
+  font-size: 0.95em;
+}
+
+.children-input-error {
+  background: #fee;
+  color: #c33;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.9em;
+  border: 1px solid #fcc;
+}
+
+.children-input-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.children-input-field {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  font-size: 1em;
+  transition: border-color 0.2s;
+  margin-right: 8px;
+}
+
+.children-input-field:focus {
+  border-color: #667eea;
+}
+
+.children-input-remove {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.children-input-remove:hover {
+  background: #d32f2f;
+}
+
+.children-input-add {
+  margin-bottom: 24px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 2px solid #1976d2;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1em;
+  transition: all 0.2s;
+  width: 100%;
+}
+.children-input-add:hover {
+  background: #bbdefb;
+  transform: translateY(-1px);
+}
+
+.children-input-add:not(:hover) {
+  background: #e3f2fd;
+  transform: translateY(0);
+}
+
+.children-input-submit {
+  width: 100%;
+  padding: 16px;
+  border-radius: 8px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  font-weight: 600;
+  font-size: 1.05em;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.children-input-submit:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.children-input-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.children-input-submit:not(:hover) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.children-input-skip {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: transparent;
+  color: #666;
+  border: 2px solid #ddd;
+  font-weight: 500;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.children-input-skip:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+.children-input-skip:not(:hover) {
+  background: transparent;
+  border-color: #ddd;
+}
+
+.children-input-footer {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #eee;
+  text-align: center;
+  color: #999;
+  font-size: 0.85em;
+}

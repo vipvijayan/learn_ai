@@ -1,1 +1,647 @@
-nohup: uvicorn: No such file or directory
+2025-11-23 20:46:24,494 - main - INFO - ================================================================================
+2025-11-23 20:46:24,494 - main - INFO - 🚀 Starting School Assistant API
+2025-11-23 20:46:24,494 - main - INFO - ================================================================================
+2025-11-23 20:46:25,220 - main - INFO - 🏠 Running in LOCAL MODE - CORS configured for localhost only
+2025-11-23 20:46:25,287 - main - INFO - 🏠 Gmail OAuth redirect URI (LOCAL): http://localhost:8000/api/auth/gmail/callback
+INFO:     Started server process [69341]
+INFO:     Waiting for application startup.
+2025-11-23 20:46:25,290 - main - INFO - ================================================================================
+2025-11-23 20:46:25,290 - main - INFO - �️  Initializing SQLite Database...
+2025-11-23 20:46:25,291 - app.database - INFO - Database initialized successfully at /Users/vipinvijayan/Developer/projects/AI/AIMakerSpace/code/learn_ai_0/Certification/backend/db/school_assistant.db
+2025-11-23 20:46:25,291 - app.database - INFO - Database migration completed successfully
+2025-11-23 20:46:25,291 - main - INFO - ================================================================================
+2025-11-23 20:46:25,291 - main - INFO - 📋 AVAILABLE ENDPOINTS:
+2025-11-23 20:46:25,291 - main - INFO -    /api/auth/login → User login with email
+2025-11-23 20:46:25,291 - main - INFO -    /api/auth/schools → Get list of schools
+2025-11-23 20:46:25,291 - main - INFO -    /api/auth/select-school → Select user's school
+2025-11-23 20:46:25,291 - main - INFO -    /api/auth/add-children → Add children for a user
+2025-11-23 20:46:25,291 - main - INFO -    /api/auth/get-children/{email} → Get children for a user
+2025-11-23 20:46:25,291 - main - INFO -    /api/auth/delete-child/{email}/{child_name} → Delete a child for a user
+2025-11-23 20:46:25,291 - main - INFO -    /query → RAG Query (switchable between Original and Naive)
+2025-11-23 20:46:25,291 - main - INFO -    /agent-query → Direct Tool Use (school_events_search)
+2025-11-23 20:46:25,291 - main - INFO -    /multi-agent-query → Multi-Agent System (WebSearch + LocalEvents)
+2025-11-23 20:46:25,291 - main - INFO -    /evaluate-ragas → RAGAS Evaluation (Faithfulness, Relevancy, Precision, Recall)
+2025-11-23 20:46:25,291 - main - INFO -    /retrieval-method → Get/Set active retrieval method
+2025-11-23 20:46:25,291 - main - INFO -    /retrieval-methods → List all available retrieval methods
+2025-11-23 20:46:25,291 - main - INFO -    /tools → List all available tools
+2025-11-23 20:46:25,291 - main - INFO -    /agents → List all available agents
+2025-11-23 20:46:25,291 - main - INFO -    /health → Health check
+2025-11-23 20:46:25,291 - main - INFO - 🔍 Active Retrieval Method: Naive Retrieval (default)
+2025-11-23 20:46:25,291 - main - INFO - ================================================================================
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2025-11-23 20:46:37,774 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:46:37,774 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:46:37,775 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:46:38,176 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:46:38,176 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:46:38,370 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:46:38,371 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:46:38,371 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:46:38,371 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:46:38,562 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:46:38,869 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:46:38,872 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:46:38,872 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:46:38,874 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:46:38,875 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:63459 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63548 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63549 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63551 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:46:53,425 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:46:53,426 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:46:53,426 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:46:53,426 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:46:53,426 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:46:53,578 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:46:53,579 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:46:53,579 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:46:53,579 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:46:53,773 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:46:58,577 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:46:58,578 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:46:58,605 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:63551 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:46:58,606 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:46:58,607 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:46:58,607 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:46:58,607 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:46:58,607 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:46:58,786 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:46:58,788 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:46:58,788 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:46:58,788 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:46:58,977 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:46:59,274 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:46:59,275 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:46:59,275 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:46:59,277 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:46:59,277 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:63549 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 20:46:59,279 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:46:59,280 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:46:59,280 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:46:59,280 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:46:59,280 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:46:59,445 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:46:59,447 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:46:59,447 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:46:59,447 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:46:59,628 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:46:59,896 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:46:59,897 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:46:59,897 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:46:59,898 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:46:59,898 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:63548 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63957 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63959 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63959 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:48:08,680 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:48:08,682 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:48:08,682 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:48:08,682 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:48:08,682 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:48:09,016 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:48:09,018 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:48:09,018 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:48:09,018 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:48:09,191 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:48:13,777 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:48:13,777 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:48:13,797 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:63959 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63957 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63968 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63970 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:48:13,800 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:48:13,800 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:48:13,801 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:48:13,801 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:48:13,801 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:48:13,936 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:48:13,937 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:48:13,937 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:48:13,937 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:48:14,111 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:48:18,508 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:48:18,508 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:48:18,533 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:63976 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64321 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64322 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64324 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:49:16,191 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:16,192 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:16,192 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:49:16,192 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:49:16,192 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:49:16,346 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:49:16,348 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:49:16,348 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:49:16,348 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:49:16,570 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:49:21,806 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:49:21,806 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:49:21,820 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:64324 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64322 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64321 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64331 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:49:21,822 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:21,823 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:21,823 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:49:21,823 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:49:21,823 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:49:21,994 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:49:21,996 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:49:21,996 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:49:21,996 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:49:22,171 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:49:26,706 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:49:26,706 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:49:26,727 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:64339 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64444 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64445 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64447 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:49:34,794 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:34,795 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:34,796 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:49:34,796 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:49:34,797 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:49:34,969 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:49:34,975 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:49:34,975 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:49:34,975 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:49:35,213 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:49:40,211 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:49:40,212 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:49:40,234 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:64447 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:49:40,236 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:49:40,237 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:40,237 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:49:40,237 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:49:40,237 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:49:40,419 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:49:40,422 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:49:40,422 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:49:40,422 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:49:40,646 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:49:40,974 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:49:40,975 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:49:40,975 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:49:40,976 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:49:40,976 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:64445 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 20:49:40,978 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:49:40,979 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:49:40,979 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:49:40,979 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:49:40,979 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:49:41,158 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:49:41,162 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:49:41,163 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:49:41,163 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:49:41,365 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:49:41,647 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:49:41,647 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:49:41,647 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:49:41,647 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:49:41,647 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:64444 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64892 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64894 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64896 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:51:01,589 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:51:01,590 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:51:01,591 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:51:01,591 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:51:01,591 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:51:01,779 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:51:01,783 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:51:01,783 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:51:01,783 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:51:02,016 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:51:07,330 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:51:07,330 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:51:07,356 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:64896 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64894 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64892 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64904 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:51:07,359 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:51:07,359 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:51:07,360 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:51:07,360 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:51:07,360 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:51:07,512 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:51:07,513 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:51:07,513 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:51:07,513 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:51:07,723 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:51:14,381 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:51:14,381 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:51:14,403 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:64912 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65511 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65513 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65515 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:52:59,327 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:52:59,328 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:52:59,329 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:52:59,329 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:52:59,329 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:52:59,470 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:52:59,471 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:52:59,471 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:52:59,471 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:52:59,662 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:53:04,429 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:53:04,430 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:53:04,454 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:65515 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65513 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65511 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65524 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:53:04,458 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:53:04,458 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:53:04,459 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:53:04,459 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:53:04,459 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:53:04,623 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:53:04,624 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:53:04,624 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:53:04,624 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:53:04,851 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:53:09,427 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:53:09,428 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:53:09,446 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:65533 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49541 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49543 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49545 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:54:15,579 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:54:15,579 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:54:15,580 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:54:15,580 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:54:15,580 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:54:15,759 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:54:15,761 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:54:15,761 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:54:15,761 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:54:15,969 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:54:20,584 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:54:20,584 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:54:20,600 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:49545 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49543 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49541 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49549 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:54:20,602 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:54:20,603 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:54:20,603 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:54:20,603 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:54:20,603 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:54:20,747 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:54:20,749 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:54:20,749 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:54:20,749 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:54:20,925 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:54:25,452 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:54:25,452 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:54:25,473 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:49556 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49978 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49980 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49982 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:55:37,486 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:55:37,487 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:55:37,490 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:55:37,490 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:55:37,490 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:55:37,748 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:55:37,749 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:55:37,749 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:55:37,749 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:55:37,949 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:55:42,470 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:55:42,471 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:55:42,497 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:49982 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:55:42,499 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:55:42,500 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:55:42,500 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:55:42,500 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:55:42,500 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:55:42,644 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:55:42,647 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:55:42,647 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:55:42,647 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:55:42,867 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:55:43,181 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:55:43,182 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:55:43,183 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:55:43,183 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:55:43,183 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:49980 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 20:55:43,185 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:55:43,187 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:55:43,188 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:55:43,189 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:55:43,189 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:55:43,353 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:55:43,360 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:55:43,360 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:55:43,360 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:55:43,525 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:55:43,816 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:55:43,817 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:55:43,818 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:55:43,819 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:55:43,819 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:49978 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50322 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50324 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50324 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50324 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50322 - "GET /health HTTP/1.1" 200 OK
+2025-11-23 20:56:40,250 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:56:40,250 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:56:40,251 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:56:40,251 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:56:40,251 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:56:40,389 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:56:40,391 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:56:40,391 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:56:40,391 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:56:40,576 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:56:45,283 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:56:45,283 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:56:45,299 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:50322 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50324 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:56:45,302 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:56:45,302 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:56:45,302 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:56:45,302 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:56:45,302 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:56:45,476 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:56:45,478 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:56:45,478 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:56:45,478 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:56:45,695 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:56:50,838 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:56:50,838 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:56:50,861 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:50333 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50795 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50796 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50796 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:58:10,896 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:58:10,898 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:58:10,899 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:58:10,899 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:58:10,899 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:58:11,055 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:58:11,057 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:58:11,057 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:58:11,057 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:58:11,271 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:58:17,328 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:58:17,328 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:58:17,349 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:50796 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50795 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50802 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50804 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:58:17,352 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:58:17,352 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:58:17,353 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:58:17,353 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:58:17,353 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:58:17,559 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:58:17,561 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:58:17,562 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:58:17,562 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:58:17,898 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:58:24,073 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:58:24,074 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:58:24,099 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:50811 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51322 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51324 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:59:48,796 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:59:48,798 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:59:48,798 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:59:48,798 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:59:48,798 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:59:48,983 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:59:48,984 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:59:48,984 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:59:48,985 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:59:49,237 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:59:53,964 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:59:53,964 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:59:53,981 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:51324 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51322 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51332 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:59:53,984 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 20:59:53,984 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:59:53,985 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:59:53,985 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:59:53,985 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:59:54,155 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:59:54,156 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 20:59:54,157 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 20:59:54,157 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:59:54,326 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 20:59:58,879 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 20:59:58,880 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 20:59:58,904 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:51339 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 20:59:58,907 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:59:58,908 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:59:58,908 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:59:58,908 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:59:58,908 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:59:59,099 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:59:59,102 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:59:59,102 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:59:59,102 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 20:59:59,339 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 20:59:59,670 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 20:59:59,670 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 20:59:59,670 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:59:59,671 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 20:59:59,671 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:51322 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 20:59:59,671 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 20:59:59,672 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 20:59:59,672 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 20:59:59,673 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 20:59:59,673 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 20:59:59,813 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 20:59:59,816 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 20:59:59,816 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 20:59:59,816 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:00:00,005 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 21:00:00,299 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 21:00:00,300 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 21:00:00,300 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:00:00,300 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:00:00,301 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:51345 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52615 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52616 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52618 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52618 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52616 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52616 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 21:03:53,277 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 21:03:53,277 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:03:53,278 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:03:53,278 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:03:53,278 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:03:53,462 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:03:53,464 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 21:03:53,465 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 21:03:53,465 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:03:53,700 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 21:03:59,121 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 21:03:59,121 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 21:03:59,146 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:52616 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 21:03:59,148 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 21:03:59,149 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:03:59,149 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:03:59,149 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:03:59,149 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:03:59,292 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:03:59,294 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 21:03:59,294 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 21:03:59,294 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:03:59,524 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 21:04:04,695 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 21:04:04,695 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 21:04:04,713 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:52618 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54563 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54564 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54566 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 21:10:10,099 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:10,100 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:10,102 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:10:10,105 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:10:10,106 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:10:10,290 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:10:10,293 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 21:10:10,293 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 21:10:10,294 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:10:10,535 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 21:10:15,976 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 21:10:15,977 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 21:10:16,003 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:54566 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 21:10:16,006 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 21:10:16,007 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:16,007 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:10:16,007 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:10:16,007 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:10:16,183 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:10:16,188 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 21:10:16,188 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 21:10:16,188 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:10:16,395 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 21:10:16,691 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 21:10:16,692 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 21:10:16,692 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:16,692 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:16,692 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:54564 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 21:10:16,693 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 21:10:16,694 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:16,694 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:10:16,694 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:10:16,694 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:10:16,870 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:10:16,873 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 21:10:16,873 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 21:10:16,873 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:10:17,051 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 21:10:17,332 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 21:10:17,332 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 21:10:17,332 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:17,332 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:17,332 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:54563 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54695 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54696 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54695 - "GET /api/bookmarks/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 21:10:31,937 - main - INFO - 📧 Fetching email events for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:31,938 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:31,939 - main - INFO - 📧 Filtering emails from school domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:10:31,939 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:10:31,939 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:10:32,113 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:10:32,115 - main - INFO - 🔍 Searching Gmail with query: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp)
+2025-11-23 21:10:32,115 - main - INFO - 📊 Email suffixes set to: ['austinisd.org', 'roundrockisd.org'] (empty = search all emails)
+2025-11-23 21:10:32,115 - app.tools.gmail_tool - INFO - Gmail structured search: (event OR program OR camp OR workshop OR registration OR enrollment OR "sign up" OR rsvp) (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:10:32,350 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 50 messages
+2025-11-23 21:10:37,505 - main - INFO - 📧 Gmail search returned 50 emails
+2025-11-23 21:10:37,505 - main - INFO - 📧 Found 50 emails, parsing for events...
+2025-11-23 21:10:37,521 - main - INFO - ✅ Parsed 47 events from 50 emails
+INFO:     127.0.0.1:54695 - "GET /events/email/vipinvijayan23%40gmail.com HTTP/1.1" 200 OK
+2025-11-23 21:10:37,522 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 21:10:37,522 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:37,522 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:10:37,523 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:10:37,523 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:10:37,709 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:10:37,712 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 21:10:37,712 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 21:10:37,712 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:10:37,915 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 21:10:38,191 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 21:10:38,192 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 21:10:38,192 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:38,192 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:38,193 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:54696 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 21:10:38,194 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 21:10:38,195 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:10:38,196 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:10:38,196 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:10:38,196 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:10:38,338 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:10:38,343 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 21:10:38,343 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 21:10:38,343 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:10:38,561 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 21:10:38,864 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 21:10:38,864 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 21:10:38,864 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:38,865 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:10:38,865 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:54712 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
+2025-11-23 21:13:36,601 - main - INFO - 📊 Fetching student reports for child 'Advaith' (user: vipinvijayan23@gmail.com)
+2025-11-23 21:13:36,605 - main - INFO - ✅ Found Gmail token for user: vipinvijayan23@gmail.com
+2025-11-23 21:13:36,605 - main - INFO - 📧 Searching ONLY school email domains: ['austinisd.org', 'roundrockisd.org']
+2025-11-23 21:13:36,605 - app.tools.gmail_tool - INFO - ✅ Using per-user Gmail authentication
+2025-11-23 21:13:36,605 - app.tools.gmail_tool - INFO - 🔄 Refreshing expired user Gmail token
+2025-11-23 21:13:36,789 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-11-23 21:13:36,792 - main - INFO - 🔍 Searching Gmail with query: subject:"student report" Advaith
+2025-11-23 21:13:36,792 - main - INFO - 🏫 Filtering to school domains only: @austinisd.org, @roundrockisd.org
+2025-11-23 21:13:36,792 - app.tools.gmail_tool - INFO - Gmail structured search: subject:"student report" Advaith (from:*@austinisd.org OR from:*@roundrockisd.org)
+2025-11-23 21:13:37,042 - app.tools.gmail_tool - INFO - 📬 Gmail API returned 3 messages
+2025-11-23 21:13:37,355 - main - INFO - 📧 Found 3 student report emails, parsing for Advaith...
+2025-11-23 21:13:37,361 - main - INFO - ✅ Parsed report from: i-Ready Student Report
+2025-11-23 21:13:37,361 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:13:37,361 - main - INFO - ✅ Parsed report from: I-Ready Student Report
+2025-11-23 21:13:37,361 - main - INFO - ✅ Successfully parsed 3 student reports from 3 emails for Advaith
+INFO:     127.0.0.1:55637 - "GET /student/reports/vipinvijayan23%40gmail.com/Advaith HTTP/1.1" 200 OK
