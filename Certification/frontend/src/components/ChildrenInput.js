@@ -7,17 +7,24 @@ const API_BASE_URL = isLocalMode
   ? 'http://localhost:8000' 
   : (process.env.REACT_APP_API_URL || 'https://school-assistant-production.up.railway.app');
 
-const ChildrenInput = ({ email, onChildrenAdded, onSkip }) => {
-  const [children, setChildren] = useState(['']);
+const GRADE_OPTIONS = [
+  'Pre-K', 'Kindergarten', 
+  '1st Grade', '2nd Grade', '3rd Grade', '4th Grade', '5th Grade',
+  '6th Grade', '7th Grade', '8th Grade',
+  '9th Grade', '10th Grade', '11th Grade', '12th Grade'
+];
+
+const ChildrenInput = ({ email, onChildrenAdded, onSkip, existingChildren = [] }) => {
+  const [children, setChildren] = useState([{ name: '', grade: '', school_name: '' }]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChildChange = (idx, value) => {
-    setChildren(prev => prev.map((c, i) => (i === idx ? value : c)));
+  const handleChildChange = (idx, field, value) => {
+    setChildren(prev => prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)));
   };
 
   const handleAddChild = () => {
-    setChildren(prev => [...prev, '']);
+    setChildren(prev => [...prev, { name: '', grade: '', school_name: '' }]);
   };
 
   const handleRemoveChild = (idx) => {
@@ -30,21 +37,52 @@ const ChildrenInput = ({ email, onChildrenAdded, onSkip }) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-    const filtered = children.map(c => c.trim()).filter(Boolean);
+    
+    // Filter and format children data
+    const filtered = children
+      .map(c => ({
+        child_name: c.name.trim(),
+        grade: c.grade?.trim() || null,
+        school_name: c.school_name.trim() || null
+      }))
+      .filter(c => c.child_name);
+    
     if (filtered.length === 0) {
       setError('Please add at least one child or click "Skip for now" below.');
       setSubmitting(false);
       return;
     }
+    
     try {
-      await axios.post(`${API_BASE_URL}/api/auth/add-children`, {
-        email,
-        children: filtered
-      });
+      const addedChildren = [];
+
+      for (const child of filtered) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/api/auth/children`, {
+            email,
+            child_name: child.child_name,
+            grade: child.grade,
+            school_name: child.school_name
+          });
+          if (response.data?.child) {
+            addedChildren.push(response.data.child);
+          }
+        } catch (err) {
+          const detail = err?.response?.data?.detail || 'Failed to add child.';
+          setError(`Could not add ${child.child_name}: ${detail}`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       setSubmitting(false);
-      if (onChildrenAdded) onChildrenAdded(filtered);
+      setChildren([{ name: '', grade: '', school_name: '' }]);
+      if (addedChildren.length > 0 && onChildrenAdded) {
+        onChildrenAdded(addedChildren);
+      }
     } catch (err) {
-      setError('Failed to save children.');
+      const detail = err?.response?.data?.detail || 'Failed to save children.';
+      setError(detail);
       setSubmitting(false);
     }
   };
@@ -61,7 +99,7 @@ const ChildrenInput = ({ email, onChildrenAdded, onSkip }) => {
             👶 Add Your Children
           </h2>
           <p className="children-input-desc">
-            Please add the names of your children. You can skip this step if you prefer.
+            Please add your children's information. You can skip this step if you prefer.
           </p>
         </div>
 
@@ -72,26 +110,66 @@ const ChildrenInput = ({ email, onChildrenAdded, onSkip }) => {
         )}
 
         <form onSubmit={handleFinish}>
+          {existingChildren.length > 0 && (
+            <div className="children-input-existing">
+              <p>
+                You already have {existingChildren.length} child{existingChildren.length === 1 ? '' : 'ren'} saved. Use the edit button in settings to update them. Add new children below if needed.
+              </p>
+            </div>
+          )}
+
           {children.map((child, idx) => (
-            <div key={idx} className="children-input-row">
-              <input
-                type="text"
-                value={child}
-                onChange={e => handleChildChange(idx, e.target.value)}
-                placeholder={`Child ${idx + 1} Name`}
-                className="children-input-field"
-                required
-              />
-              {children.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveChild(idx)}
-                  className="children-input-remove"
-                  title="Remove child"
+            <div key={idx} className="children-input-group">
+              <div className="children-input-group-header">
+                <span className="children-input-group-title">Child {idx + 1}</span>
+                {children.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveChild(idx)}
+                    className="children-input-remove"
+                    title="Remove child"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              
+              <div className="children-input-field-row">
+                <label className="children-input-label">Name *</label>
+                <input
+                  type="text"
+                  value={child.name}
+                  onChange={e => handleChildChange(idx, 'name', e.target.value)}
+                  placeholder="Enter child's name"
+                  className="children-input-field"
+                  required
+                />
+              </div>
+              
+              <div className="children-input-field-row">
+                <label className="children-input-label">Grade</label>
+                <select
+                  value={child.grade}
+                  onChange={e => handleChildChange(idx, 'grade', e.target.value)}
+                  className="children-input-field children-input-select"
                 >
-                  −
-                </button>
-              )}
+                  <option value="">Select grade...</option>
+                  {GRADE_OPTIONS.map(grade => (
+                    <option key={grade} value={grade}>{grade}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="children-input-field-row">
+                <label className="children-input-label">School Name</label>
+                <input
+                  type="text"
+                  value={child.school_name}
+                  onChange={e => handleChildChange(idx, 'school_name', e.target.value)}
+                  placeholder="Enter school name"
+                  className="children-input-field"
+                />
+              </div>
             </div>
           ))}
 
@@ -108,7 +186,7 @@ const ChildrenInput = ({ email, onChildrenAdded, onSkip }) => {
             disabled={submitting}
             className="children-input-submit"
           >
-            {submitting ? '⏳ Saving Children...' : '✅ Finish & Continue'}
+            {submitting ? '⏳ Saving Children...' : '✅ Save & Continue'}
           </button>
 
           <button

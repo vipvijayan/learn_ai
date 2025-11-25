@@ -21,44 +21,6 @@ def get_db_connection():
     return conn
 
 
-def _migrate_database(conn):
-    """Apply database migrations to add new columns to existing tables"""
-    cursor = conn.cursor()
-    
-    try:
-        # Check if gmail columns exist in users table
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [column[1] for column in cursor.fetchall()]
-        
-        # Add gmail_token column if it doesn't exist
-        if 'gmail_token' not in columns:
-            logger.info("Adding gmail_token column to users table")
-            cursor.execute("ALTER TABLE users ADD COLUMN gmail_token TEXT")
-            
-        # Add gmail_email column if it doesn't exist
-        if 'gmail_email' not in columns:
-            logger.info("Adding gmail_email column to users table")
-            cursor.execute("ALTER TABLE users ADD COLUMN gmail_email TEXT")
-            
-        # Add gmail_connected_at column if it doesn't exist
-        if 'gmail_connected_at' not in columns:
-            logger.info("Adding gmail_connected_at column to users table")
-            cursor.execute("ALTER TABLE users ADD COLUMN gmail_connected_at TIMESTAMP")
-            
-        # Add gmail_name column if it doesn't exist
-        if 'gmail_name' not in columns:
-            logger.info("Adding gmail_name column to users table")
-            cursor.execute("ALTER TABLE users ADD COLUMN gmail_name TEXT")
-        
-        conn.commit()
-        logger.info("Database migration completed successfully")
-        
-    except Exception as e:
-        logger.error(f"Error during database migration: {e}")
-        conn.rollback()
-        raise
-
-
 def init_database():
     """Initialize the database with required tables"""
     conn = sqlite3.connect(DB_PATH)
@@ -141,6 +103,9 @@ def init_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 child_name TEXT NOT NULL,
+                grade TEXT,
+                age INTEGER,
+                school_name TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
@@ -182,10 +147,7 @@ def init_database():
         
         conn.commit()
         logger.info(f"Database initialized successfully at {DB_PATH}")
-        
-        # Migrate existing tables to add new columns if they don't exist
-        _migrate_database(conn)
-        
+
         # Insert some sample schools if table is empty
         cursor.execute("SELECT COUNT(*) FROM schools")
         if cursor.fetchone()[0] == 0:
@@ -457,9 +419,9 @@ def get_user_with_schools(email: str):
         user_dict['schools'] = schools
         user_dict['school_count'] = len(schools)
         
-        # Get children
-        children_names = get_children_for_user(email)
-        user_dict['children'] = [{'child_name': name} for name in children_names]
+        # Get children with full details
+        children = get_children_for_user(email)
+        user_dict['children'] = children
         
         # Keep legacy fields for backwards compatibility
         if schools:
@@ -739,26 +701,146 @@ def disconnect_user_gmail(email: str):
         conn.close()
 
 
-def add_children_for_user(email: str, children: list[str]):
-    """Add children for a user by email. Each child is a name string."""
+def _normalize_child_fields(child_name=None, grade=None, age=None, school_name=None, require_name: bool = True):
+    """Normalize child field values for storage."""
+    normalized_name = (child_name or '').strip()
+    if require_name and not normalized_name:
+        raise ValueError("Child name is required")
+    if not normalized_name:
+        normalized_name = None
+
+    if grade is None:
+        normalized_grade = None
+    elif isinstance(grade, str):
+        normalized_grade = grade.strip() or None
+    else:
+        normalized_grade = grade
+
+    if school_name is None:
+        normalized_school = None
+    elif isinstance(school_name, str):
+        normalized_school = school_name.strip() or None
+    else:
+        normalized_school = school_name
+
+    if age is None:
+        normalized_age = None
+    elif isinstance(age, str):
+        age = age.strip()
+        if not age:
+            normalized_age = None
+        else:
+            try:
+                normalized_age = int(age)
+            except ValueError:
+                raise ValueError("Age must be an integer")
+    elif isinstance(age, int):
+        normalized_age = age
+    else:
+        raise ValueError("Age must be an integer")
+
+    return normalized_name, normalized_grade, normalized_age, normalized_school
+
+
+def _insert_child(cursor, user_id: int, child_name: str, grade=None, age=None, school_name=None) -> dict:
+    """Insert a single child row and return the stored record."""
+    child_name, grade, age, school_name = _normalize_child_fields(child_name, grade, age, school_name, require_name=True)
+
+    cursor.execute(
+        "SELECT id FROM children WHERE user_id = ? AND lower(child_name) = ?",
+        (user_id, child_name.lower())
+    )
+    if cursor.fetchone():
+        raise ValueError(f"Child '{child_name}' already exists for this user")
+
+    cursor.execute(
+        "INSERT INTO children (user_id, child_name, grade, age, school_name) VALUES (?, ?, ?, ?, ?)",
+        (user_id, child_name, grade, age, school_name)
+    )
+    child_id = cursor.lastrowid
+
+    return {
+        'child_id': child_id,
+        'child_name': child_name,
+        'child_grade': grade,
+        'child_age': age,
+        'child_school': school_name
+    }
+
+
+def _fetch_child_by_id(cursor, user_id: int, child_id: int) -> dict | None:
+    cursor.execute(
+        "SELECT id, child_name, grade, age, school_name FROM children WHERE user_id = ? AND id = ?",
+        (user_id, child_id)
+    )
+    child = cursor.fetchone()
+    if not child:
+        return None
+    return {
+        'child_id': child['id'],
+        'child_name': child['child_name'],
+        'child_grade': child['grade'],
+        'child_age': child['age'],
+        'child_school': child['school_name']
+    }
+
+
+def add_child_for_user(email: str, child_name: str, grade: str = None, age: int = None, school_name: str = None) -> dict:
+    """Add a single child record for a user."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Get user id
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         user = cursor.fetchone()
         if not user:
             raise ValueError(f"User not found: {email}")
         user_id = user['id']
-        # Insert each child
-        for child_name in children:
-            cursor.execute(
-                "INSERT INTO children (user_id, child_name) VALUES (?, ?)",
-                (user_id, child_name)
-            )
+
+        child_record = _insert_child(cursor, user_id, child_name, grade, age, school_name)
         conn.commit()
-        logger.info(f"Added {len(children)} children for user {email}")
-        return True
+        logger.info(f"Added child '{child_record['child_name']}' for user {email}")
+        return child_record
+    except Exception as e:
+        logger.error(f"Error adding child for user: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def add_children_for_user(email: str, children: list) -> list[dict]:
+    """Add multiple children for a user by email."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    added_children: list[dict] = []
+    try:
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        if not user:
+            raise ValueError(f"User not found: {email}")
+        user_id = user['id']
+
+        for child in children:
+            if isinstance(child, str):
+                child_name = child
+                grade = None
+                age = None
+                school_name = None
+            else:
+                child_name = child.get('child_name') or child.get('name')
+                grade = child.get('grade') or child.get('child_grade')
+                age = child.get('age') or child.get('child_age')
+                school_name = child.get('school_name') or child.get('child_school')
+
+            try:
+                child_record = _insert_child(cursor, user_id, child_name, grade, age, school_name)
+                added_children.append(child_record)
+            except ValueError as e:
+                logger.warning("Skipping child for user %s: %s", email, e)
+
+        conn.commit()
+        logger.info(f"Added {len(added_children)} children for user {email}")
+        return added_children
     except Exception as e:
         logger.error(f"Error adding children for user: {e}")
         conn.rollback()
@@ -767,8 +849,8 @@ def add_children_for_user(email: str, children: list[str]):
         conn.close()
 
 
-def get_children_for_user(email: str) -> list[str]:
-    """Get children names for a user by email."""
+def get_children_for_user(email: str) -> list[dict]:
+    """Get children with full details for a user by email."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -779,10 +861,19 @@ def get_children_for_user(email: str) -> list[str]:
             return []
         user_id = user['id']
         
-        # Get children
-        cursor.execute("SELECT child_name FROM children WHERE user_id = ?", (user_id,))
+        # Get children with all fields
+        cursor.execute("SELECT id, child_name, grade, age, school_name FROM children WHERE user_id = ?", (user_id,))
         children = cursor.fetchall()
-        return [child['child_name'] for child in children]
+        return [
+            {
+                'child_id': child['id'],
+                'child_name': child['child_name'],
+                'child_grade': child['grade'],
+                'child_age': child['age'],
+                'child_school': child['school_name']
+            }
+            for child in children
+        ]
     except Exception as e:
         logger.error(f"Error getting children for user: {e}")
         return []
@@ -790,8 +881,8 @@ def get_children_for_user(email: str) -> list[str]:
         conn.close()
 
 
-def delete_child_for_user(email: str, child_name: str) -> bool:
-    """Delete a specific child for a user by email and child name."""
+def delete_child_for_user(email: str, child_id: int) -> bool:
+    """Delete a specific child for a user by email and child id."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -804,20 +895,93 @@ def delete_child_for_user(email: str, child_name: str) -> bool:
         
         # Delete the specific child
         cursor.execute(
-            "DELETE FROM children WHERE user_id = ? AND child_name = ?",
-            (user_id, child_name)
+            "DELETE FROM children WHERE user_id = ? AND id = ?",
+            (user_id, child_id)
         )
         
         if cursor.rowcount == 0:
-            raise ValueError(f"Child '{child_name}' not found for user {email}")
+            raise ValueError(f"Child '{child_id}' not found for user {email}")
         
         conn.commit()
-        logger.info(f"Deleted child '{child_name}' for user {email}")
+        logger.info(f"Deleted child id={child_id} for user {email}")
         return True
     except Exception as e:
         logger.error(f"Error deleting child for user: {e}")
         conn.rollback()
         raise
+    finally:
+        conn.close()
+
+
+def update_child_for_user(email: str, child_id: int, child_name: str = None, grade: str = None, age: int = None, school_name: str = None) -> dict:
+    """Update a child's details for a user and return the updated record."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get user id
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        if not user:
+            raise ValueError(f"User not found: {email}")
+        user_id = user['id']
+        
+        # Build update query dynamically based on provided fields
+        updates = []
+        params = []
+        normalized_name = None
+        normalized_grade = None
+        normalized_age = None
+        normalized_school = None
+
+        if child_name is not None:
+            normalized_name, _, _, _ = _normalize_child_fields(child_name, require_name=True)
+            updates.append("child_name = ?")
+            params.append(normalized_name)
+        if grade is not None:
+            _, normalized_grade, _, _ = _normalize_child_fields(grade=grade, require_name=False)
+            updates.append("grade = ?")
+            params.append(normalized_grade)
+        if age is not None:
+            _, _, normalized_age, _ = _normalize_child_fields(age=age, require_name=False)
+            updates.append("age = ?")
+            params.append(normalized_age)
+        if school_name is not None:
+            _, _, _, normalized_school = _normalize_child_fields(school_name=school_name, require_name=False)
+            updates.append("school_name = ?")
+            params.append(normalized_school)
+        
+        if not updates:
+            logger.warning(f"No fields to update for child id={child_id}")
+            existing_child = _fetch_child_by_id(cursor, user_id, child_id)
+            if not existing_child:
+                raise ValueError(f"Child '{child_id}' not found for user {email}")
+            return existing_child
+
+        params.extend([user_id, child_id])
+        query = f"UPDATE children SET {', '.join(updates)} WHERE user_id = ? AND id = ?"
+        cursor.execute(query, params)
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Child '{child_id}' not found for user {email}")
+
+        conn.commit()
+        updated_child = _fetch_child_by_id(cursor, user_id, child_id)
+        logger.info(f"Updated child id={child_id} for user {email}")
+        return updated_child
+    except Exception as e:
+        logger.error(f"Error updating child for user: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_child_by_id(user_id: int, child_id: int) -> dict | None:
+    """Fetch a single child row by id for a given user using a new connection."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        return _fetch_child_by_id(cursor, user_id, child_id)
     finally:
         conn.close()
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, field_validator
@@ -45,22 +45,6 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.tools.tavily_search import TavilySearchResults
 
-# Transformers imports for Phi-3 (moved after LangChain to avoid import conflicts)
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
-import warnings
-
-# Suppress specific transformers warnings
-warnings.filterwarnings("ignore", message=".*flash-attention.*", category=UserWarning)
-warnings.filterwarnings("ignore", message=".*torch_dtype.*", category=UserWarning)
-
-# Suppress transformers module warnings
-logging.getLogger("transformers_modules").setLevel(logging.ERROR)
-
-# Global variables for Phi-3 model
-phi_model = None
-phi_tokenizer = None
-
 # Import custom tool
 from app.tools.school_events_tool import create_school_events_tool
 
@@ -90,9 +74,11 @@ from app.database import (
     save_user_gmail_token,
     get_user_gmail_token,
     disconnect_user_gmail,
+    add_child_for_user,
     add_children_for_user,
     get_children_for_user,
-    delete_child_for_user
+    delete_child_for_user,
+    update_child_for_user
 )
 
 # ============================================================
@@ -151,26 +137,11 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
     # Startup
     logger.info("="*80)
-    logger.info("�️  Initializing SQLite Database...")
+    logger.info("🗃️  Initializing SQLite Database...")
     init_database()
     
-    # Load TinyLlama model for email parsing (lightweight and fast)
-    logger.info("🤖 Loading TinyLlama-1.1B model for email parsing...")
-    try:
-        global phi_model, phi_tokenizer
-        model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-        phi_tokenizer = AutoTokenizer.from_pretrained(model_name)
-        phi_model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            dtype=torch.float16,
-            device_map="auto",
-            low_cpu_mem_usage=True
-        )
-        logger.info("✅ TinyLlama model loaded successfully")
-    except Exception as e:
-        logger.error(f"❌ Failed to load TinyLlama model: {e}")
-        phi_tokenizer = None
-        phi_model = None
+    # No LLM needed — email extraction removed, raw email bodies sent to frontend
+    logger.info("📧 Email extraction disabled — raw email bodies will be sent to frontend")
     
     logger.info("="*80)
     logger.info("📋 AVAILABLE ENDPOINTS:")
@@ -178,8 +149,10 @@ async def lifespan(app: FastAPI):
     logger.info("   /api/auth/schools → Get list of schools")
     logger.info("   /api/auth/select-school → Select user's school")
     logger.info("   /api/auth/add-children → Add children for a user")
+    logger.info("   /api/auth/children → Add a single child")
+    logger.info("   /api/auth/children/{child_id} [PUT] → Update a child")
+    logger.info("   /api/auth/children/{child_id} [DELETE] → Delete a child")
     logger.info("   /api/auth/get-children/{email} → Get children for a user")
-    logger.info("   /api/auth/delete-child/{email}/{child_name} → Delete a child for a user")
     logger.info("   /query → RAG Query (switchable between Original and Naive)")
     logger.info("   /agent-query → Direct Tool Use (school_events_search)")
     logger.info("   /multi-agent-query → Multi-Agent System (WebSearch + LocalEvents)")
@@ -271,9 +244,25 @@ class PreferenceRequest(BaseModel):
     preference_key: str
     preference_value: str
 
+class ChildInfo(BaseModel):
+    child_name: str
+    grade: Optional[str] = None
+    age: Optional[int] = None
+    school_name: Optional[str] = None
+
+class AddChildRequest(ChildInfo):
+    email: str
+
 class AddChildrenRequest(BaseModel):
     email: str
-    children: list[str]
+    children: List[ChildInfo]
+
+class UpdateChildRequest(BaseModel):
+    email: str
+    child_name: Optional[str] = None
+    grade: Optional[str] = None
+    age: Optional[int] = None
+    school_name: Optional[str] = None
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -585,16 +574,96 @@ async def select_school(request: SchoolSelectionRequest):
 async def add_children(request: AddChildrenRequest):
     """
     Add children for a user (parent).
+    Supports both simple names and full child objects with grade, age, school_name.
     """
     try:
         email = request.email.strip().lower()
-        children = [c.strip() for c in request.children if c.strip()]
-        if not email or not children:
-            raise HTTPException(status_code=400, detail="Email and at least one child name required.")
-        add_children_for_user(email, children)
-        return {"success": True, "message": f"Added {len(children)} children for {email}"}
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required.")
+
+        processed_children = []
+        for child in request.children:
+            name = child.child_name.strip() if child.child_name else ""
+            if not name:
+                continue
+            processed_children.append({
+                'child_name': name,
+                'grade': child.grade,
+                'age': child.age,
+                'school_name': child.school_name
+            })
+
+        if not processed_children:
+            raise HTTPException(status_code=400, detail="At least one child is required.")
+
+        added_children = add_children_for_user(email, processed_children)
+        return {
+            "success": True,
+            "message": f"Added {len(added_children)} children for {email}",
+            "children": added_children
+        }
+    except ValueError as e:
+        logger.error(f"Add children validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Add children error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/children")
+async def add_child(request: AddChildRequest):
+    """Add a single child record for a user."""
+    try:
+        email = request.email.strip().lower()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required.")
+
+        child_record = add_child_for_user(
+            email=email,
+            child_name=request.child_name,
+            grade=request.grade,
+            age=request.age,
+            school_name=request.school_name
+        )
+        return {"success": True, "child": child_record}
+    except ValueError as e:
+        message = str(e)
+        status = 409 if "already exists" in message.lower() else 400
+        raise HTTPException(status_code=status, detail=message)
+    except Exception as e:
+        logger.error(f"Add child error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/auth/children/{child_id}")
+async def update_child(child_id: int, request: UpdateChildRequest):
+    """
+    Update a child's details (including name, grade, age, school) for a user.
+    """
+    try:
+        email = request.email.strip().lower()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required.")
+
+        updated_child = update_child_for_user(
+            email=email,
+            child_id=child_id,
+            child_name=request.child_name,
+            grade=request.grade,
+            age=request.age,
+            school_name=request.school_name
+        )
+        return {
+            "success": True,
+            "message": f"Updated child {child_id} for {email}",
+            "child": updated_child
+        }
+    except ValueError as e:
+        message = str(e)
+        status = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status, detail=message)
+    except Exception as e:
+        logger.error(f"Update child error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -612,16 +681,19 @@ async def get_children(email: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/auth/delete-child/{email}/{child_name}")
-async def delete_child(email: str, child_name: str):
-    """
-    Delete a specific child for a user (parent).
-    """
+@app.delete("/api/auth/children/{child_id}")
+async def delete_child(child_id: int, email: str = Query(...)):
+    """Delete a specific child for a user (parent)."""
     try:
-        email = email.strip().lower()
-        child_name = child_name.strip()
-        delete_child_for_user(email, child_name)
-        return {"success": True, "message": f"Deleted child '{child_name}' for {email}"}
+        normalized_email = email.strip().lower()
+        delete_child_for_user(normalized_email, child_id)
+        return {
+            "success": True,
+            "message": f"Deleted child {child_id} for {normalized_email}",
+            "child_id": child_id
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Delete child error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1187,218 +1259,52 @@ def _parse_event_from_email(email_data: dict) -> dict:
 
 def _parse_student_report_from_email(email_data: dict, child_name: str) -> dict:
     """
-    Parse a student report email to extract progress information.
-    Returns report dict or None if not a valid student report.
+    Return raw email data as a student report — no extraction logic.
+    Frontend will handle displaying the raw email body.
     """
-    import re
-    from datetime import datetime
-    
-    subject = email_data.get('subject', '')
-    body = email_data.get('body', '')
-    sender = email_data.get('from', '')
-    from langchain_openai import ChatOpenAI
-    from langchain_core.prompts import ChatPromptTemplate
-    import json
-    subject = email_data.get('subject', '')
-    body = email_data.get('body', '')
-    sender = email_data.get('from', '')
-    email_date = email_data.get('date', '')
-    email_id = email_data.get('id', '')
+    from email.utils import parsedate_to_datetime
 
-    print(f"EMAIL BODY for REPORT PARSING:\n{body}\n{'-'*40}")
+    subject = email_data.get('subject', '') or 'No Subject'
+    body = email_data.get('body', '') or ''
+    sender = email_data.get('from', '') or 'Unknown Sender'
+    email_date = email_data.get('date', '') or ''
+    email_id = email_data.get('id', '') or 'unknown'
 
-    # Use TinyLlama LLM to extract fields
-    if phi_model is None or phi_tokenizer is None:
-        logger.error("TinyLlama model not loaded, cannot parse email")
-        llm_data = {
-            "subjects": [],
-            "overall_summary": "Model not available for parsing."
-        }
-    else:
+    # Parse date if available
+    report_date = "Date not available"
+    if email_date:
         try:
-            # Format prompt for TinyLlama chat model
-            system_prompt = "You are a helpful assistant that extracts information from student report emails and returns JSON."
-            
-            user_message = f"""Extract student report data from this email:
-
-Subject: {subject}
-Body: {body}
-
-Find:
-1. Subject name (Math, Reading, etc.)
-2. Expected lessons (look for "District Expectation: X Lessons")
-3. Completed lessons (look for "Completed this week: X")
-4. Performance notes
-
-Return JSON format:
-{{
-  "subjects": [{{
-    "name": "subject_name",
-    "expected_lessons": 0,
-    "completed_lessons": 0,
-    "performance": "text",
-    "summary": "text"
-  }}],
-  "overall_summary": "text"
-}}
-
-JSON:"""
-
-            # TinyLlama chat format
-            full_prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{user_message}</s>\n<|assistant|>\n"
-            
-            # Truncate input to manageable size for faster processing
-            inputs = phi_tokenizer(full_prompt, return_tensors="pt", max_length=2048, truncation=True)
-            inputs = {k: v.to(phi_model.device) for k, v in inputs.items()}
-            
-            # Use timeout to prevent hanging
-            import signal
-            from contextlib import contextmanager
-            
-            @contextmanager
-            def timeout_context(seconds):
-                def timeout_handler(signum, frame):
-                    raise TimeoutError(f"Model generation timeout after {seconds} seconds")
-                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(seconds)
-                try:
-                    yield
-                finally:
-                    signal.alarm(0)
-                    signal.signal(signal.SIGALRM, old_handler)
-            
-            try:
-                with timeout_context(15):  # 15 second timeout for TinyLlama
-                    with torch.no_grad():
-                        outputs = phi_model.generate(
-                            **inputs,
-                            max_new_tokens=300,  # Reduced for faster processing
-                            temperature=0.7,
-                            do_sample=True,
-                            top_p=0.9,
-                            pad_token_id=phi_tokenizer.eos_token_id
-                        )
-                
-                response = phi_tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
-                logger.info(f"TinyLlama raw response for email {email_id}: {response[:500]}...")
-            except TimeoutError as te:
-                logger.warning(f"TinyLlama generation timeout for email {email_id}: {te}")
-                raise Exception("Model generation timeout - using fallback")
-            
-            # Extract JSON from response with multiple strategies
-            llm_data = None
-            
-            # Strategy 1: Try to find JSON in response
-            json_start = response.find('{')
-            json_end = response.rfind('}') + 1
-            if json_start != -1 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                try:
-                    llm_data = json.loads(json_str)
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse JSON from TinyLlama response")
-            
-            # Strategy 2: Fallback to regex parsing if JSON extraction fails
-            if not llm_data or not llm_data.get('subjects'):
-                import re
-                logger.info(f"Using regex fallback for email {email_id}")
-                
-                subjects = []
-                # Look for subject patterns in body
-                subject_patterns = re.findall(r'(Math|Reading|Science|English|Social Studies)\s+Engagement', body, re.IGNORECASE)
-                
-                for subj_name in set(subject_patterns):
-                    # Extract expected lessons
-                    expected_match = re.search(r'District Expectation:\s*(\d+)\s*Lesson', body, re.IGNORECASE)
-                    expected = int(expected_match.group(1)) if expected_match else 0
-                    
-                    # Extract completed lessons
-                    completed_match = re.search(r'Completed this week:\s*(\d+)', body, re.IGNORECASE)
-                    completed = int(completed_match.group(1)) if completed_match else 0
-                    
-                    subjects.append({
-                        "name": subj_name.capitalize(),
-                        "expected_lessons": expected,
-                        "completed_lessons": completed,
-                        "performance": "See email for details",
-                        "summary": f"{subj_name} report"
-                    })
-                
-                llm_data = {
-                    "subjects": subjects,
-                    "overall_summary": "Extracted using regex fallback"
-                }
-            
-            if not llm_data:
-                llm_data = {
-                    "subjects": [],
-                    "overall_summary": "Could not extract data from response."
-                }
-            
-            print(f"TinyLlama extracted data for email {email_id}: {json.dumps(llm_data, indent=2)}")
-            
-        except Exception as e:
-            logger.error(f"TinyLlama extraction failed for email {email_id}: {e}")
-            llm_data = {
-                "subjects": [],
-                "overall_summary": f"Extraction failed: {str(e)}"
-            }
-            print(f"TinyLlama extraction failed for email {email_id}. Using fallback: {json.dumps(llm_data, indent=2)}")
-
-    # Use email received date (prioritize this over content-extracted dates)
-    report_date = email_date if email_date else "Date not available"
-    if report_date and report_date != "Date not available":
-        try:
-            from email.utils import parsedate_to_datetime
-            parsed_date = parsedate_to_datetime(report_date)
+            parsed_date = parsedate_to_datetime(email_date)
             report_date = parsed_date.strftime("%B %d, %Y at %I:%M %p")
         except Exception as e:
-            logger.debug(f"Could not parse date '{report_date}': {e}")
-            pass
+            # If parsing fails, use the raw date string
+            report_date = email_date if email_date else "Date not available"
+            logger.debug(f"Date parsing failed for '{email_date}': {e}")
 
-    # If subjects extracted, return one report per subject (Math, Reading, etc.)
-    reports = []
-    for subj in llm_data.get("subjects", []):
-        reports.append({
-            "id": f"student_report_{email_id}_{subj.get('name','General')}",
-            "child_name": child_name,
-            "report_type": "Student Report (LLM)",
-            "subject_area": subj.get("name", "General"),
-            "score": None,
-            "lessons_completed": subj.get("completed_lessons", 0),
-            "lessons_expected": subj.get("expected_lessons", 0),
-            "time_spent": None,
-            "performance": subj.get("performance", None),
-            "date": report_date,
-            "summary": subj.get("summary", subject),
-            "source": "email",
-            "email_subject": subject,
-            "subject": subject,
-            "sender": sender,
-            "email_body": body
-        })
-    # If no subjects, fallback to one report
-    if not reports:
-        reports.append({
-            "id": f"student_report_{email_id}",
-            "child_name": child_name,
-            "report_type": "Student Report (LLM)",
-            "subject_area": "General",
-            "score": None,
-            "lessons_completed": 0,
-            "lessons_expected": 0,
-            "time_spent": None,
-            "performance": None,
-            "date": report_date,
-            "summary": llm_data.get("overall_summary", subject),
-            "source": "email",
-            "email_subject": subject,
-            "subject": subject,
-            "sender": sender,
-            "email_body": body
-        })
-    # If called from batch, return list; if called from API, return first
-    return reports[0] if len(reports) == 1 else reports
+    # Log what we're returning for debugging
+    logger.info(f"📧 Parsed email: subject='{subject[:50]}...', date='{report_date}', body_len={len(body)}")
+
+    # Return a single report with raw email body
+    return {
+        "id": f"student_report_{email_id}",
+        "child_name": child_name,
+        "report_type": "Student Report",
+        "subject_area": "General",
+        "score": None,
+        "lessons_completed": None,
+        "lessons_expected": None,
+        "minutes_completed": None,
+        "minutes_expected": None,
+        "time_spent": None,
+        "performance": None,
+        "date": report_date,
+        "summary": subject,
+        "source": "email",
+        "email_subject": subject,
+        "subject": subject,
+        "sender": sender,
+        "email_body": body
+    }
 
 
 @app.get("/events/legacy")
@@ -1746,6 +1652,8 @@ async def multi_agent_query_events(request: QueryRequest):
     logger.info(f"User Email: {request.user_email}")
     logger.info(f"Email Suffix (single): {request.email_suffix}")
     logger.info(f"Email Suffixes (multiple): {request.email_suffixes}")
+    logger.info(f"School District: {request.school_district}")
+    logger.info(f"School Districts (multiple): {request.school_districts}")
     
     try:
         # Set email suffixes for Gmail tool - support both single and multiple schools
@@ -2063,7 +1971,7 @@ async def gmail_callback(code: str, state: str):
             'token': creds.token,
             'refresh_token': creds.refresh_token,
             'token_uri': creds.token_uri,
-            'client_id': creds.client_id,
+                       'client_id': creds.client_id,
             'client_secret': creds.client_secret,
             'scopes': creds.scopes,
             'expiry': creds.expiry.isoformat() if creds.expiry else None
@@ -2614,7 +2522,3 @@ async def evaluate_rag_with_ragas():
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error running RAGAS evaluation: {str(e)}")
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, loop="asyncio")

@@ -3911,11 +3911,97 @@ html {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .date-group-header h4 {
   margin: 0;
   font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.date-group-header .report-count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+/* Email Report Cards */
+.email-report-card {
+  background: #fafbfc;
+  border-bottom: 1px solid #e9ecef;
+  padding: 20px 24px;
+}
+
+.email-report-card:last-child {
+  border-bottom: none;
+}
+
+.email-report-card:hover {
+  background: #f5f7fa;
+}
+
+.email-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.email-report-header strong {
+  color: #1976D2;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.email-sender {
+  color: #6c757d;
+  font-size: 0.9rem;
+  background: #e9ecef;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.email-body-content {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.email-body-content pre {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.email-body-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.email-body-content th,
+.email-body-content td {
+  padding: 10px 12px;
+  border: 1px solid #dee2e6;
+  text-align: left;
+}
+
+.email-body-content th {
+  background: #f8f9fa;
   font-weight: 600;
 }
 

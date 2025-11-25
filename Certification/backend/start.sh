@@ -16,6 +16,7 @@ source venv/bin/activate
 echo "Installing requirements..."
 pip install -r requirements.txt
 
+cd "$(dirname "$0")"
 # Start the server
 echo "Starting FastAPI server..."
 python main.py

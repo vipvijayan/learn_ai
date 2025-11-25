@@ -155,16 +155,42 @@ function App() {
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
+        
+        // Refresh user data from backend to get latest children/schools
+        const refreshUserData = async () => {
+          try {
+            const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+              email: parsedUser.email
+            });
+            if (response.data.success && response.data.user) {
+              const freshUser = response.data.user;
+              // Preserve Gmail info from localStorage if not in response
+              if (parsedUser.gmail_email && !freshUser.gmail_email) {
+                freshUser.gmail_email = parsedUser.gmail_email;
+                freshUser.gmail_name = parsedUser.gmail_name;
+                freshUser.gmail_connected_at = parsedUser.gmail_connected_at;
+              }
+              setUser(freshUser);
+              localStorage.setItem('user', JSON.stringify(freshUser));
+              
+              // Check if user needs to add children
+              if (!freshUser.children || freshUser.children.length === 0) {
+                setNeedsChildrenInput(true);
+              } else if (!freshUser.schools || freshUser.schools.length === 0) {
+                setNeedsSchoolSelection(true);
+              }
+            }
+          } catch (err) {
+            console.error('Error refreshing user data:', err);
+            // Fall back to localStorage data
+            setUser(parsedUser);
+          }
+        };
+        
         setUser(parsedUser);
         setIsAuthenticated(true);
-        // Check if user needs to add children (no children added yet)
-        if (!parsedUser.children || parsedUser.children.length === 0) {
-          setNeedsChildrenInput(true);
-        }
-        // Check if user needs to select schools (no schools selected yet)
-        else if (!parsedUser.schools || parsedUser.schools.length === 0) {
-          setNeedsSchoolSelection(true);
-        }
+        refreshUserData(); // Refresh in background
+        
       } catch (err) {
         console.error('Error parsing saved user:', err);
         localStorage.removeItem('user');
@@ -205,7 +231,23 @@ function App() {
 
   // Handle children added
   const handleChildrenAdded = (children) => {
-    const updatedUser = { ...user, children };
+    const formattedChildren = children.map(child => ({
+      child_id: child.child_id || child.id,
+      child_name: child.child_name || child.name || child,
+      child_grade: child.child_grade || child.grade || null,
+      child_school: child.child_school || child.school_name || null
+    }));
+
+    const existingChildren = user?.children || [];
+    const mergedChildren = [...existingChildren];
+
+    formattedChildren.forEach(newChild => {
+      if (!mergedChildren.some(child => (child.child_id || child.id) === newChild.child_id)) {
+        mergedChildren.push(newChild);
+      }
+    });
+
+    const updatedUser = { ...user, children: mergedChildren };
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setNeedsChildrenInput(false);
@@ -294,8 +336,8 @@ function App() {
   };
 
   // Show delete child confirmation
-  const handleDeleteChild = (childName) => {
-    setChildToDelete(childName);
+  const handleDeleteChild = (child) => {
+    setChildToDelete(child);
   };
 
   // Cancel delete child
@@ -306,26 +348,61 @@ function App() {
   // Confirm delete child
   const confirmDeleteChild = async () => {
     if (!childToDelete) return;
-    
+
+    const childId = childToDelete.child_id || childToDelete.id;
+
     try {
-      await axios.delete(`${API_BASE_URL}/api/auth/delete-child/${encodeURIComponent(user.email)}/${encodeURIComponent(childToDelete)}`);
-      
-      // Update user object to remove the child
-      const updatedUser = {
-        ...user,
-        children: user.children.filter(child => child !== childToDelete)
-      };
+      await axios.delete(`${API_BASE_URL}/api/auth/children/${childId}`, {
+        params: { email: user.email }
+      });
+
+      const updatedChildren = (user.children || []).filter(
+        child => (child.child_id || child.id) !== childId
+      );
+
+      const updatedUser = { ...user, children: updatedChildren };
       setUser(updatedUser);
-      
-      // Update localStorage
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      // Clear the confirmation state
       setChildToDelete(null);
     } catch (error) {
       console.error('Error deleting child:', error);
-      alert('Failed to delete child. Please try again.');
+      const detail = error?.response?.data?.detail || 'Failed to delete child. Please try again.';
+      alert(detail);
       setChildToDelete(null);
+    }
+  };
+
+  const handleUpdateChild = async (childId, updates) => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/api/auth/children/${childId}`, {
+        email: user.email,
+        ...updates
+      });
+
+      if (response.data?.child) {
+        const updatedChild = response.data.child;
+        const updatedChildren = (user.children || []).map(child =>
+          (child.child_id || child.id) === childId
+            ? {
+                child_id: updatedChild.child_id || updatedChild.id || childId,
+                child_name: updatedChild.child_name,
+                child_grade: updatedChild.child_grade,
+                child_school: updatedChild.child_school,
+                child_age: updatedChild.child_age ?? null
+              }
+            : child
+        );
+
+        const updatedUser = { ...user, children: updatedChildren };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating child:', error);
+      const detail = error?.response?.data?.detail || 'Failed to update child.';
+      return { success: false, message: detail };
     }
   };
   
@@ -845,7 +922,8 @@ function App() {
     return <ChildrenInput 
       email={user?.email} 
       onChildrenAdded={handleChildrenAdded} 
-      onSkip={handleSkipChildren} 
+      onSkip={handleSkipChildren}
+      existingChildren={user?.children || []}
     />;
   }
 
@@ -905,7 +983,7 @@ function App() {
             console.log('User object:', user);
             console.log('User.children:', user.children);
             return user.children.map((child, idx) => {
-              const childName = child ||  `Child ${idx + 1}`;
+              const childName = child.child_name || child.name || (typeof child === 'string' ? child : `Child ${idx + 1}`);
               return (
                 <button
                   key={`child-tab-${childName}-${idx}`}
@@ -1221,6 +1299,7 @@ function App() {
               setNeedsChildrenInput={setNeedsChildrenInput}
               setNeedsSchoolSelection={setNeedsSchoolSelection}
               handleDeleteChild={handleDeleteChild}
+              handleUpdateChild={handleUpdateChild}
               childToDelete={childToDelete}
               cancelDeleteChild={cancelDeleteChild}
               confirmDeleteChild={confirmDeleteChild}

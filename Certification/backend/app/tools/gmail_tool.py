@@ -213,27 +213,60 @@ class GmailToolClient:
             logger.error(f"Error getting email content: {e}")
             return f"Error getting email content: {str(e)}"
     
-    def _extract_body(self, payload):
-        """Extract email body from payload"""
+    def _extract_body(self, payload, depth=0):
+        """Extract email body from payload, prefer HTML if available.
+        Handles deeply nested multipart structures."""
         import base64
         
+        if depth > 10:  # Prevent infinite recursion
+            return "No text content found"
+            
         try:
+            mime_type = payload.get('mimeType', '')
+            
+            # If this is a leaf node with body data
+            if 'body' in payload and payload['body'].get('data'):
+                body_data = payload['body']['data']
+                return base64.urlsafe_b64decode(body_data).decode('utf-8')
+            
+            # If this has parts, search recursively
             if 'parts' in payload:
+                html_content = None
+                text_content = None
+                
                 for part in payload['parts']:
-                    if part.get('mimeType') == 'text/plain':
+                    part_mime = part.get('mimeType', '')
+                    
+                    # Check for HTML content
+                    if part_mime == 'text/html':
                         body_data = part.get('body', {})
                         if body_data and 'data' in body_data:
-                            return base64.urlsafe_b64decode(body_data['data']).decode('utf-8')
-                    elif 'parts' in part:
-                        body = self._extract_body(part)
-                        if body and body != "No text content found":
-                            return body
-            elif 'body' in payload:
-                body_data = payload.get('body', {})
-                if body_data and 'data' in body_data:
-                    return base64.urlsafe_b64decode(body_data['data']).decode('utf-8')
+                            html_content = base64.urlsafe_b64decode(body_data['data']).decode('utf-8')
+                    
+                    # Check for plain text content
+                    elif part_mime == 'text/plain':
+                        body_data = part.get('body', {})
+                        if body_data and 'data' in body_data:
+                            text_content = base64.urlsafe_b64decode(body_data['data']).decode('utf-8')
+                    
+                    # Recursively check nested multipart structures
+                    elif part_mime.startswith('multipart/') or 'parts' in part:
+                        nested_body = self._extract_body(part, depth + 1)
+                        if nested_body and nested_body != "No text content found":
+                            # If we found HTML in nested, prefer it
+                            if '<html' in nested_body.lower() or '<body' in nested_body.lower() or '<table' in nested_body.lower():
+                                html_content = html_content or nested_body
+                            else:
+                                text_content = text_content or nested_body
+                
+                # Prefer HTML over plain text
+                if html_content:
+                    return html_content
+                if text_content:
+                    return text_content
+                    
         except Exception as e:
-            logger.error(f"Error extracting email body: {e}")
+            logger.error(f"Error extracting email body at depth {depth}: {e}")
             return f"Error extracting body: {str(e)}"
         
         return "No text content found"
@@ -284,11 +317,16 @@ class GmailToolClient:
                 headers = {h['name']: h['value'] for h in msg_data['payload']['headers']}
                 body = self._extract_body(msg_data['payload'])
                 
+                # Log what we extracted
+                subject = headers.get('Subject', 'No subject')
+                date = headers.get('Date', 'Unknown date')
+                logger.info(f"📧 Email: subject='{subject[:50]}', date='{date}', body_len={len(body) if body else 0}")
+                
                 email_list.append({
                     'id': msg['id'],
                     'from': headers.get('From', 'Unknown'),
-                    'subject': headers.get('Subject', 'No subject'),
-                    'date': headers.get('Date', 'Unknown date'),
+                    'subject': subject,
+                    'date': date,
                     'body': body if body else ""
                 })
             
