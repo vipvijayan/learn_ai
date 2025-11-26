@@ -50,6 +50,7 @@ from app.tools.school_events_tool import create_school_events_tool
 
 # Import multi-agent system
 from app.agents.multi_agent_system import create_school_events_agents, query_with_agent, query_with_agent_stream
+from app.config import config
 
 # Import database functions
 from app.database import (
@@ -80,6 +81,7 @@ from app.database import (
     delete_child_for_user,
     update_child_for_user
 )
+from app.database import get_user_gmail_token, get_user_schools, get_child_by_id
 
 # ============================================================
 # CONSTANTS AND CONFIGURATION
@@ -139,32 +141,7 @@ async def lifespan(app: FastAPI):
     logger.info("="*80)
     logger.info("🗃️  Initializing SQLite Database...")
     init_database()
-    
-    # No LLM needed — email extraction removed, raw email bodies sent to frontend
-    logger.info("📧 Email extraction disabled — raw email bodies will be sent to frontend")
-    
-    logger.info("="*80)
-    logger.info("📋 AVAILABLE ENDPOINTS:")
-    logger.info("   /api/auth/login → User login with email")
-    logger.info("   /api/auth/schools → Get list of schools")
-    logger.info("   /api/auth/select-school → Select user's school")
-    logger.info("   /api/auth/add-children → Add children for a user")
-    logger.info("   /api/auth/children → Add a single child")
-    logger.info("   /api/auth/children/{child_id} [PUT] → Update a child")
-    logger.info("   /api/auth/children/{child_id} [DELETE] → Delete a child")
-    logger.info("   /api/auth/get-children/{email} → Get children for a user")
-    logger.info("   /query → RAG Query (switchable between Original and Naive)")
-    logger.info("   /agent-query → Direct Tool Use (school_events_search)")
-    logger.info("   /multi-agent-query → Multi-Agent System (WebSearch + LocalEvents)")
-    logger.info("   /evaluate-ragas → RAGAS Evaluation (Faithfulness, Relevancy, Precision, Recall)")
-    logger.info("   /retrieval-method → Get/Set active retrieval method")
-    logger.info("   /retrieval-methods → List all available retrieval methods")
-    logger.info("   /tools → List all available tools")
-    logger.info("   /agents → List all available agents")
-    logger.info("   /health → Health check")
-    logger.info("🔍 Active Retrieval Method: Naive Retrieval (default)")
-    logger.info("="*80)
-    
+    logger.info("✅ Database initialized")    
     yield
     
     # Shutdown (cleanup if needed)
@@ -375,26 +352,18 @@ def setup_rag_pipeline():
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+    # Configure LLM based on offline search settings
+    if config.ENABLE_OFFLINE_LLM_FOR_SEARCH:
+        from app.llm.offline_llm import get_offline_llm
+        llm = get_offline_llm()
+        logger.info("🤖 Using offline LLM for RAG pipeline (Ollama)")
+    else:
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+        logger.info("🤖 Using OpenAI GPT-3.5-turbo for RAG pipeline")
     
-    # Original prompt template
-    original_prompt = ChatPromptTemplate.from_template("""You are a helpful assistant for a school events information system.
-        
-Based on the following information about school events and programs:
-
-{context}
-
-Please answer this question: {question}
-
-Provide a clear, well-formatted response using the following guidelines:
-- Start with a brief overview or direct answer
-- Use bullet points (•) for listing multiple items or features
-- Use clear section headers when appropriate
-- Include specific details like dates, times, locations, age ranges, and costs when available
-- Keep paragraphs concise and readable
-- If information isn't in the context, politely say so and suggest what information is available
-
-Format your response for easy reading with proper spacing and structure.""")
+    # Original prompt template (imported from app/prompts.py)
+    from app.prompts import school_events_original_prompt
+    original_prompt = school_events_original_prompt
     
     # Original chain: simple prompt | llm | parser
     original_chain = original_prompt | llm | StrOutputParser()
@@ -409,29 +378,11 @@ Format your response for easy reading with proper spacing and structure.""")
     from langchain_core.runnables import RunnablePassthrough
     from operator import itemgetter
     
-    # Naive RAG prompt template (from Advanced Retrieval notebook, Cell 12)
-    RAG_TEMPLATE = """\
-You are a helpful and kind assistant for a school events information system. Use the context provided below to answer the question.
-
-If you do not know the answer, or are unsure, say you don't know.
-
-Provide clear, well-formatted responses using these guidelines:
-- Start with a direct answer or overview
-- Use bullet points (•) for multiple items
-- Include specific details (dates, times, locations, ages, costs)
-- Keep information organized and easy to scan
-- Use proper spacing between sections
-
-Query:
-{question}
-
-Context:
-{context}
-"""
+    # Naive RAG prompt template (imported from app/prompts_naive.py)
+    from app.prompts_naive import school_events_naive_prompt
+    rag_prompt = school_events_naive_prompt
     
-    rag_prompt = ChatPromptTemplate.from_template(RAG_TEMPLATE)
-    
-    # Naive Retrieval Chain using LCEL
+    # Naive Retrieval Chain using LCEL (uses same LLM as configured above)
     naive_chain = (
         {"context": itemgetter("question") | naive_retriever, "question": itemgetter("question")}
         | RunnablePassthrough.assign(context=itemgetter("context"))
@@ -681,6 +632,143 @@ async def get_children(email: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/auth/children/{child_id}/attendance-search")
+async def search_child_attendance_emails(child_id: int, email: str = Query(...), max_results: int = 10):
+    """
+    Search Gmail for attendance-related emails for a specific child and return summaries.
+
+    Query parameters:
+      - email: parent/user email (required) - used to locate child and Gmail token
+      - max_results: maximum number of emails to return (default 10)
+    """
+    try:
+        email = email.strip().lower()
+
+        # Verify child belongs to user
+        children = get_children_for_user(email)
+        child = None
+        for c in children:
+            if int(c.get('child_id')) == int(child_id):
+                child = c
+                break
+
+        if not child:
+            raise HTTPException(status_code=404, detail=f"Child {child_id} not found for user {email}")
+
+        # Get user's Gmail token
+        user_gmail = get_user_gmail_token(email)
+        if not user_gmail or not user_gmail.get('token'):
+            return {
+                "success": False,
+                "message": "Gmail is not connected for this user. Please connect Gmail to enable attendance search."
+            }
+
+        # Create Gmail client with user's token
+        from app.tools.gmail_tool import create_gmail_tools, get_gmail_client
+        # Pass the raw token JSON string stored in DB
+        create_gmail_tools(user_token_data=user_gmail.get('token'))
+        gmail_client = get_gmail_client()
+
+        # Set email suffixes from user's selected schools to narrow search
+        user_schools = get_user_schools(email)
+        suffixes = [s.get('email_suffix') for s in user_schools if s.get('email_suffix')]
+        if suffixes:
+            gmail_client.set_email_suffixes(suffixes)
+
+        # Build attendance-focused query and include child name for specificity
+        child_name = child.get('child_name') or ''
+        attendance_keywords = 'attendance OR absent OR absence OR tardy OR "attendance note" OR "attendance office" OR "absence"'
+        # Include child's name to filter school emails related to that child
+        query = f"{attendance_keywords} \"{child_name}\""
+
+        # Run structured search to get message metadata + full body
+        emails = gmail_client.search_emails_structured(query, max_results=max_results)
+
+        # Helper to clean/trim email body (same heuristics used elsewhere)
+        def clean_email_body(body: str) -> str:
+            import re
+            if not body:
+                return ""
+            # Remove quoted replies
+            body = re.split(r'(On\s.+wrote:|From:|Sent:|To:|Subject:|--+)', body)[0]
+            # Remove signature separators / common sign-offs
+            body = re.split(r'(--+|__+|Thanks,|Best regards,|Sincerely,)', body)[0]
+            # Collapse whitespace
+            body = re.sub(r'\s+', ' ', body).strip()
+            return body
+
+        # Optionally summarize each email using offline LLM if enabled
+        summaries = []
+        from app.config import config as app_config
+        llm = None
+        if app_config.ENABLE_OFFLINE_LLM_FOR_SEARCH:
+            try:
+                from app.llm.offline_llm import get_offline_llm
+                llm = get_offline_llm()
+            except Exception:
+                llm = None
+
+        for e in emails:
+            body = e.get('body') or ''
+            trimmed = clean_email_body(body)
+            preview = trimmed[:250] + ('...' if len(trimmed) > 250 else '')
+
+            summary_text = preview
+            # If llm available, ask it to produce a concise 1-2 sentence summary
+            if llm is not None:
+                try:
+                    # Instruct the LLM to output a strict JSON object with a single "summary" key.
+                    # This helps ensure the response contains only the concise summary text.
+                    # Use the actual child's name in the example to avoid hard-coded placeholders
+                    example_text = '{"summary": "Student %s was absent on Oct 3; parent notified."}' % (child_name or 'the student')
+                    prompt = (
+                        "You will be given the full text of a school attendance email.\n"
+                        "Produce a JSON object with exactly one key: \"summary\".\n"
+                        "The value should be a concise 1-2 sentence summary focused on who, when, and any action required.\n"
+                        "Output MUST be valid JSON and NOTHING else (no explanation, no labels, no surrounding text).\n"
+                        "Example: " + example_text + "\n\n"
+                        "Email:\n\n" + trimmed
+                    )
+                    resp = llm.invoke(prompt)
+                    resp_text = getattr(resp, 'content', str(resp)) if resp else ''
+                    # Try to parse JSON and extract the summary field
+                    try:
+                        parsed = json.loads(resp_text)
+                        summary_text = parsed.get('summary', '') if isinstance(parsed, dict) else resp_text
+                    except Exception:
+                        # Fallback: if response isn't valid JSON, use the raw text (sanitized below)
+                        summary_text = resp_text or preview
+                    # Shorten summary if excessively long
+                    if summary_text and len(summary_text) > 400:
+                        summary_text = summary_text[:400] + '...'
+                except Exception:
+                    summary_text = preview
+
+            # summary_text is produced from the LLM (JSON-parsed) or preview fallback
+
+            summaries.append({
+                'id': e.get('id'),
+                'from': e.get('from'),
+                'subject': e.get('subject'),
+                'date': e.get('date'),
+                'preview': preview,
+                'trimmed_body': trimmed,
+                'summary': summary_text
+            })
+
+        return {
+            "success": True,
+            "child": child,
+            "attendance_emails": summaries,
+            "count": len(summaries)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching attendance emails: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/api/auth/children/{child_id}")
 async def delete_child(child_id: int, email: str = Query(...)):
     """Delete a specific child for a user (parent)."""
@@ -890,112 +978,9 @@ async def get_schools():
     return {"schools": schools}
 
 
-# ============================================================
-# RAGAS EVALUATION ENDPOINTS
-# ============================================================
-
-class EvaluationRequest(BaseModel):
-    """Request model for RAGAS evaluation"""
-    clear_buffer: bool = True  # Whether to clear the buffer after evaluation
-    evaluation_name: str = "multi_agent_evaluation"
-
-@app.post("/evaluation/run")
-async def run_evaluation(request: EvaluationRequest):
-    """
-    Run RAGAS evaluation on collected multi-agent responses.
-    
-    Evaluates the actual queries and responses from /multi-agent-query endpoint
-    that have been stored in the evaluation buffer.
-    """
-    try:
-        from app.evaluation.ragas_evaluator import RAGASEvaluator
-        
-        global evaluation_buffer
-        
-        logger.info("="*80)
-        logger.info(f"🔬 RAGAS Evaluation: {request.evaluation_name}")
-        logger.info("="*80)
-        
-        # Check if we have any queries to evaluate
-        if not evaluation_buffer or len(evaluation_buffer) == 0:
-            logger.warning("⚠️ No queries in evaluation buffer")
-            return {
-                "status": "error",
-                "message": "No queries to evaluate. Please run some queries through /multi-agent-query first.",
-                "queries_needed": 10,
-                "queries_collected": 0
-            }
-        
-        logger.info(f"� Evaluating {len(evaluation_buffer)} queries from buffer")
-        
-        # Prepare queries and responses for evaluation
-        queries_and_responses = []
-        for item in evaluation_buffer:
-            queries_and_responses.append({
-                "user_input": item["user_input"],
-                "response": item["response"],
-                "retrieved_contexts": item.get("retrieved_contexts", [])
-            })
-        
-        # Evaluate responses
-        evaluator = RAGASEvaluator()
-        logger.info("📈 Running RAGAS evaluation...")
-        results = evaluator.evaluate_responses(
-            queries_and_responses=queries_and_responses,
-            evaluation_name=request.evaluation_name
-        )
-        
-        # Add buffer info to results
-        results["queries_evaluated"] = len(evaluation_buffer)
-        results["buffer_cleared"] = request.clear_buffer
-        
-        # Clear buffer if requested
-        if request.clear_buffer:
-            logger.info("🧹 Clearing evaluation buffer")
-            evaluation_buffer.clear()
-        
-        logger.info("="*80)
-        logger.info("✅ Evaluation Complete")
-        logger.info("="*80)
-        
-        return {
-            "status": "success",
-            "evaluation_name": request.evaluation_name,
-            "results": results
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Evaluation failed: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/evaluation/buffer")
-async def get_evaluation_buffer_status():
-    """Get the current status of the evaluation buffer."""
-    global evaluation_buffer
-    
-    return {
-        "queries_collected": len(evaluation_buffer),
-        "buffer_sample": evaluation_buffer[-5:] if len(evaluation_buffer) > 0 else [],
-        "message": f"Collected {len(evaluation_buffer)} queries. Need at least 1 query to run evaluation."
-    }
-
-
-@app.post("/evaluation/buffer/clear")
-async def clear_evaluation_buffer():
-    """Clear the evaluation buffer."""
-    global evaluation_buffer
-    count = len(evaluation_buffer)
-    evaluation_buffer.clear()
-    
-    logger.info(f"🧹 Cleared evaluation buffer ({count} queries removed)")
-    
-    return {
-        "status": "success",
-        "message": f"Cleared {count} queries from evaluation buffer"
-    }
+# RAGAS imports commented out due to asyncio loop patching issue
+# from app.evaluation.ragas_api import *
+# from app.evaluation.websocket_ragas import run_websocket_ragas_evaluation
 
 
 @app.get("/retrieval-methods")
@@ -1006,8 +991,10 @@ async def get_retrieval_methods():
         "active": active_retrieval_method
     }
 
+
 class RetrievalMethodRequest(BaseModel):
     method: str
+
 
 @app.post("/retrieval-method")
 async def set_retrieval_method(request: RetrievalMethodRequest):
@@ -1017,7 +1004,7 @@ async def set_retrieval_method(request: RetrievalMethodRequest):
     
     if request.method not in RETRIEVAL_METHODS:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Invalid method. Choose from: {list(RETRIEVAL_METHODS.keys())}"
         )
     
@@ -1038,7 +1025,7 @@ async def set_retrieval_method(request: RetrievalMethodRequest):
         generator_chain = naive_chain
     
     logger.info("="*80)
-    logger.info(f"🔄 RETRIEVAL METHOD SWITCHED")
+    logger.info("🔄 RETRIEVAL METHOD SWITCHED")
     logger.info(f"   From: {RETRIEVAL_METHODS[old_method]}")
     logger.info(f"   To: {RETRIEVAL_METHODS[active_retrieval_method]}")
     logger.info("="*80)
@@ -1050,6 +1037,7 @@ async def set_retrieval_method(request: RetrievalMethodRequest):
         "description": RETRIEVAL_METHODS[active_retrieval_method]
     }
 
+
 @app.get("/retrieval-method")
 async def get_active_retrieval_method():
     """Get the currently active retrieval method"""
@@ -1058,10 +1046,12 @@ async def get_active_retrieval_method():
         "description": RETRIEVAL_METHODS[active_retrieval_method]
     }
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "rag_initialized": retriever is not None}
+
 
 @app.get("/api/debug/tables")
 async def get_debug_tables():
@@ -1070,6 +1060,7 @@ async def get_debug_tables():
     Returns table names, row counts, column names, and data.
     """
     import sqlite3
+    import traceback
     
     try:
         db_path = os.path.join(DB_DIR, "school_assistant.db")
@@ -1109,7 +1100,6 @@ async def get_debug_tables():
                 row_dict = {}
                 for col in columns:
                     value = row[col]
-                    # Truncate long values in the response itself
                     if value and isinstance(value, str) and len(value) > 200:
                         value = value[:200] + "..."
                     row_dict[col] = value
@@ -1127,7 +1117,6 @@ async def get_debug_tables():
         
     except Exception as e:
         print(f"Error reading database: {e}")
-        import traceback
         traceback.print_exc()
         return {"error": str(e), "tables": {}}
 
@@ -1284,11 +1273,66 @@ def _parse_student_report_from_email(email_data: dict, child_name: str) -> dict:
     # Log what we're returning for debugging
     logger.info(f"📧 Parsed email: subject='{subject[:50]}...', date='{report_date}', body_len={len(body)}")
 
-    # Return a single report with raw email body
+    # Clean/trim body for preview (remove quoted replies/signatures and collapse whitespace)
+    def _clean_body(body: str) -> str:
+        import re
+        if not body:
+            return ''
+        # Remove quoted replies (common patterns)
+        body = re.split(r'(On\s.+wrote:|From:|Sent:|To:|Subject:|--+)', body)[0]
+        # Remove signature lines
+        body = re.split(r'(--+|__+|Thanks,|Best regards,|Sincerely,)', body)[0]
+        # Remove any HTML tags left in the body
+        body = re.sub(r'<[^>]+>', ' ', body)
+        # Collapse whitespace
+        body = re.sub(r'\s+', ' ', body).strip()
+        return body
+
+    trimmed_body = _clean_body(body)
+
+    # Attempt to summarize using offline LLM if available, otherwise use subject as summary or trimmed preview
+    summary_text = subject
+    try:
+        from app.config import config as app_config
+        if app_config.ENABLE_OFFLINE_LLM_FOR_SEARCH:
+            try:
+                from app.llm.offline_llm import get_offline_llm
+                llm = get_offline_llm()
+                if llm:
+                    # Ask model to return a strict JSON object with a single 'summary' property.
+                    # Use the actual child's name in the example to avoid hard-coded placeholders
+                    example_text = '{"summary": "Student %s scored 85% on the math test; teacher recommends extra practice."}' % (child_name or 'the student')
+                    prompt = (
+                        "You will be given the full text of a student report email.\n"
+                        "Produce a JSON object with exactly one key: \"summary\".\n"
+                        "The value should be a concise 1-2 sentence summary focusing on who, scores/notes, and any actions required.\n"
+                        "Output MUST be valid JSON and NOTHING else (no explanation, no labels, no surrounding text).\n"
+                        "Example: " + example_text + "\n\n"
+                        "Email:\n\n" + trimmed_body
+                    )
+                    resp = llm.invoke(prompt)
+                    resp_text = getattr(resp, 'content', str(resp)) if resp else ''
+                    try:
+                        parsed = json.loads(resp_text)
+                        summary_text = parsed.get('summary', '') if isinstance(parsed, dict) else resp_text
+                    except Exception:
+                        summary_text = resp_text or (trimmed_body[:200] + '...')
+                    if summary_text and len(summary_text) > 400:
+                        summary_text = summary_text[:400] + '...'
+            except Exception:
+                summary_text = (trimmed_body[:200] + '...') if trimmed_body else subject
+        else:
+            summary_text = (trimmed_body[:200] + '...') if trimmed_body else subject
+    except Exception:
+        summary_text = (trimmed_body[:200] + '...') if trimmed_body else subject
+
+    # summary_text is produced from the LLM (JSON-parsed) or preview fallback
+
     return {
         "id": f"student_report_{email_id}",
         "child_name": child_name,
         "report_type": "Student Report",
+        "preview": (trimmed_body[:250] + '...') if trimmed_body else subject,
         "subject_area": "General",
         "score": None,
         "lessons_completed": None,
@@ -1298,7 +1342,8 @@ def _parse_student_report_from_email(email_data: dict, child_name: str) -> dict:
         "time_spent": None,
         "performance": None,
         "date": report_date,
-        "summary": subject,
+        "summary": summary_text,
+        "trimmed_body": trimmed_body,
         "source": "email",
         "email_subject": subject,
         "subject": subject,
@@ -2178,100 +2223,43 @@ async def websocket_multi_agent_stream(websocket: WebSocket):
                 
                 # Run evaluation after streaming completes
                 if final_response and result:
-                    try:
-                        logger.info("🔬 Starting automatic RAGAS evaluation for WebSocket...")
-                        
-                        # Prepare query data for evaluation
-                        # For evaluation, we need retrieved_contexts
-                        # Use the final response as the context (simplified approach)
-                        contexts = [final_response]
-                        
-                        # Try to extract more contexts from messages if available
+                    if not config.ENABLE_RAGAS_EVALUATION:
+                        logger.info("🛑 Skipping RAGAS evaluation (disabled via config)")
+                        await websocket.send_json({
+                            "type": "evaluation",
+                            "evaluation": {
+                                "status": "disabled",
+                                "reason": "RAGAS evaluation disabled via configuration",
+                            },
+                        })
+                    else:
                         try:
-                            if isinstance(result, dict) and "messages" in result:
-                                messages = result["messages"]
-                                logger.info(f"📝 Found {len(messages)} messages in result")
-                                for msg in messages:
-                                    if hasattr(msg, 'content') and msg.content and msg.content != final_response:
-                                        contexts.append(str(msg.content)[:1000])  # Limit context size
-                        except Exception as ctx_error:
-                            logger.warning(f"⚠️ Could not extract additional contexts: {ctx_error}")
-                        
-                        logger.info(f"📚 Using {len(contexts)} context(s) for evaluation")
-                        
-                        query_data = {
-                            "user_input": question,
-                            "response": final_response,
-                            "retrieved_contexts": contexts,
-                            "agent_used": final_agent_name,
-                            "timestamp": datetime.now().isoformat()
-                        }
-                        
-                        logger.info(f"📊 Query data prepared: question={question[:50]}..., response length={len(final_response)}, contexts={len(contexts)}")
-                        
-                        # Run RAGAS evaluation in a separate process to avoid uvloop conflicts
-                        logger.info("🔧 Running RAGAS in separate process to avoid uvloop conflicts...")
-                        import subprocess
-                        import sys
-                        import concurrent.futures
-                        
-                        # Prepare data for subprocess
-                        eval_input = {
-                            "query_data": query_data,
-                            "evaluation_name": f"auto_eval_ws_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                        }
-                        
-                        # Run evaluation in separate process with standard asyncio (not uvloop)
-                        script_path = os.path.join(os.path.dirname(__file__), "run_ragas_standalone.py")
-                        python_path = sys.executable
-                        
-                        def run_subprocess():
-                            """Run RAGAS in subprocess (blocking call in thread)"""
-                            # Set environment variable to suppress Git Python refresh warning
-                            env = os.environ.copy()
-                            env['GIT_PYTHON_REFRESH'] = 'quiet'
-                            
-                            result = subprocess.run(
-                                [python_path, script_path, json.dumps(eval_input)],
-                                capture_output=True,
-                                text=True,
-                                timeout=120,
-                                env=env
-                            )
-                            
-                            if result.returncode != 0:
-                                raise Exception(f"RAGAS subprocess failed: {result.stderr}")
-                            
-                            return json.loads(result.stdout)
-                        
-                        # Run in thread pool executor to avoid blocking
-                        loop = asyncio.get_event_loop()
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            evaluation_result = await loop.run_in_executor(executor, run_subprocess)
-                        
-                        # Send evaluation as a separate message
-                        await websocket.send_json({
-                            "type": "evaluation",
-                            "evaluation": {
-                                "faithfulness": evaluation_result["metrics"]["faithfulness"],
-                                "response_relevancy": evaluation_result["metrics"]["response_relevancy"],
-                                "status": "completed"
-                            }
-                        })
-                        logger.info(f"✅ Evaluation sent: Faithfulness={evaluation_result['metrics']['faithfulness']:.3f}, Relevancy={evaluation_result['metrics']['response_relevancy']:.3f}")
-                    except Exception as eval_error:
-                        logger.error(f"⚠️ Evaluation failed (non-blocking): {str(eval_error)}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        await websocket.send_json({
-                            "type": "evaluation",
-                            "evaluation": {
-                                "faithfulness": 0,
-                                "response_relevancy": 0,
-                                "status": "failed",
-                                "error": str(eval_error)
-                            }
-                        })
+                            # RAGAS evaluation commented out due to asyncio loop patching issue
+                            # await run_websocket_ragas_evaluation(
+                            #     question=question,
+                            #     final_response=final_response,
+                            #     result=result,
+                            #     final_agent_name=final_agent_name,
+                            #     websocket=websocket,
+                            # )
+                            await websocket.send_json({
+                                "type": "evaluation_complete",
+                                "message": "RAGAS evaluation temporarily disabled",
+                                "result": {"status": "disabled"}
+                            })
+                        except Exception as eval_error:
+                            logger.error(f"⚠️ Evaluation failed (non-blocking): {str(eval_error)}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            await websocket.send_json({
+                                "type": "evaluation",
+                                "evaluation": {
+                                    "faithfulness": 0,
+                                    "response_relevancy": 0,
+                                    "status": "failed",
+                                    "error": str(eval_error)
+                                }
+                            })
             except Exception as e:
                 logger.error(f"❌ Error in streaming query: {e}")
                 await websocket.send_json({

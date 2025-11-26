@@ -169,7 +169,20 @@ class GmailToolClient:
                 output += f"   Subject: {email['subject']}\n"
                 output += f"   Date: {email['date']}\n"
                 output += f"   Preview: {email['preview']}\n"
-                output += f"   Full Body: {email['full_body']}\n"
+                # Trim full body: clean whitespace, remove quoted replies/signatures
+                def clean_email_body(body):
+                    import re
+                    if not body:
+                        return "No content available"
+                    # Remove quoted replies (common patterns)
+                    body = re.split(r'(On\s.+wrote:|From:|Sent:|To:|Subject:|--+)', body)[0]
+                    # Remove excessive whitespace
+                    body = re.sub(r'\s+', ' ', body)
+                    # Remove signature lines (simple heuristic)
+                    body = re.split(r'(--+|__+|Thanks,|Best regards,|Sincerely,)', body)[0]
+                    return body.strip()
+                trimmed_body = clean_email_body(email['full_body'])
+                output += f"   Full Body: {trimmed_body}\n"
                 output += f"   ID: {email['id']}\n\n"
             
             return output

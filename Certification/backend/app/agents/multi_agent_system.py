@@ -5,10 +5,11 @@ Using LangGraph and custom agents similar to Multi_Agent_RAG_LangGraph pattern
 import functools
 import operator
 import logging
-from typing import Annotated, List, TypedDict, Sequence
+import re
+from typing import Annotated, List, TypedDict, Sequence, Optional
 from datetime import datetime
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -20,6 +21,9 @@ from langgraph.prebuilt import create_react_agent
 from app.tools.school_events_tool import create_school_events_tool
 from app.tools.gmail_tool import create_gmail_tools
 from app.tools.tavily_tool import create_school_tavily_tool, get_tavily_client
+from app.prompts_agents import SEARCH_AGENT_PROMPT, GMAIL_AGENT_PROMPT
+from app.config import config
+from app.llm.offline_llm import get_offline_llm
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +32,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+LLM_COUNT_SYSTEM_PROMPT = (
+    "You analyze agent outputs that summarize search or email results. "
+    "Return a single non-negative integer representing how many distinct "
+    "results are described. Answer with digits only."
+)
+LLM_COUNT_MAX_CHARS = 5000
+
 # State definition for agent team
 class AgentState(TypedDict):
     """State for the agent team"""
@@ -35,13 +46,63 @@ class AgentState(TypedDict):
     next: str
 
 
+def _count_results_with_offline_llm(content: str) -> Optional[int]:
+    """Use the locally running LLM to count distinct results if enabled."""
+    if not content.strip():
+        logger.info("      ✅ Offline LLM count: empty content -> 0 results")
+        return 0
+
+    try:
+        offline_llm = get_offline_llm()
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning("      ⚠️ Offline LLM unavailable: %s", exc)
+        return None
+
+    trimmed_content = content[-LLM_COUNT_MAX_CHARS:]
+    messages = [
+        SystemMessage(content=LLM_COUNT_SYSTEM_PROMPT),
+        HumanMessage(
+            content=(
+                "Agent response:\n" + trimmed_content + "\n\n"
+                "Return the integer count of distinct results."
+            )
+        ),
+    ]
+
+    try:
+        response = offline_llm.invoke(messages)
+    except Exception as exc:  # pragma: no cover - depends on runtime
+        logger.warning("      ⚠️ Offline LLM count failed: %s", exc)
+        return None
+
+    response_text = (response.content or "").strip()
+    match = re.search(r"-?\d+", response_text)
+    if not match:
+        logger.warning(
+            "      ⚠️ Offline LLM returned non-numeric response: %s",
+            response_text,
+        )
+        return None
+
+    result_count = int(match.group(0))
+    if result_count < 0:
+        result_count = 0
+
+    logger.info("      ✅ Offline LLM detected %s results", result_count)
+    return result_count
+
+
 def count_results_in_content(content: str) -> int:
     """
     Count the number of results in agent response.
     Looks for patterns like "Found X results", "Result 1:", "Result 2:", etc.
     """
-    import re
-    
+    if config.ENABLE_OFFLINE_LLM_FOR_RESULT_COUNTING:
+        llm_count = _count_results_with_offline_llm(content)
+        if llm_count is not None:
+            return llm_count
+        logger.info("      ⚠️ Falling back to heuristic counting (offline LLM failed)")
+
     logger.info(f"      🔍 Analyzing content ({len(content)} chars) for result count...")
     
     # Method 1: Look for "Found X" pattern (results, emails, items, etc.)
@@ -231,9 +292,26 @@ def create_school_events_agents(user_email: str = None):
     logger.info("🚀 INITIALIZING MULTI-AGENT SYSTEM")
     logger.info("="*80)
     
-    # Initialize LLM
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    logger.info(f"📊 LLM Model: gpt-4o-mini (temperature=0)")
+    # Initialize LLM for agents 
+    llm = None
+    try:
+        if config.ENABLE_OFFLINE_LLM_FOR_AGENTS:
+            # Try to use offline Ollama LLM for agents (supports tool binding)
+            from app.llm.offline_llm import get_offline_agent_llm
+            llm = get_offline_agent_llm()
+            logger.info(f"📊 Agent LLM Model: Ollama Llama-3.2-1B (offline, with tool binding support)")
+        else:
+            raise Exception("Offline agents disabled, using OpenAI")
+            
+    except Exception as e:
+        # Fallback to OpenAI if offline LLM fails
+        logger.warning(f"⚠️  Offline agent LLM not available ({e}), falling back to OpenAI")
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        logger.info(f"📊 Agent LLM Model: gpt-4o-mini (temperature=0, fallback)")
+    
+    # Log if offline LLM is enabled for other parts of the system
+    if config.ENABLE_OFFLINE_LLM_FOR_SEARCH:
+        logger.info("🔧 Note: Offline LLM (Ollama) is also enabled for RAG pipeline")
     
     # Create tools
     logger.info("\n🔨 Creating Tools...")
@@ -266,22 +344,7 @@ def create_school_events_agents(user_email: str = None):
     search_agent = create_agent(
         llm,
         [tavily_tool],
-        "You search for K-12 school-related information on the PUBLIC WEB using Tavily. "
-        "You can ONLY find information that exists on public websites. "
-        "Focus on: school programs, events, announcements, policies, schedules, activities, resources from school websites. "
-        "\n"
-        "IMPORTANT: If the search tool returns NO results or irrelevant results, say so clearly. "
-        "DO NOT make up or infer information. ONLY report what you actually found via the search tool. "
-        "Personal student information (grades, attendance, individual reports) is NOT available on the public web. "
-        "\n"
-        "FORMAT YOUR RESPONSE:\n"
-        "Line 1: [Source: Web Search]\n"
-        "If you found relevant results:\n"
-        "  - List them clearly with titles, dates, and links\n"
-        "If you found NO relevant results:\n"
-        "  - State: 'I could not find relevant information about [topic] on the public web.'\n"
-        "\n"
-        "Only report actual search results from the tool."
+        SEARCH_AGENT_PROMPT,
     )
     search_node = functools.partial(agent_node, agent=search_agent, name="WebSearch")
     logger.info("   ✅ WebSearch agent configured")
@@ -293,20 +356,7 @@ def create_school_events_agents(user_email: str = None):
     gmail_agent = create_agent(
         llm,
         gmail_tools,
-        "You search Gmail for school-related emails. "
-        "Look for any K-12 school communications including events, announcements, updates, policies, schedules, or other school information. "
-        "Search using relevant keywords based on the user's query and school names."
-        "\n"
-        "FORMAT YOUR RESPONSE:\n"
-        "Line 1: [Source: Gmail]\n"
-        "Line 2: Brief intro (1 sentence)\n"
-        "Then list relevant information:\n"
-        "• Subject/Topic (Date if available)\n"
-        "  • From: Sender name\n"
-        "  • Summary: Key information (1-2 sentences)\n"
-        "  • Details: Important dates, times, locations, or action items\n"
-        "\n"
-        "Keep it brief and relevant to the query."
+        GMAIL_AGENT_PROMPT,
     )
     gmail_node = functools.partial(agent_node, agent=gmail_agent, name="GmailAgent")
     logger.info("   ✅ Gmail agent configured")
@@ -430,38 +480,6 @@ def create_simple_agent_graph(agents=None, user_email: str = None):
         
         logger.info(f"   ✅ Gmail search found {result_count} results (sufficient)")
         logger.info(f"   ➡️  Ending search (no fallback needed)")
-        return END
-    
-    # Router to check WebSearch results
-    def check_web_results(state):
-        """
-        Check if WebSearch found useful information.
-        Always end after WebSearch since it's our final fallback.
-        """
-        messages = state["messages"]
-        last_message = messages[-1]
-        content = last_message.content.lower()
-        
-        logger.info(f"\n🌐 CHECKING WEB SEARCH RESULTS")
-        logger.info(f"   Response preview: {content[:150]}...")
-        
-        # Get result count from current agent
-        web_result_count = last_message.additional_kwargs.get("result_count", 0) if hasattr(last_message, 'additional_kwargs') else 0
-        logger.info(f"   📊 WebSearch result count: {web_result_count}")
-        
-        # Count total results from all previous agents
-        total_result_count = web_result_count
-        for msg in messages[:-1]:  # Exclude the last message (current)
-            if hasattr(msg, 'additional_kwargs') and 'result_count' in msg.additional_kwargs:
-                agent_count = msg.additional_kwargs['result_count']
-                total_result_count += agent_count
-                logger.info(f"   📊 Adding {agent_count} results from previous agent: {getattr(msg, 'name', 'Unknown')}")
-        
-        logger.info(f"   📊 Total results: {total_result_count}")
-        
-        # WebSearch always ends the workflow
-        logger.info(f"   ✅ WebSearch completed (total results: {total_result_count})")
-        logger.info(f"   ➡️  Ending search")
         return END
     
     # Set entry point - always start with Gmail

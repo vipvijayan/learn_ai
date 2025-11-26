@@ -19,4 +19,4 @@ pip install -r requirements.txt
 cd "$(dirname "$0")"
 # Start the server
 echo "Starting FastAPI server..."
-python main.py
+exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload

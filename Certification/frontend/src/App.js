@@ -71,6 +71,8 @@ function App() {
   const [studentReports, setStudentReports] = useState({}); // Store student reports by child name: {childName: reports[]}
   const [loadingReports, setLoadingReports] = useState({}); // Track loading state per child: {childName: boolean}
   const [expandedReports, setExpandedReports] = useState({}); // Track which report email contents are expanded: {reportId: boolean}
+  const [attendanceData, setAttendanceData] = useState({}); // Store attendance emails by child id
+  const [loadingAttendance, setLoadingAttendance] = useState({});
 
   // Helper function to remove [Source: ...] prefix from content
   const cleanContent = (content) => {
@@ -594,6 +596,36 @@ function App() {
       return [];
     } finally {
       setLoadingReports(prev => ({ ...prev, [childName]: false }));
+    }
+  };
+
+  // Fetch attendance emails for a specific child (by child id)
+  const fetchChildAttendance = async (userEmail, childId, maxResults = 10) => {
+    try {
+      console.log('Fetching attendance emails for child id:', childId);
+      setLoadingAttendance(prev => ({ ...prev, [childId]: true }));
+
+      const response = await axios.get(
+        `${API_BASE_URL}/api/auth/children/${encodeURIComponent(childId)}/attendance-search`,
+        {
+          params: { email: userEmail, max_results: maxResults },
+          timeout: 120000
+        }
+      );
+
+      if (response.data && response.data.attendance_emails) {
+        setAttendanceData(prev => ({ ...prev, [childId]: response.data.attendance_emails }));
+        return response.data.attendance_emails;
+      } else {
+        setAttendanceData(prev => ({ ...prev, [childId]: [] }));
+        return [];
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not fetch attendance emails for child:', childId, err.message || err);
+      setAttendanceData(prev => ({ ...prev, [childId]: [] }));
+      return [];
+    } finally {
+      setLoadingAttendance(prev => ({ ...prev, [childId]: false }));
     }
   };
 
@@ -1285,6 +1317,9 @@ function App() {
             expandedReports={expandedReports}
             setExpandedReports={setExpandedReports}
             fetchStudentReports={fetchStudentReports}
+            attendanceData={attendanceData}
+            loadingAttendance={loadingAttendance}
+            fetchChildAttendance={fetchChildAttendance}
           />
 
           {activeTab === 'settings' && (
