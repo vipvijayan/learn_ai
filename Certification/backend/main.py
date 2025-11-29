@@ -711,9 +711,10 @@ async def search_child_attendance_emails(child_id: int, email: str = Query(...),
         for e in emails:
             body = e.get('body') or ''
             trimmed = clean_email_body(body)
-            preview = trimmed[:250] + ('...' if len(trimmed) > 250 else '')
-
-            summary_text = preview
+            
+            # Start with a fallback preview from trimmed body
+            summary_text = trimmed[:250] + ('...' if len(trimmed) > 250 else '')
+            
             # If llm available, ask it to produce a concise 1-2 sentence summary
             if llm is not None:
                 try:
@@ -727,7 +728,7 @@ async def search_child_attendance_emails(child_id: int, email: str = Query(...),
                         "The value should be a concise 1-2 sentence summary focused on who, when, and any action required.\n"
                         "Output MUST be valid JSON and NOTHING else (no explanation, no labels, no surrounding text).\n"
                         "Example: " + example_text + "\n\n"
-                        "Email:\n\n" + trimmed
+                        "Email:\n\n" + body
                     )
                     resp = llm.invoke(prompt)
                     resp_text = getattr(resp, 'content', str(resp)) if resp else ''
@@ -736,30 +737,73 @@ async def search_child_attendance_emails(child_id: int, email: str = Query(...),
                         parsed = json.loads(resp_text)
                         summary_text = parsed.get('summary', '') if isinstance(parsed, dict) else resp_text
                     except Exception:
-                        # Fallback: if response isn't valid JSON, use the raw text (sanitized below)
-                        summary_text = resp_text or preview
+                        # Fallback: if response isn't valid JSON, use the raw text
+                        summary_text = resp_text or summary_text
                     # Shorten summary if excessively long
                     if summary_text and len(summary_text) > 400:
                         summary_text = summary_text[:400] + '...'
                 except Exception:
-                    summary_text = preview
+                    pass  # Keep the fallback summary_text
 
-            # summary_text is produced from the LLM (JSON-parsed) or preview fallback
+            # Ensure both summary and preview are always plain strings, never JSON
+            # Try to parse if it looks like JSON (contains "summary": pattern)
+            if summary_text and ('"summary"' in summary_text or summary_text.strip().startswith('{')):
+                try:
+                    # Try to extract JSON from the text
+                    parsed = json.loads(summary_text.strip())
+                    if isinstance(parsed, dict) and 'summary' in parsed:
+                        summary_text = parsed['summary']
+                except Exception:
+                    # If that fails, try to find the summary value with regex
+                    import re
+                    match = re.search(r'"summary"\s*:\s*"([^"]+)"', summary_text)
+                    if match:
+                        summary_text = match.group(1)
+            
+            preview_text = summary_text
 
             summaries.append({
                 'id': e.get('id'),
                 'from': e.get('from'),
                 'subject': e.get('subject'),
                 'date': e.get('date'),
-                'preview': preview,
+                'preview': preview_text,
                 'trimmed_body': trimmed,
                 'summary': summary_text
             })
+
+        # Group summaries by year
+        from datetime import datetime
+        grouped_by_year = {}
+        for summary in summaries:
+            date_str = summary.get('date', '')
+            try:
+                # Parse the date and extract the year
+                # The date format is typically like "Thu, 14 Oct 2025 23:16:12 +0000 (UTC)"
+                if date_str:
+                    # Try to parse various date formats
+                    import email.utils
+                    parsed_date = email.utils.parsedate_to_datetime(date_str)
+                    year = parsed_date.year
+                else:
+                    year = 'Unknown'
+            except Exception:
+                year = 'Unknown'
+            
+            year_str = str(year)
+            if year_str not in grouped_by_year:
+                grouped_by_year[year_str] = []
+            grouped_by_year[year_str].append(summary)
+        
+        # Sort years in descending order (most recent first)
+        sorted_years = sorted(grouped_by_year.keys(), reverse=True, key=lambda x: x if x != 'Unknown' else '0')
 
         return {
             "success": True,
             "child": child,
             "attendance_emails": summaries,
+            "attendance_by_year": {year: grouped_by_year[year] for year in sorted_years},
+            "years": sorted_years,
             "count": len(summaries)
         }
     except HTTPException:
@@ -1645,8 +1689,53 @@ async def get_student_reports(user_email: str, child_name: str):
                 logger.error(f"Error parsing student report email {email_data.get('id')}: {e}")
                 continue
         
+        # Group reports by year
+        from datetime import datetime
+        grouped_by_year = {}
+        for report in reports:
+            date_str = report.get('date', '')
+            try:
+                # Parse the date and extract the year
+                # The date format is typically like "November 14, 2025 at 11:16 PM"
+                if date_str and date_str != 'Date not available':
+                    # Try multiple date parsing strategies
+                    year = None
+                    try:
+                        # Try parsing "November 14, 2025 at 11:16 PM" format
+                        parsed_date = datetime.strptime(date_str.split(' at ')[0], "%B %d, %Y")
+                        year = parsed_date.year
+                    except:
+                        try:
+                            # Try email.utils format
+                            import email.utils
+                            parsed_date = email.utils.parsedate_to_datetime(date_str)
+                            year = parsed_date.year
+                        except:
+                            pass
+                    
+                    if not year:
+                        year = 'Unknown'
+                else:
+                    year = 'Unknown'
+            except Exception:
+                year = 'Unknown'
+            
+            year_str = str(year)
+            if year_str not in grouped_by_year:
+                grouped_by_year[year_str] = []
+            grouped_by_year[year_str].append(report)
+        
+        # Sort years in descending order (most recent first)
+        sorted_years = sorted(grouped_by_year.keys(), reverse=True, key=lambda x: x if x != 'Unknown' else '0')
+        
         logger.info(f"✅ Successfully parsed {len(reports)} student reports from {len(email_list)} emails for {child_name}")
-        return {"reports": reports, "count": len(reports), "child_name": child_name}
+        return {
+            "reports": reports, 
+            "count": len(reports), 
+            "child_name": child_name,
+            "reports_by_year": {year: grouped_by_year[year] for year in sorted_years},
+            "years": sorted_years
+        }
         
     except Exception as e:
         logger.error(f"❌ Error retrieving student reports: {str(e)}")

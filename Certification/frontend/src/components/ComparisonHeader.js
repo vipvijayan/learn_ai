@@ -24,7 +24,7 @@ const ComparisonHeader = ({ comparisonResults, isRunningComparison, runCompariso
       <div className="evaluation-loading">
         <div className="spinner"></div>
         <p>Running comparison evaluation... This may take 3-5 minutes</p>
-        <p style={{fontSize: '14px', color: '#666'}}>
+        <p className="evaluation-details">
           Evaluating both Original (k=4) and Naive (k=10) methods
         </p>
       </div>

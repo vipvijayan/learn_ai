@@ -29,14 +29,14 @@ const EventPopup = ({ event, onClose, onAskAI }) => {
         <div className="popup-content">
           {event.organization && (
             <div className="popup-section">
-              <h3><Building2 size={18} style={{ display: 'inline', marginRight: '8px' }} /> Organization</h3>
+              <h3><span className="popup-icon-inline"><Building2 size={18} /></span> Organization</h3>
               <p>{event.organization}</p>
             </div>
           )}
 
           {event.description && (
             <div className="popup-section">
-              <h3><FileText size={18} style={{ display: 'inline', marginRight: '8px' }} /> Description</h3>
+              <h3><span className="popup-icon-inline"><FileText size={18} /></span> Description</h3>
               <p>{event.description}</p>
             </div>
           )}
@@ -44,28 +44,28 @@ const EventPopup = ({ event, onClose, onAskAI }) => {
           <div className="popup-details-grid">
             {event.target_audience && (
               <div className="popup-detail-item">
-                <span className="popup-detail-label"><Users size={16} style={{ display: 'inline', marginRight: '4px' }} /> Target Audience</span>
+                <span className="popup-detail-label"><span className="popup-icon-inline-small"><Users size={16} /></span> Target Audience</span>
                 <span className="popup-detail-value">{event.target_audience}</span>
               </div>
             )}
 
             {event.date && (
               <div className="popup-detail-item">
-                <span className="popup-detail-label"><Calendar size={16} style={{ display: 'inline', marginRight: '4px' }} /> Date</span>
+                <span className="popup-detail-label"><span className="popup-icon-inline-small"><Calendar size={16} /></span> Date</span>
                 <span className="popup-detail-value">{event.date}</span>
               </div>
             )}
 
             {event.cost && (
               <div className="popup-detail-item">
-                <span className="popup-detail-label"><DollarSign size={16} style={{ display: 'inline', marginRight: '4px' }} /> Cost</span>
+                <span className="popup-detail-label"><span className="popup-icon-inline-small"><DollarSign size={16} /></span> Cost</span>
                 <span className="popup-detail-value">{event.cost}</span>
               </div>
             )}
 
             {event.type && (
               <div className="popup-detail-item">
-                <span className="popup-detail-label"><Tag size={16} style={{ display: 'inline', marginRight: '4px' }} /> Type</span>
+                <span className="popup-detail-label"><span className="popup-icon-inline-small"><Tag size={16} /></span> Type</span>
                 <span className="popup-detail-value">{event.type}</span>
               </div>
             )}

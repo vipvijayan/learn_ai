@@ -579,11 +579,18 @@ function App() {
       
       if (response.data.reports && response.data.reports.length > 0) {
         console.log(`✅ Loaded ${response.data.reports.length} student reports for ${childName}`);
-        setStudentReports(prev => ({ ...prev, [childName]: response.data.reports }));
+        setStudentReports(prev => ({ 
+          ...prev, 
+          [childName]: {
+            all: response.data.reports,
+            byYear: response.data.reports_by_year || {},
+            years: response.data.years || []
+          }
+        }));
         return response.data.reports;
       } else {
         console.log(`ℹ️ No student reports found for ${childName}`);
-        setStudentReports(prev => ({ ...prev, [childName]: [] }));
+        setStudentReports(prev => ({ ...prev, [childName]: { all: [], byYear: {}, years: [] } }));
         return [];
       }
     } catch (err) {
@@ -592,7 +599,7 @@ function App() {
       } else {
         console.warn(`⚠️ Could not fetch student reports for ${childName}:`, err.message);
       }
-      setStudentReports(prev => ({ ...prev, [childName]: [] }));
+      setStudentReports(prev => ({ ...prev, [childName]: { all: [], byYear: {}, years: [] } }));
       return [];
     } finally {
       setLoadingReports(prev => ({ ...prev, [childName]: false }));
@@ -614,15 +621,23 @@ function App() {
       );
 
       if (response.data && response.data.attendance_emails) {
-        setAttendanceData(prev => ({ ...prev, [childId]: response.data.attendance_emails }));
+        // Store both the flat list and the grouped by year data
+        setAttendanceData(prev => ({ 
+          ...prev, 
+          [childId]: {
+            all: response.data.attendance_emails,
+            byYear: response.data.attendance_by_year || {},
+            years: response.data.years || []
+          }
+        }));
         return response.data.attendance_emails;
       } else {
-        setAttendanceData(prev => ({ ...prev, [childId]: [] }));
+        setAttendanceData(prev => ({ ...prev, [childId]: { all: [], byYear: {}, years: [] } }));
         return [];
       }
     } catch (err) {
       console.warn('⚠️ Could not fetch attendance emails for child:', childId, err.message || err);
-      setAttendanceData(prev => ({ ...prev, [childId]: [] }));
+      setAttendanceData(prev => ({ ...prev, [childId]: { all: [], byYear: {}, years: [] } }));
       return [];
     } finally {
       setLoadingAttendance(prev => ({ ...prev, [childId]: false }));
