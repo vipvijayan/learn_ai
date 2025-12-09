@@ -14,14 +14,27 @@ const ChildTabContent = ({
   // attendance props
   attendanceData,
   loadingAttendance,
-  fetchChildAttendance
+  fetchChildAttendance,
+  // events props
+  eventsData,
+  loadingEvents,
+  fetchChildEvents
 }) => {
   // State for collapsible year sections in student reports
   const [collapsedReportYears, setCollapsedReportYears] = useState({});
+  // State for collapsible year sections in events
+  const [collapsedEventYears, setCollapsedEventYears] = useState({});
+  // State for expanded individual events
+  const [expandedEvents, setExpandedEvents] = useState({});
 
   const toggleReportYear = (childName, year) => {
     const key = `${childName}-${year}`;
     setCollapsedReportYears(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleEventYear = (childName, year) => {
+    const key = `${childName}-${year}`;
+    setCollapsedEventYears(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   if (!user || !user.children || user.children.length === 0) {
@@ -45,6 +58,10 @@ const ChildTabContent = ({
           const childId = child.child_id || child.id;
           if (fetchChildAttendance && childId && (!attendanceData || !attendanceData[childId]) && (!loadingAttendance || !loadingAttendance[childId]) && user && user.email) {
             fetchChildAttendance(user.email, childId);
+          }
+          // Fetch events when tab is opened
+          if (fetchChildEvents && childId && (!eventsData || !eventsData[childId]) && (!loadingEvents || !loadingEvents[childId]) && user && user.email) {
+            fetchChildEvents(user.email, childId);
           }
           
           // Get report data from backend-grouped structure
@@ -124,44 +141,51 @@ const ChildTabContent = ({
                                   if (!previewSource) {
                                     previewSource = report.email_body ? stripHtml(report.email_body) : '';
                                   }
-                                  const previewText = (previewSource || '').slice(0, 250);
+                                  const previewText = (previewSource || '').slice(0, 150);
+                                  
+                                  // Parse date to more readable format
+                                  const formatDate = (dateStr) => {
+                                    try {
+                                      const date = new Date(dateStr);
+                                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    } catch {
+                                      return dateStr;
+                                    }
+                                  };
 
                                   return (
-                                    <div key={reportId} className={`email-report-card ${isExpanded ? 'expanded' : 'compact'}`}>
-                                      <div className="email-report-header">
-                                        <div>
-                                          <strong>📧 {report.email_subject || report.subject || 'Student Report'}</strong>
-                                          <div className="email-date-info">{report.date}</div>
+                                    <div key={reportId} className="event-card-compact">
+                                      <div 
+                                        className="event-card-header"
+                                        onClick={() => setExpandedReports(prev => ({ ...(prev || {}), [reportId]: !prev?.[reportId] }))}
+                                        style={{ cursor: 'pointer' }}
+                                      >
+                                        <div className="event-card-main">
+                                          <div className="event-card-icon">📊</div>
+                                          <div className="event-card-info">
+                                            <div className="event-card-title">{report.email_subject || report.subject || 'Student Report'}</div>
+                                            <div className="event-card-meta">
+                                              <span className="event-date">📅 {formatDate(report.date)}</span>
+                                              {!isExpanded && <span className="event-preview">{previewText}{previewText.length >= 150 ? '...' : ''}</span>}
+                                            </div>
+                                          </div>
                                         </div>
-                                        <span className="email-sender">{report.sender}</span>
-                                      </div>
-
-                                      {/* Preview / summary */}
-                                      <div className="email-summary-preview">
-                                        <p>{previewText}</p>
-                                      </div>
-
-                                      {/* Expand / Collapse control */}
-                                      <div className="email-report-expand">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedReports(prev => ({ ...(prev || {}), [reportId]: !prev?.[reportId] }));
-                                          }}
-                                          className="email-report-expand-btn"
-                                        >
-                                          {isExpanded ? 'Collapse' : 'View full report'}
-                                        </button>
+                                        <div className="event-card-toggle">
+                                          {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                                        </div>
                                       </div>
 
                                       {/* Full body (shown when expanded) */}
                                       {isExpanded && (
-                                        <div className="email-body-content">
-                                          {report.email_body && typeof report.email_body === 'string' && report.email_body.trim().startsWith('<') ? (
-                                            <div dangerouslySetInnerHTML={{ __html: report.email_body }} />
-                                          ) : (
-                                            <pre>{report.email_body || 'No content available'}</pre>
-                                          )}
+                                        <div className="event-card-body">
+                                          <div className="event-card-sender">From: {report.sender}</div>
+                                          <div className="event-card-content">
+                                            {report.email_body && typeof report.email_body === 'string' && report.email_body.trim().startsWith('<') ? (
+                                              <div dangerouslySetInnerHTML={{ __html: report.email_body }} />
+                                            ) : (
+                                              <>{report.email_body || 'No content available'}</>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
@@ -187,9 +211,114 @@ const ChildTabContent = ({
                   fetchChildAttendance={fetchChildAttendance}
                 />
                 
-                <div className="child-section">
-                  <h3>Events & Activities</h3>
-                  <p className="coming-soon">Coming soon: View events filtered for {childName}</p>
+                {/* Events Section */}
+                <div className="events-section">
+                  <h3 className="events-title">
+                    🎉 Events & Activities
+                  </h3>
+                  {loadingEvents && loadingEvents[childId] ? (
+                    <p className="loading-message">Loading events...</p>
+                  ) : eventsData && eventsData[childId] && eventsData[childId].all && eventsData[childId].all.length > 0 ? (
+                    <div className="events-year-list">
+                      {eventsData[childId].years.map((year, idx) => {
+                        const yearKey = `${childName}-${year}`;
+                        const isYearCollapsed = collapsedEventYears[yearKey] !== false; // Default to collapsed
+                        const yearEvents = eventsData[childId].byYear[year] || [];
+
+                        return (
+                          <div key={year} className={`year-group-section${idx === 0 ? ' first' : ''}${isYearCollapsed ? ' collapsed' : ' expanded'}`}>
+                            <button
+                              className="year-group-header modern-expand-btn"
+                              onClick={() => toggleEventYear(childName, year)}
+                              aria-label={isYearCollapsed ? `Expand ${year}` : `Collapse ${year}`}
+                              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                            >
+                              <div className="year-group-header-content">
+                                <span className="year-group-icon">🎉</span>
+                                <span className="year-group-title">{year}</span>
+                                <span className="year-group-count">{yearEvents.length} event{yearEvents.length !== 1 ? 's' : ''}</span>
+                              </div>
+                              <span className="year-group-chevron">
+                                <span className={`chevron-icon${isYearCollapsed ? '' : ' rotated'}`}>
+                                  <ChevronRight size={26} />
+                                </span>
+                              </span>
+                            </button>
+                            {!isYearCollapsed && (
+                              <div className="year-group-details">
+                                {yearEvents.map((event, idx) => {
+                                  const eventId = event.id || `${year}-${idx}`;
+                                  const isExpanded = Boolean(expandedEvents && expandedEvents[eventId]);
+
+                                  // Helper to strip HTML tags
+                                  const stripHtml = (html) => {
+                                    if (!html) return '';
+                                    try {
+                                      const doc = new DOMParser().parseFromString(html, 'text/html');
+                                      return doc.body.textContent || doc.body.innerText || '';
+                                    } catch (e) {
+                                      return html.replace(/<[^>]+>/g, '');
+                                    }
+                                  };
+
+                                  // Prefer structured summary, then preview/trimmed body
+                                  let previewSource = event.summary || event.preview || event.trimmed_body;
+                                  const previewText = (previewSource || '').slice(0, 150);
+                                  
+                                  // Parse date to more readable format
+                                  const formatDate = (dateStr) => {
+                                    try {
+                                      const date = new Date(dateStr);
+                                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    } catch {
+                                      return dateStr;
+                                    }
+                                  };
+
+                                  return (
+                                    <div key={eventId} className="event-card-compact">
+                                      <div 
+                                        className="event-card-header"
+                                        onClick={() => setExpandedEvents(prev => ({ ...(prev || {}), [eventId]: !prev?.[eventId] }))}
+                                        style={{ cursor: 'pointer' }}
+                                      >
+                                        <div className="event-card-main">
+                                          <div className="event-card-icon">🎊</div>
+                                          <div className="event-card-info">
+                                            <div className="event-card-title">{event.subject || 'School Event'}</div>
+                                            <div className="event-card-meta">
+                                              <span className="event-date">📅 {formatDate(event.date)}</span>
+                                              {!isExpanded && <span className="event-preview">{previewText}{previewText.length >= 150 ? '...' : ''}</span>}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="event-card-toggle">
+                                          {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                                        </div>
+                                      </div>
+
+                                      {/* Full content when expanded */}
+                                      {isExpanded && (
+                                        <div className="event-card-body">
+                                          <div className="event-card-sender">From: {event.from}</div>
+                                          <div className="event-card-content">
+                                            {event.trimmed_body || 'No content available'}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="no-reports">No events found in email. Make sure you have event-related emails in your inbox for {childName}.</p>
+                  )}
                 </div>
                 <div className="child-section">
                   <h3>Assignments</h3>

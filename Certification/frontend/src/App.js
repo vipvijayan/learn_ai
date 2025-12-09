@@ -73,6 +73,8 @@ function App() {
   const [expandedReports, setExpandedReports] = useState({}); // Track which report email contents are expanded: {reportId: boolean}
   const [attendanceData, setAttendanceData] = useState({}); // Store attendance emails by child id
   const [loadingAttendance, setLoadingAttendance] = useState({});
+  const [eventsData, setEventsData] = useState({}); // Store events by child id
+  const [loadingEvents, setLoadingEvents] = useState({});
 
   // Helper function to remove [Source: ...] prefix from content
   const cleanContent = (content) => {
@@ -641,6 +643,44 @@ function App() {
       return [];
     } finally {
       setLoadingAttendance(prev => ({ ...prev, [childId]: false }));
+    }
+  };
+
+  // Fetch events for a specific child (by child id)
+  const fetchChildEvents = async (userEmail, childId, maxResults = 20) => {
+    try {
+      console.log('Fetching events for child id:', childId);
+      setLoadingEvents(prev => ({ ...prev, [childId]: true }));
+
+      const response = await axios.get(
+        `${API_BASE_URL}/api/children/${encodeURIComponent(childId)}/events`,
+        {
+          params: { email: userEmail, max_results: maxResults },
+          timeout: 120000
+        }
+      );
+
+      if (response.data && response.data.events) {
+        // Store both the flat list and the grouped by year data
+        setEventsData(prev => ({ 
+          ...prev, 
+          [childId]: {
+            all: response.data.events,
+            byYear: response.data.events_by_year || {},
+            years: response.data.years || []
+          }
+        }));
+        return response.data.events;
+      } else {
+        setEventsData(prev => ({ ...prev, [childId]: { all: [], byYear: {}, years: [] } }));
+        return [];
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not fetch events for child:', childId, err.message || err);
+      setEventsData(prev => ({ ...prev, [childId]: { all: [], byYear: {}, years: [] } }));
+      return [];
+    } finally {
+      setLoadingEvents(prev => ({ ...prev, [childId]: false }));
     }
   };
 
@@ -1335,6 +1375,9 @@ function App() {
             attendanceData={attendanceData}
             loadingAttendance={loadingAttendance}
             fetchChildAttendance={fetchChildAttendance}
+            eventsData={eventsData}
+            loadingEvents={loadingEvents}
+            fetchChildEvents={fetchChildEvents}
           />
 
           {activeTab === 'settings' && (

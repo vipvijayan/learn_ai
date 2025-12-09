@@ -111,6 +111,76 @@ def init_database():
             )
         """)
         
+        # Create interests table (master list of available interests)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS interests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                category TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create child_interests junction table (many-to-many: children <-> interests)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS child_interests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                child_id INTEGER NOT NULL,
+                interest_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (child_id) REFERENCES children (id) ON DELETE CASCADE,
+                FOREIGN KEY (interest_id) REFERENCES interests (id) ON DELETE CASCADE,
+                UNIQUE(child_id, interest_id)
+            )
+        """)
+        
+        # Populate interests table with predefined list
+        interests_list = [
+            ('Sports', 'Physical'),
+            ('Soccer', 'Physical'),
+            ('Basketball', 'Physical'),
+            ('Baseball', 'Physical'),
+            ('Swimming', 'Physical'),
+            ('Dance', 'Physical'),
+            ('Gymnastics', 'Physical'),
+            ('Martial Arts', 'Physical'),
+            ('Music', 'Creative'),
+            ('Piano', 'Creative'),
+            ('Guitar', 'Creative'),
+            ('Violin', 'Creative'),
+            ('Singing', 'Creative'),
+            ('Art', 'Creative'),
+            ('Drawing', 'Creative'),
+            ('Painting', 'Creative'),
+            ('Crafts', 'Creative'),
+            ('Drama', 'Creative'),
+            ('Theater', 'Creative'),
+            ('Reading', 'Academic'),
+            ('Writing', 'Academic'),
+            ('Science', 'Academic'),
+            ('Math', 'Academic'),
+            ('History', 'Academic'),
+            ('Technology', 'Academic'),
+            ('Coding', 'Academic'),
+            ('Robotics', 'Academic'),
+            ('Chess', 'Academic'),
+            ('Languages', 'Academic'),
+            ('Animals', 'Nature'),
+            ('Nature', 'Nature'),
+            ('Gardening', 'Nature'),
+            ('Outdoors', 'Nature'),
+            ('Video Games', 'Entertainment'),
+            ('Board Games', 'Entertainment'),
+            ('Lego', 'Entertainment'),
+            ('Cooking', 'Life Skills'),
+            ('Baking', 'Life Skills')
+        ]
+        
+        cursor.executemany(
+            "INSERT OR IGNORE INTO interests (name, category) VALUES (?, ?)",
+            interests_list
+        )
+        
         # Create index on email for faster lookups
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
@@ -143,6 +213,17 @@ def init_database():
         # Create indexes for children table
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_children_user ON children(user_id)
+        """)
+        
+        # Create indexes for interests tables
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_interests_name ON interests(name)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_child_interests_child ON child_interests(child_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_child_interests_interest ON child_interests(interest_id)
         """)
         
         conn.commit()
@@ -986,6 +1067,129 @@ def get_child_by_id(user_id: int, child_id: int) -> dict | None:
         conn.close()
 
 
+# ==================== Interests Functions ====================
+
+def get_all_interests() -> list[dict]:
+    """Get all available interests from the interests table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id, name, category FROM interests ORDER BY category, name")
+        interests = cursor.fetchall()
+        return [
+            {
+                'id': interest['id'],
+                'name': interest['name'],
+                'category': interest['category']
+            }
+            for interest in interests
+        ]
+    except Exception as e:
+        logger.error(f"Error getting all interests: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def get_child_interests(child_id: int) -> list[dict]:
+    """Get all interests for a specific child."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT i.id, i.name, i.category
+            FROM interests i
+            INNER JOIN child_interests ci ON i.id = ci.interest_id
+            WHERE ci.child_id = ?
+            ORDER BY i.category, i.name
+        """, (child_id,))
+        interests = cursor.fetchall()
+        return [
+            {
+                'id': interest['id'],
+                'name': interest['name'],
+                'category': interest['category']
+            }
+            for interest in interests
+        ]
+    except Exception as e:
+        logger.error(f"Error getting interests for child {child_id}: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def update_child_interests(child_id: int, interest_ids: list[int]) -> bool:
+    """Update interests for a child. Replaces existing interests with new list."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Verify child exists
+        cursor.execute("SELECT id FROM children WHERE id = ?", (child_id,))
+        if not cursor.fetchone():
+            raise ValueError(f"Child {child_id} not found")
+        
+        # Delete existing interests for this child
+        cursor.execute("DELETE FROM child_interests WHERE child_id = ?", (child_id,))
+        
+        # Insert new interests
+        if interest_ids:
+            cursor.executemany(
+                "INSERT INTO child_interests (child_id, interest_id) VALUES (?, ?)",
+                [(child_id, interest_id) for interest_id in interest_ids]
+            )
+        
+        conn.commit()
+        logger.info(f"Updated interests for child {child_id}: {len(interest_ids)} interests")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating interests for child {child_id}: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def add_child_interest(child_id: int, interest_id: int) -> bool:
+    """Add a single interest to a child."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT OR IGNORE INTO child_interests (child_id, interest_id) VALUES (?, ?)",
+            (child_id, interest_id)
+        )
+        conn.commit()
+        logger.info(f"Added interest {interest_id} to child {child_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error adding interest for child {child_id}: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def remove_child_interest(child_id: int, interest_id: int) -> bool:
+    """Remove a single interest from a child."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM child_interests WHERE child_id = ? AND interest_id = ?",
+            (child_id, interest_id)
+        )
+        conn.commit()
+        logger.info(f"Removed interest {interest_id} from child {child_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error removing interest for child {child_id}: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def reset_database():
     """
     Reset the database by dropping all tables and recreating them.
@@ -998,6 +1202,9 @@ def reset_database():
         logger.warning("🚨 RESETTING DATABASE - ALL DATA WILL BE DELETED!")
         
         # Drop all tables (in correct order due to foreign key constraints)
+        cursor.execute("DROP TABLE IF EXISTS child_interests")
+        cursor.execute("DROP TABLE IF EXISTS interests")
+        cursor.execute("DROP TABLE IF EXISTS children")
         cursor.execute("DROP TABLE IF EXISTS bookmarks")
         cursor.execute("DROP TABLE IF EXISTS user_preferences")
         cursor.execute("DROP TABLE IF EXISTS user_schools")
@@ -1012,6 +1219,10 @@ def reset_database():
         cursor.execute("DROP INDEX IF EXISTS idx_user_preferences_key")
         cursor.execute("DROP INDEX IF EXISTS idx_bookmarks_user")
         cursor.execute("DROP INDEX IF EXISTS idx_bookmarks_id")
+        cursor.execute("DROP INDEX IF EXISTS idx_children_user")
+        cursor.execute("DROP INDEX IF EXISTS idx_interests_name")
+        cursor.execute("DROP INDEX IF EXISTS idx_child_interests_child")
+        cursor.execute("DROP INDEX IF EXISTS idx_child_interests_interest")
         
         conn.commit()
         logger.info("✅ All tables dropped successfully")

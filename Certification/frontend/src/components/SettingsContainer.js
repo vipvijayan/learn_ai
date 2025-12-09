@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   User,
   LogOut,
@@ -10,7 +11,8 @@ import {
   Bot,
   MapPin,
   Trash2,
-  Pencil
+  Pencil,
+  Heart
 } from 'lucide-react';
 
 const GRADE_OPTIONS = [
@@ -58,6 +60,80 @@ const SettingsContainer = ({
   });
   const [editError, setEditError] = useState('');
   const [savingChildId, setSavingChildId] = useState(null);
+  
+  // Interests state
+  const [allInterests, setAllInterests] = useState([]);
+  const [childInterests, setChildInterests] = useState({});
+  const [loadingInterests, setLoadingInterests] = useState(false);
+  const [savingInterests, setSavingInterests] = useState(false);
+
+  // Load all interests on mount
+  useEffect(() => {
+    const fetchInterests = async () => {
+      try {
+        const response = await axios.get('/api/interests');
+        if (response.data.success) {
+          setAllInterests(response.data.interests);
+        }
+      } catch (error) {
+        console.error('Error loading interests:', error);
+      }
+    };
+    fetchInterests();
+  }, []);
+
+  // Load child interests when user.children changes
+  useEffect(() => {
+    const fetchChildInterests = async () => {
+      if (!user?.children || user.children.length === 0) {
+        return;
+      }
+      
+      setLoadingInterests(true);
+      try {
+        const interestsData = {};
+        for (const child of user.children) {
+          const childId = child.child_id || child.id;
+          const response = await axios.get(`/api/children/${childId}/interests`);
+          if (response.data.success) {
+            interestsData[childId] = response.data.interests.map(i => i.id);
+          }
+        }
+        setChildInterests(interestsData);
+      } catch (error) {
+        console.error('Error loading child interests:', error);
+      } finally {
+        setLoadingInterests(false);
+      }
+    };
+    fetchChildInterests();
+  }, [user?.children]);
+
+  const toggleInterest = async (childId, interestId) => {
+    const currentInterests = childInterests[childId] || [];
+    const isSelected = currentInterests.includes(interestId);
+    
+    // Optimistic update
+    const newInterests = isSelected
+      ? currentInterests.filter(id => id !== interestId)
+      : [...currentInterests, interestId];
+    
+    setChildInterests(prev => ({ ...prev, [childId]: newInterests }));
+    
+    // Save to backend
+    try {
+      setSavingInterests(true);
+      await axios.put(`/api/children/${childId}/interests`, {
+        interest_ids: newInterests
+      });
+    } catch (error) {
+      console.error('Error updating interests:', error);
+      // Revert on error
+      setChildInterests(prev => ({ ...prev, [childId]: currentInterests }));
+    } finally {
+      setSavingInterests(false);
+    }
+  };
 
   const startEditChild = (child) => {
     const childId = child.child_id || child.id;
@@ -596,6 +672,132 @@ const SettingsContainer = ({
           </div>
         </div>
       </div>
+
+      {/* Interests Section */}
+      {user?.children && user.children.length > 0 && (
+        <div className="settings-section">
+          <div style={{ marginBottom: '16px' }}>
+            <h3 style={{ margin: 0 }}>
+              <Heart size={20} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} /> 
+              Children's Interests
+            </h3>
+          </div>
+          <div className="setting-item">
+            <div className="setting-content">
+              <div className="setting-label-group">
+                {loadingInterests ? (
+                  <p className="setting-description" style={{ color: '#666', fontStyle: 'italic' }}>
+                    Loading interests...
+                  </p>
+                ) : (
+                  user.children.map((child, index) => {
+                    const childId = child.child_id || child.id;
+                    const displayName = child.child_name || child.name || `Child ${index + 1}`;
+                    const selectedInterests = childInterests[childId] || [];
+                    
+                    // Group interests by category
+                    const categorizedInterests = allInterests.reduce((acc, interest) => {
+                      const category = interest.category || 'Other';
+                      if (!acc[category]) acc[category] = [];
+                      acc[category].push(interest);
+                      return acc;
+                    }, {});
+
+                    return (
+                      <div key={childId} style={{ marginBottom: index < user.children.length - 1 ? '24px' : '0' }}>
+                        <label className="setting-label" style={{ marginBottom: '12px', display: 'block', fontSize: '1.05em' }}>
+                          {displayName}'s Interests
+                        </label>
+                        
+                        {Object.entries(categorizedInterests).map(([category, interests]) => (
+                          <div key={category} style={{ marginBottom: '16px' }}>
+                            <div style={{ 
+                              fontSize: '0.9em', 
+                              fontWeight: '600', 
+                              color: '#666', 
+                              marginBottom: '8px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {category}
+                            </div>
+                            <div style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                              gap: '8px'
+                            }}>
+                              {interests.map(interest => {
+                                const isSelected = selectedInterests.includes(interest.id);
+                                return (
+                                  <label
+                                    key={interest.id}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      padding: '8px 12px',
+                                      background: isSelected ? '#e3f2fd' : '#f5f5f5',
+                                      border: `2px solid ${isSelected ? '#1976d2' : '#e0e0e0'}`,
+                                      borderRadius: '8px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      fontSize: '0.9em',
+                                      fontWeight: isSelected ? '600' : '400',
+                                      color: isSelected ? '#1976d2' : '#333'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected) {
+                                        e.currentTarget.style.background = '#eeeeee';
+                                        e.currentTarget.style.borderColor = '#bdbdbd';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected) {
+                                        e.currentTarget.style.background = '#f5f5f5';
+                                        e.currentTarget.style.borderColor = '#e0e0e0';
+                                      }
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleInterest(childId, interest.id)}
+                                      disabled={savingInterests}
+                                      style={{
+                                        cursor: 'pointer',
+                                        width: '16px',
+                                        height: '16px',
+                                        accentColor: '#1976d2'
+                                      }}
+                                    />
+                                    <span>{interest.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {selectedInterests.length === 0 && (
+                          <p className="setting-description" style={{ 
+                            color: '#999', 
+                            fontStyle: 'italic', 
+                            marginTop: '8px',
+                            fontSize: '0.9em'
+                          }}>
+                            No interests selected yet. Check the boxes above to add interests.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="settings-section">
         <div
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}

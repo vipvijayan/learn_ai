@@ -4487,11 +4487,12 @@ html {
 }
 
 /* ===================== */
-/* Attendance & Reports Section Styles */
+/* Attendance, Reports & Events Section Styles */
 /* ===================== */
 
 .attendance-section,
-.student-reports-section {
+.student-reports-section,
+.events-section {
   background: #fafbfc;
   border-radius: 16px;
   padding: 24px 20px;
@@ -4500,7 +4501,8 @@ html {
 }
 
 .attendance-title,
-.student-reports-title {
+.student-reports-title,
+.events-title {
   font-size: 1.35rem;
   margin-bottom: 18px;
   display: flex;
@@ -4517,7 +4519,8 @@ html {
 }
 
 .attendance-year-list,
-.student-reports-year-list {
+.student-reports-year-list,
+.events-year-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -4691,6 +4694,116 @@ html {
   margin: 0;
   font-family: inherit;
   font-size: 0.95em;
+}
+
+/* Compact Event Card Styles */
+.event-card-compact {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e8eaf0;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.event-card-compact:hover {
+  border-color: #d0d5dd;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.event-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  gap: 12px;
+}
+
+.event-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.event-card-icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.event-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-card-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.event-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.event-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.event-preview {
+  color: #666;
+  line-height: 1.5;
+  display: block;
+  margin-top: 4px;
+}
+
+.event-card-toggle {
+  color: #666;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.event-card-header:hover .event-card-toggle {
+  transform: translateX(2px);
+}
+
+.event-card-body {
+  padding: 0 16px 16px 52px;
+  border-top: 1px solid #f0f2f5;
+  background: #fafbfc;
+}
+
+.event-card-sender {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 12px 0 8px 0;
+  font-style: italic;
+}
+
+.event-card-content {
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e8eaf0;
 }
 
 /* Child Header Styles */

@@ -79,7 +79,13 @@ from app.database import (
     add_children_for_user,
     get_children_for_user,
     delete_child_for_user,
-    update_child_for_user
+    update_child_for_user,
+    # Interests functions
+    get_all_interests,
+    get_child_interests,
+    update_child_interests,
+    add_child_interest,
+    remove_child_interest
 )
 from app.database import get_user_gmail_token, get_user_schools, get_child_by_id
 
@@ -240,6 +246,14 @@ class UpdateChildRequest(BaseModel):
     grade: Optional[str] = None
     age: Optional[int] = None
     school_name: Optional[str] = None
+
+class InterestInfo(BaseModel):
+    id: int
+    name: str
+    category: Optional[str] = None
+
+class UpdateChildInterestsRequest(BaseModel):
+    interest_ids: List[int]
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -828,6 +842,292 @@ async def delete_child(child_id: int, email: str = Query(...)):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Delete child error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# INTERESTS ENDPOINTS
+# ============================================================
+
+@app.get("/api/interests")
+async def get_interests():
+    """Get all available interests."""
+    try:
+        interests = get_all_interests()
+        return {
+            "success": True,
+            "interests": interests,
+            "count": len(interests)
+        }
+    except Exception as e:
+        logger.error(f"Error getting interests: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/children/{child_id}/interests")
+async def get_child_interests_endpoint(child_id: int):
+    """Get interests for a specific child."""
+    try:
+        interests = get_child_interests(child_id)
+        return {
+            "success": True,
+            "child_id": child_id,
+            "interests": interests,
+            "count": len(interests)
+        }
+    except Exception as e:
+        logger.error(f"Error getting child interests: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/children/{child_id}/interests")
+async def update_child_interests_endpoint(child_id: int, request: UpdateChildInterestsRequest):
+    """Update interests for a specific child."""
+    try:
+        update_child_interests(child_id, request.interest_ids)
+        return {
+            "success": True,
+            "message": f"Updated interests for child {child_id}",
+            "child_id": child_id,
+            "interest_count": len(request.interest_ids)
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating child interests: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/children/{child_id}/interests/{interest_id}")
+async def add_interest_to_child(child_id: int, interest_id: int):
+    """Add a single interest to a child."""
+    try:
+        add_child_interest(child_id, interest_id)
+        return {
+            "success": True,
+            "message": f"Added interest {interest_id} to child {child_id}",
+            "child_id": child_id,
+            "interest_id": interest_id
+        }
+    except Exception as e:
+        logger.error(f"Error adding interest to child: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/children/{child_id}/interests/{interest_id}")
+async def remove_interest_from_child(child_id: int, interest_id: int):
+    """Remove a single interest from a child."""
+    try:
+        remove_child_interest(child_id, interest_id)
+        return {
+            "success": True,
+            "message": f"Removed interest {interest_id} from child {child_id}",
+            "child_id": child_id,
+            "interest_id": interest_id
+        }
+    except Exception as e:
+        logger.error(f"Error removing interest from child: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# CHILD EVENTS ENDPOINT
+# ============================================================
+
+@app.get("/api/children/{child_id}/events")
+async def get_child_events(child_id: int, email: str = Query(...), max_results: int = 20):
+    """
+    Fetch event-related emails from Gmail for a specific child.
+    Searches for events, field trips, fundraisers, etc. mentioning the child's name.
+    
+    Query parameters:
+      - email: parent/user email (required)
+      - max_results: maximum number of emails to return (default 20)
+    """
+    try:
+        email = email.strip().lower()
+
+        # Verify child belongs to user
+        children = get_children_for_user(email)
+        child = None
+        for c in children:
+            if int(c.get('child_id')) == int(child_id):
+                child = c
+                break
+
+        if not child:
+            raise HTTPException(status_code=404, detail=f"Child {child_id} not found for user {email}")
+
+        # Get user's Gmail token
+        user_gmail = get_user_gmail_token(email)
+        if not user_gmail or not user_gmail.get('token'):
+            return {
+                "success": False,
+                "message": "Gmail is not connected for this user. Please connect Gmail to enable events search."
+            }
+
+        # Create Gmail client with user's token
+        from app.tools.gmail_tool import create_gmail_tools, get_gmail_client
+        create_gmail_tools(user_token_data=user_gmail.get('token'))
+        gmail_client = get_gmail_client()
+
+        # Set email suffixes from user's selected schools to narrow search
+        user_schools = get_user_schools(email)
+        suffixes = [s.get('email_suffix') for s in user_schools if s.get('email_suffix')]
+        if suffixes:
+            gmail_client.set_email_suffixes(suffixes)
+
+        # Get child's school name to include in search
+        child_name = child.get('child_name') or ''
+        child_school = child.get('child_school') or ''
+
+        # Get child's interests to tailor event search
+        child_interests = get_child_interests(child_id)
+        interest_names = [interest.get('name', '') for interest in child_interests if interest.get('name')]
+        
+        # Build events-focused query including child name, school, and interests
+        event_keywords = (
+            'event OR "field trip" OR fundraiser OR "parent night" OR '
+            'assembly OR "school event" OR "upcoming event" OR '
+            'performance OR concert OR "sports event" OR game OR match OR '
+            'registration OR "sign up" OR volunteer OR "picture day" OR '
+            '"open house" OR "back to school" OR "parent teacher"'
+        )
+        
+        # Build query parts
+        query_parts = [f"({event_keywords})"]
+        
+        # Add child name (required)
+        if child_name:
+            query_parts.append(f"\"{child_name}\"")
+        
+        # Add school name if available
+        if child_school:
+            query_parts.append(f"(\"{child_school}\" OR school)")
+        
+        # Add interests as additional search terms (optional - broadens search)
+        if interest_names:
+            # Limit to top interests to avoid overly broad searches
+            top_interests = interest_names[:5]
+            interests_query = ' OR '.join([f'"{interest}"' for interest in top_interests])
+            query_parts.append(f"({interests_query})")
+        
+        query = ' '.join(query_parts)
+
+        # Run structured search to get message metadata + full body
+        emails = gmail_client.search_emails_structured(query, max_results=max_results)
+
+        # Helper to clean email body
+        def clean_email_body(body: str) -> str:
+            import re
+            if not body:
+                return ""
+            body = re.split(r'(On\s.+wrote:|From:|Sent:|To:|Subject:|--+)', body)[0]
+            body = re.split(r'(--+|__+|Thanks,|Best regards,|Sincerely,)', body)[0]
+            body = re.sub(r'\s+', ' ', body).strip()
+            return body
+
+        # Process emails and generate summaries
+        events_list = []
+        from app.config import config as app_config
+        llm = None
+        if app_config.ENABLE_OFFLINE_LLM_FOR_SEARCH:
+            try:
+                from app.llm.offline_llm import get_offline_llm
+                llm = get_offline_llm()
+            except Exception:
+                llm = None
+
+        for e in emails:
+            body = e.get('body') or ''
+            trimmed = clean_email_body(body)
+            
+            # Fallback preview
+            summary_text = trimmed[:300] + ('...' if len(trimmed) > 300 else '')
+            
+            # Use LLM to generate event summary if available
+            if llm is not None:
+                try:
+                    example_text = '{"summary": "Field trip to the science museum on Nov 15. Permission slip required by Nov 10."}'
+                    prompt = (
+                        "You will be given the full text of a school event email.\n"
+                        "Produce a JSON object with exactly one key: \"summary\".\n"
+                        "The value should be a concise 1-2 sentence summary including the event name, date, and any required action.\n"
+                        "Output MUST be valid JSON and NOTHING else.\n"
+                        "Example: " + example_text + "\n\n"
+                        "Email:\n\n" + body
+                    )
+                    resp = llm.invoke(prompt)
+                    resp_text = getattr(resp, 'content', str(resp)) if resp else ''
+                    try:
+                        parsed = json.loads(resp_text)
+                        summary_text = parsed.get('summary', '') if isinstance(parsed, dict) else resp_text
+                    except Exception:
+                        summary_text = resp_text or summary_text
+                    if summary_text and len(summary_text) > 400:
+                        summary_text = summary_text[:400] + '...'
+                except Exception:
+                    pass
+
+            # Clean up JSON artifacts
+            if summary_text and ('"summary"' in summary_text or summary_text.strip().startswith('{')):
+                try:
+                    parsed = json.loads(summary_text.strip())
+                    if isinstance(parsed, dict) and 'summary' in parsed:
+                        summary_text = parsed['summary']
+                except Exception:
+                    import re
+                    match = re.search(r'"summary"\s*:\s*"([^"]+)"', summary_text)
+                    if match:
+                        summary_text = match.group(1)
+            
+            preview_text = summary_text
+
+            events_list.append({
+                'id': e.get('id'),
+                'from': e.get('from'),
+                'subject': e.get('subject'),
+                'date': e.get('date'),
+                'preview': preview_text,
+                'trimmed_body': trimmed,
+                'summary': summary_text
+            })
+
+        # Group events by year
+        from datetime import datetime
+        grouped_by_year = {}
+        for event in events_list:
+            date_str = event.get('date', '')
+            try:
+                if date_str:
+                    import email.utils
+                    parsed_date = email.utils.parsedate_to_datetime(date_str)
+                    year = parsed_date.year
+                else:
+                    year = 'Unknown'
+            except Exception:
+                year = 'Unknown'
+            
+            year_str = str(year)
+            if year_str not in grouped_by_year:
+                grouped_by_year[year_str] = []
+            grouped_by_year[year_str].append(event)
+        
+        # Sort years in descending order
+        sorted_years = sorted(grouped_by_year.keys(), reverse=True, key=lambda x: x if x != 'Unknown' else '0')
+
+        return {
+            "success": True,
+            "child": child,
+            "events": events_list,
+            "events_by_year": {year: grouped_by_year[year] for year in sorted_years},
+            "years": sorted_years,
+            "count": len(events_list)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching child events: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -88,25 +88,36 @@ const ChildAttendance = ({
               </button>
               {!collapsedYears[year] && (
                 <div className="year-group-details">
-                  {(byYear[year] || []).map((att, idx) => (
-                    <div key={att.id || idx} className="email-report-card compact">
-                      <div className="email-report-header">
-                        <div>
-                          <strong>📧 {att.subject || 'Attendance'}</strong>
-                          <div className="email-date-info">{att.date}</div>
+                  {(byYear[year] || []).map((att, idx) => {
+                    const previewText = att.summary || att.preview || att.trimmed_body || '';
+                    const shortPreview = previewText.slice(0, 150);
+                    
+                    const formatDate = (dateStr) => {
+                      try {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      } catch {
+                        return dateStr;
+                      }
+                    };
+                    
+                    return (
+                      <div key={att.id || idx} className="event-card-compact">
+                        <div className="event-card-header">
+                          <div className="event-card-main">
+                            <div className="event-card-icon">📝</div>
+                            <div className="event-card-info">
+                              <div className="event-card-title">{att.subject || 'Attendance'}</div>
+                              <div className="event-card-meta">
+                                <span className="event-date">📅 {formatDate(att.date)}</span>
+                                <span className="event-preview">{shortPreview}{shortPreview.length >= 150 ? '...' : ''}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <span className="email-sender">{att.from}</span>
                       </div>
-                      {/* Show only a short preview/summary instead of full body */}
-                      <div className="email-summary-preview">
-                        {att.summary ? (
-                          <p>{att.summary}</p>
-                        ) : (
-                          <p>{(att.preview || (att.trimmed_body || '')).slice(0, 250) + ((att.preview || att.trimmed_body || '').length > 250 ? '...' : '')}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
